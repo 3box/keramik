@@ -1,0 +1,30 @@
+# Define a job that can bootstrap a peer with its neighbors
+# This job needs to be run once per node in the network.
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: bootstrap
+spec:
+  template:
+    spec:
+      containers:
+      - name: bootstrap
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "bootstrap"
+        env:
+          - name: RUST_LOG
+            value: 'info,runner=debug'
+          - name: BOOTSTRAP_METHOD
+            value: 'ring'
+          - name: BOOTSTRAP_NODE
+            value: '4'
+          - name: BOOTSTRAP_N
+            value: '4'
+          - name: BOOTSTRAP_TOTAL
+            value: '5'
+      restartPolicy: Never
+  backoffLimit: 4

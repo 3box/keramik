@@ -7,7 +7,7 @@ metadata:
   labels:
     app: ceramic
 spec:
-  replicas: 2
+  replicas: 5
   serviceName: ceramic
   selector:
     matchLabels:
@@ -91,11 +91,16 @@ spec:
         - name: ipfs
           image: ipfs/ipfs
           imagePullPolicy: IfNotPresent
-          command:
-            - "/usr/bin/ceramic-one"
-            - "daemon"
-            - "--store-dir"
-            - "/data/ipfs"
+          env:
+            - name: RUST_LOG
+              value: info,tracing_actix_web=debug
+            - name: CERAMIC_ONE_BIND_ADDRESS
+              value: "0.0.0.0:5001"
+              # TODO also use udp with quic-v1
+            - name: CERAMIC_ONE_SWARM_ADDRESSES
+              value: "/ip4/0.0.0.0/tcp/4001"
+            - name: CERAMIC_ONE_STORE_DIR
+              value: "/data/ipfs"
           resources:
             requests:
               cpu: 250m
@@ -110,8 +115,6 @@ spec:
               name: swarm
             - containerPort: 5001
               name: api
-            - containerPort: 8080
-              name: gateway
             - containerPort: 9090
               name: metrics
           volumeMounts:
@@ -159,6 +162,14 @@ spec:
       targetPort: 7007
       protocol: TCP
       name: ceramic
+    - port: 5001
+      targetPort: 5001
+      protocol: TCP
+      name: rpc
+    - port: 4001
+      targetPort: 4001
+      protocol: TCP
+      name: swarm
   selector:
     app: ceramic
-  type: NodePort
+  type: ClusterIP

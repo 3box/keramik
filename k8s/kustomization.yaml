@@ -4,6 +4,7 @@ namespace: ceramic
 resources:
   - ./manifests/cas.yaml
   - ./manifests/ceramic.yaml
+  - ./manifests/bootstrap.yaml
 
 configMapGenerator:
   - name: ceramic-init
@@ -31,3 +32,5 @@ images:
   - name: postgres/postgres
     newName: postgres
     newTag: 15-alpine
+  - name: keramik/runner
+    newTag: dev

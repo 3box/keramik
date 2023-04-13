@@ -1,5 +1,4 @@
 # Define a job that can bootstrap a peer with its neighbors
-# This job needs to be run once per node in the network.
 ---
 apiVersion: batch/v1
 kind: Job
@@ -16,15 +15,15 @@ spec:
           - "/usr/bin/runner"
           - "bootstrap"
         env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
           - name: RUST_LOG
-            value: 'info,runner=debug'
+            value: 'info,runner=trace'
           - name: BOOTSTRAP_METHOD
             value: 'ring'
-          - name: BOOTSTRAP_NODE
-            value: '4'
           - name: BOOTSTRAP_N
-            value: '4'
+            value: '2'
           - name: BOOTSTRAP_TOTAL
-            value: '5'
+            value: '20'
       restartPolicy: Never
   backoffLimit: 4

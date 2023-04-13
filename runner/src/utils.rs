@@ -1,8 +1,8 @@
-use std::fmt::Display;
+use std::{collections::HashMap, fmt::Display};
 
 use anyhow::{anyhow, bail, Result};
 use multiaddr::Multiaddr;
-use tracing::debug;
+use tracing::error;
 
 /// Nodes are identified via a total ordering starting at 0
 pub type NodeId = usize;
@@ -39,6 +39,7 @@ impl Display for NodeRpcAddr {
 }
 
 /// P2p address of Node RPC endpoint
+#[derive(Debug)]
 pub struct NodeP2pAddr(String);
 
 impl Display for NodeP2pAddr {
@@ -53,6 +54,20 @@ struct ErrorResponse {
     message: String,
 }
 
+#[tracing::instrument]
+pub async fn all_peer_addrs(total: usize) -> Result<HashMap<NodeId, NodeP2pAddr>> {
+    let mut addrs = HashMap::with_capacity(total);
+    for node in 0..total {
+        match peer_addr(node).await {
+            Ok(addr) => {
+                addrs.insert(node, addr);
+            }
+            Err(err) => error!(%node, ?err, "failed to lookup peer address"),
+        };
+    }
+    Ok(addrs)
+}
+#[tracing::instrument]
 async fn peer_addr(node: NodeId) -> Result<NodeP2pAddr> {
     let client = reqwest::Client::new();
     let resp = client
@@ -86,7 +101,6 @@ async fn peer_addr(node: NodeId) -> Result<NodeP2pAddr> {
     });
     if let Some(addr) = addr {
         let addr = NodeP2pAddr(format!("{}/p2p/{}", addr.to_string(), data.id));
-        debug!(%node, %addr, "peer_addr");
         Ok(addr)
     } else {
         Err(anyhow!(
@@ -97,15 +111,14 @@ async fn peer_addr(node: NodeId) -> Result<NodeP2pAddr> {
 }
 
 /// Initiate connection from node to other.
-pub async fn connect_peers(node: NodeId, other: NodeId) -> Result<()> {
-    let other_addr = peer_addr(other).await?;
+#[tracing::instrument]
+pub async fn connect_peers(node: NodeId, other: &NodeP2pAddr) -> Result<()> {
     let client = reqwest::Client::new();
     let url = format!(
         "{}/api/v0/swarm/connect?arg={}",
         NodeRpcAddr::from(node),
-        other_addr
+        other,
     );
-    debug!(%node, %other, %url, "connect_peers");
     let resp = client.post(url).send().await?;
     if !resp.status().is_success() {
         let data: ErrorResponse = resp.json().await?;

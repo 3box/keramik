@@ -1,9 +1,9 @@
 use anyhow::Result;
 use clap::{Args, ValueEnum};
 use rand::seq::IteratorRandom;
-use tracing::debug;
+use tracing::{debug, error};
 
-use crate::utils::{connect_peers, NodeId};
+use crate::utils::{all_peer_addrs, connect_peers};
 
 /// Options to Bootstrap command
 #[derive(Args, Debug)]
@@ -11,10 +11,6 @@ pub struct Opts {
     /// Bootstrap method to use.
     #[arg(long, value_enum, default_value_t, env = "BOOTSTRAP_METHOD")]
     method: Method,
-
-    /// Node to be bootstrapped.
-    #[arg(long, env = "BOOTSTRAP_NODE")]
-    node: String,
 
     /// Number of peers to connecto to.
     #[arg(long, env = "BOOTSTRAP_N")]
@@ -37,31 +33,51 @@ impl Default for Method {
     }
 }
 
-pub async fn run(opts: Opts) -> Result<()> {
-    debug!(method = ?opts.method, "bootstrap");
+#[tracing::instrument]
+pub async fn bootstrap(opts: Opts) -> Result<()> {
     match opts.method {
-        Method::Ring => ring(opts.node.parse()?, opts.n, opts.total).await?,
-        Method::Random => random(opts.node.parse()?, opts.n, opts.total).await?,
+        Method::Ring => ring(opts.n, opts.total).await?,
+        Method::Random => random(opts.n, opts.total).await?,
     }
     Ok(())
 }
 
-async fn ring(node: NodeId, n: usize, total: usize) -> Result<()> {
-    for i in 0..n {
-        let peer = (node + i + 1) % total;
-        connect_peers(node, peer).await?;
+#[tracing::instrument]
+async fn ring(n: usize, total: usize) -> Result<()> {
+    let addrs = all_peer_addrs(total).await?;
+    for node in 0..total {
+        for i in 0..n {
+            let peer = (node + i + 1) % total;
+            debug!(%node, %peer, "ring peer connection");
+            if let Some(peer_addr) = &addrs.get(&peer) {
+                if let Err(err) = connect_peers(node, peer_addr).await {
+                    error!(%node, %peer, ?err, "failed to bootstrap peer");
+                }
+            }
+        }
     }
     Ok(())
 }
-async fn random(node: NodeId, n: usize, total: usize) -> Result<()> {
+#[tracing::instrument]
+async fn random(n: usize, total: usize) -> Result<()> {
     let mut rng = rand::thread_rng();
-    // Randomly pick peers ensuring we do not pick duplicates
-    // and do not pick the node itself.
-    for peer in (0..total)
-        .filter(|i| *i != node)
-        .choose_multiple(&mut rng, n)
-    {
-        connect_peers(node, peer).await?;
+    let addrs = all_peer_addrs(total).await?;
+    // Reuse a peers buffer for each loop
+    let mut peers = vec![0; n];
+    for node in 0..total {
+        // Randomly pick peers ensuring we do not pick duplicates
+        // and do not pick the node itself or peers that were unreachable.
+        (0..total)
+            .filter(|i| *i != node && addrs.contains_key(i))
+            .choose_multiple_fill(&mut rng, &mut peers);
+        for peer in &peers {
+            debug!(%node, %peer, "random peer connection");
+            if let Some(peer_addr) = &addrs.get(&peer) {
+                if let Err(err) = connect_peers(node, peer_addr).await {
+                    error!(%node, %peer, ?err, "failed to bootstrap peer");
+                }
+            }
+        }
     }
     Ok(())
 }

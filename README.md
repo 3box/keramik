@@ -26,9 +26,9 @@ kubectl create ns ceramic
 docker build -t keramik/runner:dev runner/
 kind load docker-image keramik/runner:dev
 # Create new random secrets
-./k8s/create-secrets.sh
+./k8s/ceramic/create-secrets.sh
 # Start up the network
-kubectl apply -k ./k8s
+kubectl apply -k ./k8s/ceramic
 ```
 
 View logs
@@ -49,3 +49,16 @@ Any changes to the runner require that you rebuild it and load it into kind agai
 
     docker build -t keramik/runner:dev runner/
     kind load docker-image keramik/runner:dev
+
+## Opentelemetry
+
+Add opentelemetry collector to the k8s cluster
+
+    kubectl apply -k ./k8s/opentelemetry/
+
+To view the metrics and traces port-forward the services:
+
+    kubectl port-forward prometheus-0 9090
+    kubectl port-forward jaeger-0 16686
+
+Then navigate to http://localhost:9090 for metrics and http://localhost:16686 for traces.

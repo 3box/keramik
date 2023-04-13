@@ -1,0 +1,58 @@
+---
+kind: StatefulSet
+apiVersion: apps/v1
+metadata:
+  name: jaeger
+  namespace: default
+  labels:
+    app: jaeger
+spec:
+  replicas: 1
+  serviceName: jaeger
+  selector:
+    matchLabels:
+      app: jaeger
+  template:
+    metadata:
+      labels:
+        app: jaeger
+    spec:
+      containers:
+        - name: jaeger
+          image: jaegertracing/all-in-one:latest
+          ports:
+            - containerPort: 4317
+              name: otlp-receiver
+            - containerPort: 16686
+              name: webui
+          env:
+            - name: COLLECTOR_OTLP_ENABLED
+              value: "true"
+          resources:
+            limits:
+              cpu: 250m
+              memory: 1Gi
+              ephemeral-storage: 1Gi
+            requests:
+              cpu: 250m
+              memory: 1Gi
+              ephemeral-storage: 1Gi
+
+---
+kind: Service
+apiVersion: v1
+metadata:
+  name: jaeger
+  namespace: default
+  labels:
+    app: jaeger
+spec:
+  ports:
+    - port: 4317
+      targetPort: 4317
+      protocol: TCP
+      name: otlp-receiver
+  selector:
+    app: jaeger
+  type: ClusterIP
+

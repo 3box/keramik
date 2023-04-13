@@ -1,0 +1,21 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: otlp-data-pod
+  namespace: ceramic
+spec:
+  volumes:
+    - name: otlp-data
+      persistentVolumeClaim:
+        claimName: otlp-data-otlp-0
+  containers:
+    - name: container
+      image: ubuntu
+      command:
+        - /bin/bash
+        - -c
+        - sleep infinity
+      volumeMounts:
+        - mountPath: "/data"
+          name: otlp-data

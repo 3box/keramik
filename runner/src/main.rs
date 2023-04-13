@@ -3,18 +3,30 @@
 #![deny(missing_docs)]
 
 mod bootstrap;
+mod telemetry;
 mod utils;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use opentelemetry::{global, KeyValue};
+use opentelemetry::{global::shutdown_tracer_provider, Context};
 use tokio;
-use tracing_subscriber::{self, EnvFilter};
+use tracing::info;
+
+use crate::bootstrap::bootstrap;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Command,
+
+    #[arg(
+        long,
+        env = "RUNNER_OTLP_ENDPOINT",
+        default_value = "http://localhost:4317"
+    )]
+    otlp_endpoint: String,
 }
 
 /// Available Subcommands
@@ -24,16 +36,34 @@ pub enum Command {
     Bootstrap(bootstrap::Opts),
 }
 
+impl Command {
+    fn name(&self) -> &'static str {
+        match self {
+            Command::Bootstrap(_) => "bootstrap",
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::from_default_env())
-        .with_ansi(false)
+    let args = Cli::parse();
+    let cx = Context::current();
+    let metrics_controller = telemetry::init(args.otlp_endpoint.clone()).await?;
+
+    let meter = global::meter("keramik");
+    let runs = meter
+        .u64_counter("runner_runs")
+        .with_description("Number of runs of the runner")
         .init();
 
-    let args = Cli::parse();
+    runs.add(&cx, 1, &[KeyValue::new("command", args.command.name())]);
+
+    info!(?args.command, ?args.otlp_endpoint, "starting runner");
     match args.command {
-        Command::Bootstrap(opts) => bootstrap::run(opts).await?,
+        Command::Bootstrap(opts) => bootstrap(opts).await?,
     }
+    // Flush traces and metrics before shutdown
+    shutdown_tracer_provider();
+    metrics_controller.stop(&cx)?;
     Ok(())
 }

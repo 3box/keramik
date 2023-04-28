@@ -1,0 +1,4 @@
+---
+namespace: ceramic
+resources:
+  - ./network.yaml

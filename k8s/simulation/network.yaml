@@ -1,0 +1,7 @@
+apiVersion: "simulator.io/v1"
+kind: Network
+metadata:
+  name: network
+  namespace: ceramic
+spec:
+  enabled: false

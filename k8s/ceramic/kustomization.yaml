@@ -5,6 +5,7 @@ resources:
   - ./manifests/cas.yaml
   - ./manifests/ceramic.yaml
   - ./manifests/bootstrap.yaml
+  - ./manifests/network.yaml
 
 configMapGenerator:
   - name: ceramic-init

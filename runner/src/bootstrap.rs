@@ -23,8 +23,9 @@ pub struct Opts {
 
 #[derive(Clone, Debug, ValueEnum)]
 enum Method {
-    // Connects to next N peers
+    /// Connects to next N peers
     Ring,
+    /// Connects to N peers at random.
     Random,
 }
 impl Default for Method {
@@ -45,13 +46,13 @@ pub async fn bootstrap(opts: Opts) -> Result<()> {
 #[tracing::instrument]
 async fn ring(n: usize, total: usize) -> Result<()> {
     let addrs = all_peer_addrs(total).await?;
-    for node in 0..total {
+    for peer in 0..total {
         for i in 0..n {
-            let peer = (node + i + 1) % total;
-            debug!(%node, %peer, "ring peer connection");
-            if let Some(peer_addr) = &addrs.get(&peer) {
-                if let Err(err) = connect_peers(node, peer_addr).await {
-                    error!(%node, %peer, ?err, "failed to bootstrap peer");
+            let other = (peer + i + 1) % total;
+            debug!(%peer, %other, "ring peer connection");
+            if let Some(peer_addr) = &addrs.get(&other) {
+                if let Err(err) = connect_peers(peer, peer_addr).await {
+                    error!(%peer, %other, ?err, "failed to bootstrap peer");
                 }
             }
         }
@@ -64,17 +65,17 @@ async fn random(n: usize, total: usize) -> Result<()> {
     let addrs = all_peer_addrs(total).await?;
     // Reuse a peers buffer for each loop
     let mut peers = vec![0; n];
-    for node in 0..total {
+    for peer in 0..total {
         // Randomly pick peers ensuring we do not pick duplicates
-        // and do not pick the node itself or peers that were unreachable.
+        // and do not pick the peer itself or peers that were unreachable.
         (0..total)
-            .filter(|i| *i != node && addrs.contains_key(i))
+            .filter(|i| *i != peer && addrs.contains_key(i))
             .choose_multiple_fill(&mut rng, &mut peers);
-        for peer in &peers {
-            debug!(%node, %peer, "random peer connection");
-            if let Some(peer_addr) = &addrs.get(&peer) {
-                if let Err(err) = connect_peers(node, peer_addr).await {
-                    error!(%node, %peer, ?err, "failed to bootstrap peer");
+        for other in &peers {
+            debug!(%peer, %other, "random peer connection");
+            if let Some(peer_addr) = &addrs.get(&other) {
+                if let Err(err) = connect_peers(peer, peer_addr).await {
+                    error!(%peer, %other, ?err, "failed to bootstrap peer");
                 }
             }
         }

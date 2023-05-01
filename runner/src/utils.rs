@@ -1,48 +1,44 @@
 use std::{collections::HashMap, fmt::Display};
 
 use anyhow::{anyhow, bail, Result};
-use multiaddr::Multiaddr;
+use multiaddr::{Multiaddr, Protocol};
+use multihash::Multihash;
 use tracing::error;
 
-/// Nodes are identified via a total ordering starting at 0
-pub type NodeId = usize;
+/// Peers are identified via a total ordering starting at 0
+pub type PeerId = usize;
 
-/// DNS address of Node
-pub struct NodeDnsAddr(String);
+/// DNS address of peer
+pub struct PeerDnsAddr(String);
 
-impl From<NodeId> for NodeDnsAddr {
-    fn from(value: NodeId) -> Self {
+impl From<PeerId> for PeerDnsAddr {
+    fn from(value: PeerId) -> Self {
         Self(format!(
-            "ceramic-{}.ceramic.ceramic.svc.cluster.local",
+            "ceramic-{}.ceramic.keramik-0.svc.cluster.local",
             value
         ))
     }
 }
 
-impl Display for NodeDnsAddr {
+impl Display for PeerDnsAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
 }
-/// HTTP address of Node RPC endpoint
-pub struct NodeRpcAddr(String);
+/// HTTP address of peer RPC endpoint
+pub struct PeerRpcAddr(String);
 
-impl From<NodeId> for NodeRpcAddr {
-    fn from(value: NodeId) -> Self {
-        Self(format!("http://{}:5001", NodeDnsAddr::from(value)))
+impl From<PeerId> for PeerRpcAddr {
+    fn from(value: PeerId) -> Self {
+        Self(format!("http://{}:5001", PeerDnsAddr::from(value)))
     }
 }
-impl Display for NodeRpcAddr {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+impl PeerRpcAddr {
+    pub fn as_string(self) -> String {
+        self.0
     }
 }
-
-/// P2p address of Node RPC endpoint
-#[derive(Debug)]
-pub struct NodeP2pAddr(String);
-
-impl Display for NodeP2pAddr {
+impl Display for PeerRpcAddr {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.0)
     }
@@ -55,23 +51,23 @@ struct ErrorResponse {
 }
 
 #[tracing::instrument]
-pub async fn all_peer_addrs(total: usize) -> Result<HashMap<NodeId, NodeP2pAddr>> {
+pub async fn all_peer_addrs(total: usize) -> Result<HashMap<PeerId, Vec<Multiaddr>>> {
     let mut addrs = HashMap::with_capacity(total);
-    for node in 0..total {
-        match peer_addr(node).await {
+    for peer in 0..total {
+        match peer_addr(peer).await {
             Ok(addr) => {
-                addrs.insert(node, addr);
+                addrs.insert(peer, addr);
             }
-            Err(err) => error!(%node, ?err, "failed to lookup peer address"),
+            Err(err) => error!(%peer, ?err, "failed to lookup peer address"),
         };
     }
     Ok(addrs)
 }
 #[tracing::instrument]
-async fn peer_addr(node: NodeId) -> Result<NodeP2pAddr> {
+async fn peer_addr(peer: PeerId) -> Result<Vec<Multiaddr>> {
     let client = reqwest::Client::new();
     let resp = client
-        .post(format!("{}/api/v0/id", NodeRpcAddr::from(node)))
+        .post(format!("{}/api/v0/id", PeerRpcAddr::from(peer)))
         .send()
         .await?;
     if !resp.status().is_success() {
@@ -87,37 +83,51 @@ async fn peer_addr(node: NodeId) -> Result<NodeP2pAddr> {
         addresses: Vec<String>,
     }
     let data: Response = resp.json().await?;
-    // We expect to find at least one ip4 tcp address
-    let addr = data.addresses.iter().find(|addr| {
-        let addr: Multiaddr = addr.parse().expect("should be a valid multiaddr");
-        // Address must have both a non loopback ip4 address and a TCP endpoint
-        addr.iter().any(|proto| match proto {
-            multiaddr::Protocol::Ip4(ip4) => !ip4.is_loopback(),
-            _ => false,
-        }) && addr.iter().any(|proto| match proto {
-            multiaddr::Protocol::Tcp(_) => true,
-            _ => false,
+
+    let p2p_proto = Protocol::P2p(Multihash::from_bytes(
+        &multibase::Base::Base58Btc.decode(data.id)?,
+    )?);
+    // We expect to find at least one non loop back address
+    let addrs = data
+        .addresses
+        .iter()
+        .map(|addr| -> Multiaddr { addr.parse().expect("should be a valid multiaddr") })
+        .filter(|addr| {
+            // Address must have both a non loopback ip4 address and a tcp or quic endpoint
+            addr.iter().any(|proto| match proto {
+                multiaddr::Protocol::Ip4(ip4) => !ip4.is_loopback(),
+                _ => false,
+            })
         })
-    });
-    if let Some(addr) = addr {
-        let addr = NodeP2pAddr(format!("{}/p2p/{}", addr.to_string(), data.id));
-        Ok(addr)
+        // Add peer id to multiaddrs
+        .map(|mut addr| {
+            addr.push(p2p_proto.clone());
+            addr
+        })
+        .collect::<Vec<Multiaddr>>();
+
+    if !addrs.is_empty() {
+        Ok(addrs)
     } else {
         Err(anyhow!(
-            "peer {} does not have any valid ip4 addresses",
-            node
+            "peer {} does not have any valid non loopback addresses",
+            peer
         ))
     }
 }
 
-/// Initiate connection from node to other.
+/// Initiate connection from peer to other.
 #[tracing::instrument]
-pub async fn connect_peers(node: NodeId, other: &NodeP2pAddr) -> Result<()> {
+pub async fn connect_peers(peer: PeerId, other: &[Multiaddr]) -> Result<()> {
     let client = reqwest::Client::new();
     let url = format!(
-        "{}/api/v0/swarm/connect?arg={}",
-        NodeRpcAddr::from(node),
-        other,
+        "{}/api/v0/swarm/connect?{}",
+        PeerRpcAddr::from(peer),
+        other
+            .iter()
+            .map(|addr| "arg=".to_string() + &addr.to_string())
+            .collect::<Vec<String>>()
+            .join("&")
     );
     let resp = client.post(url).send().await?;
     if !resp.status().is_success() {

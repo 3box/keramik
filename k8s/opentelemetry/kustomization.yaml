@@ -1,5 +1,5 @@
 ---
-namespace: ceramic
+namespace: keramik-0
 resources:
   - ./opentelemetry.yaml
   - ./jaeger.yaml
@@ -12,3 +12,4 @@ configMapGenerator:
   - name: prom-config
     files:
       - ./prom-config.yaml
+

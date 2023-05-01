@@ -24,6 +24,6 @@ spec:
           - name: BOOTSTRAP_N
             value: '2'
           - name: BOOTSTRAP_TOTAL
-            value: '20'
+            value: '10'
       restartPolicy: Never
   backoffLimit: 4

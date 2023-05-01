@@ -8,8 +8,15 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.70"
+cid = "0.9"
 clap = { version = "4", features = ["derive", "env"] }
+env_logger = "0.10.0"
+gethostname = "0.4.2"
+goose = { version = "0.16", features = ["gaggle"] }
+libipld = "0.16.0"
 multiaddr = "0.17"
+multibase = "0.9.1"
+multihash = "0.17"
 opentelemetry = { version = "0.18", features = [
     "metrics",
     "trace",
@@ -22,7 +29,7 @@ opentelemetry-otlp = { version = "0.11", features = [
 ] }
 prometheus-client = "0.19"
 rand = "0.8.5"
-reqwest = { version = "0.11", features = ["json"] }
+reqwest = { version = "0.11", features = ["json", "multipart"] }
 serde = { version = "1.0.160", features = ["derive"] }
 serde_json = "1.0.95"
 tokio = { version = "1", features = ["full"] }
@@ -30,3 +37,6 @@ tonic = { version = "0.8" }
 tracing = "0.1.37"
 tracing-opentelemetry = "0.18"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+[patch.crates-io]
+goose = { git = "https://github.com/nathanielc/goose.git", branch = "fixes-0.16.4" }

@@ -20,9 +20,9 @@ spec:
       serviceAccountName: monitoring-service-account
       containers:
         - name: opentelemetry
-          image: otel/opentelemetry-collector-contrib:latest
+          image: public.ecr.aws/r5b3e0r5/3box/otelcol
           command:
-            - /otelcol-contrib
+            - /otelcol-custom
             - --config=/config/otel-config.yaml
           ports:
             - containerPort: 4317

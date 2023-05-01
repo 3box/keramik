@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use anyhow::Result;
 use opentelemetry::{
-    global, runtime,
+    runtime,
     sdk::{
         export::metrics::aggregation,
         metrics::{controllers::BasicController, selectors},
@@ -40,9 +40,16 @@ pub async fn init(otlp_endpoint: String) -> Result<BasicController> {
                 .with_endpoint(otlp_endpoint),
         )
         .with_resource(opentelemetry::sdk::Resource::new(vec![
+            opentelemetry::KeyValue::new(
+                "hostname",
+                gethostname::gethostname()
+                    .into_string()
+                    .expect("hostname should be valid utf-8"),
+            ),
             opentelemetry::KeyValue::new("service.name", "keramik"),
         ]))
         .with_period(Duration::from_secs(10))
+        // Build starts the meter and sets it as the global meter provider
         .build()?;
 
     // Setup tracing layers
@@ -57,9 +64,6 @@ pub async fn init(otlp_endpoint: String) -> Result<BasicController> {
 
     // Initialize tracing
     tracing::subscriber::set_global_default(collector)?;
-
-    // Initialize metrics
-    global::set_meter_provider(meter.clone());
 
     Ok(meter)
 }

@@ -1,11 +1,13 @@
 ---
-namespace: ceramic
+namespace: keramik-0
 
 resources:
   - ./manifests/cas.yaml
   - ./manifests/ceramic.yaml
   - ./manifests/bootstrap.yaml
   - ./manifests/network.yaml
+  - ./manifests/simulate.yaml
+
 
 configMapGenerator:
   - name: ceramic-init
@@ -21,9 +23,8 @@ images:
     newName: 3boxben/composedb@sha256
     newTag: d404fb8c8c1c49a02002365032a315d5d0e680e2b9bb3cf776d9bd39665f3c4c
   - name: ipfs/ipfs
-    #newName: ceramicnetwork/go-ipfs-daemon
     newName: public.ecr.aws/r5b3e0r5/3box/ceramic-one
-    newTag: dev
+    newTag: latest
   - name: ganache/ganache
     newName: trufflesuite/ganache-cli
     newTag: latest
@@ -34,4 +35,5 @@ images:
     newName: postgres
     newTag: 15-alpine
   - name: keramik/runner
-    newTag: dev
+    newName: public.ecr.aws/r5b3e0r5/3box/keramik-runner
+    newTag: latest

@@ -20,8 +20,8 @@ Requires
 
 ```
 # Create a new kind cluster (i.e. local k8s)
-kind create cluster --name ceramic
-kubectl create ns ceramic
+kind create cluster --name keramik-0
+kubectl create ns keramik-0
 # Build the runner image and load it into kind
 docker build -t keramik/runner:dev runner/
 kind load docker-image keramik/runner:dev
@@ -36,6 +36,17 @@ View logs
 ```
 kubectl logs ceramic-0 -c ceramic
 ```
+
+## AWS EKS
+
+Keramik can also be deployed against an AWS EKS cluster.
+This process is much the same, however the container images must be accessible to the EKS cluster.
+
+    $ kubectl create namespace keramik-0
+    $ ./k8s/ceramic/create-secrets.sh
+    $ kubectl apply -k ./k8s/ceramic/        # Start up ceramic cluster
+    $ kubectl apply -k ./k8s/opentelemetry/  # Start up monitoring infra
+
 
 ## Change network size
 

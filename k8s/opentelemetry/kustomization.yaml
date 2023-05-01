@@ -1,5 +1,5 @@
 ---
-namespace: ceramic
+namespace: keramik-0
 resources:
   - ./opentelemetry.yaml
   - ./jaeger.yaml

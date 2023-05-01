@@ -1,5 +1,13 @@
 FROM public.ecr.aws/r5b3e0r5/3box/rust-builder:latest as chef
 
+# Goose Cargo dep requires cmake to build
+USER root
+RUN apt-get update && apt-get install -y \
+    cmake \
+    && rm -rf /var/lib/apt/lists/*
+
+USER builder
+
 RUN mkdir -p /home/builder/keramik/runner
 WORKDIR /home/builder/keramik/runner
 

@@ -22,8 +22,8 @@ spec:
           - name: BOOTSTRAP_METHOD
             value: 'ring'
           - name: BOOTSTRAP_N
-            value: '2'
+            value: '1'
           - name: BOOTSTRAP_TOTAL
-            value: '20'
+            value: '2'
       restartPolicy: Never
   backoffLimit: 4

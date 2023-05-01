@@ -11,7 +11,7 @@ spec:
   updateStrategy:
     rollingUpdate:
       maxUnavailable: 50%
-  replicas: 20
+  replicas: 2
   serviceName: ceramic
   selector:
     matchLabels:
@@ -99,14 +99,16 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: RUST_LOG
-              value: info,tracing_actix_web=debug
+              value: info,ceramic_one=debug,tracing_actix_web=debug
             - name: CERAMIC_ONE_BIND_ADDRESS
               value: "0.0.0.0:5001"
             - name: CERAMIC_ONE_METRICS
               value: "true"
             - name: CERAMIC_ONE_METRICS_BIND_ADDRESS
               value: "0.0.0.0:9090"
-              # TODO also use udp with quic-v1
+              # TODO Figure out how to use quic
+              #   * `quic-v1` causes js-ceramic to error
+              #   * `quic` causes rust-ceramic to deadlock on startup
             - name: CERAMIC_ONE_SWARM_ADDRESSES
               value: "/ip4/0.0.0.0/tcp/4001"
             - name: CERAMIC_ONE_STORE_DIR
@@ -122,11 +124,17 @@ spec:
               memory: 512Mi
           ports:
             - containerPort: 4001
-              name: swarm
+              name: swarm-tcp
+              protocol: TCP
+            - containerPort: 4002
+              name: swarm-quic
+              protocol: UDP
             - containerPort: 5001
               name: api
+              protocol: TCP
             - containerPort: 9090
               name: metrics
+              protocol: TCP
           volumeMounts:
             - name: ipfs-data
               mountPath: /data/ipfs
@@ -179,7 +187,11 @@ spec:
     - port: 4001
       targetPort: 4001
       protocol: TCP
-      name: swarm
+      name: swarm-tcp
+    - port: 4002
+      targetPort: 4002
+      protocol: UDP
+      name: swarm-quic
   selector:
     app: ceramic
   type: ClusterIP

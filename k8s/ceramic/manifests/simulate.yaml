@@ -1,0 +1,364 @@
+# Define a set of jobs that run a simulations against the network.
+---
+# Create a service so that the workers can find the manager via DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: goose
+spec:
+  selector:
+    name: goose
+  clusterIP: None
+  ports:
+  - name: manager
+    port: 5115
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-manager
+spec:
+  template:
+    metadata:
+      labels:
+        name: goose
+    spec:
+      hostname: manager
+      subdomain: goose
+      containers:
+      - name: manager
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_MANAGER
+            value: 'true'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_TARGET_PEER
+            value: '0'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-0
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '0'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-1
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '1'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-2
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '2'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-3
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '3'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-4
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '4'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-5
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '5'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-6
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '6'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-7
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '7'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-8
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '8'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4
+
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: simulate-worker-9
+spec:
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: keramik/runner
+        imagePullPolicy: IfNotPresent
+        command:
+          - "/usr/bin/runner"
+          - "simulate"
+        env:
+          - name: RUNNER_OTLP_ENDPOINT
+            value: 'http://otel:4317'
+          - name: RUST_LOG
+            value: 'info,runner=trace'
+          - name: SIMULATE_SCENARIO
+            value: 'ipfs-rpc'
+          - name: SIMULATE_TARGET_PEER
+            value: '9'
+          - name: SIMULATE_TOTAL_PEERS
+            value: '10'
+          - name: SIMULATE_NONCE
+            value: '42'
+      restartPolicy: Never
+  backoffLimit: 4

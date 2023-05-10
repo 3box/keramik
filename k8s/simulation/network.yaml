@@ -1,7 +1,7 @@
-apiVersion: "simulator.io/v1"
+apiVersion: "keramik.3box.io/v1"
 kind: Network
 metadata:
-  name: network
-  namespace: ceramic
+  name: bob
+  namespace: default
 spec:
   enabled: false

@@ -5,7 +5,7 @@ resources:
   - ./manifests/cas.yaml
   - ./manifests/ceramic.yaml
   - ./manifests/bootstrap.yaml
-  - ./manifests/network.yaml
+  - ./manifests/operator.yaml
   - ./manifests/simulate.yaml
 
 
@@ -36,4 +36,7 @@ images:
     newTag: 15-alpine
   - name: keramik/runner
     newName: public.ecr.aws/r5b3e0r5/3box/keramik-runner
+    newTag: latest
+  - name: keramik/operator
+    newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
     newTag: latest

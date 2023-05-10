@@ -1,0 +1,18 @@
+[package]
+name = "keramik-common"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+actix-web = "4.3.1"
+anyhow.workspace = true
+gethostname = "0.4.2"
+tokio.workspace = true
+tonic.workspace = true
+tracing.workspace = true
+tracing-opentelemetry.workspace = true
+tracing-subscriber.workspace = true
+opentelemetry.workspace = true
+opentelemetry-otlp.workspace = true

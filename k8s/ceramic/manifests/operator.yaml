@@ -1,0 +1,117 @@
+---
+# Scoped service account
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keramik-operator
+  labels:
+    app: keramik-operator
+    app.kubernetes.io/name: keramik-operator
+    app.kubernetes.io/version: "0.12.5"
+  namespace: default
+automountServiceAccountToken: true
+---
+# Access for the service account
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: keramik-operator
+rules:
+  - apiGroups: ["keramik.3box.io"]
+    resources: ["networks", "networks/status"]
+    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: ["events.k8s.io"]
+    resources: ["events"]
+    verbs: ["create"]
+---
+# Binding the role to the account
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: keramik-operator
+subjects:
+- kind: ServiceAccount
+  namespace: default
+  name: keramik-operator
+roleRef:
+  kind: ClusterRole
+  name: keramik-operator
+  apiGroup: rbac.authorization.k8s.io
+---
+# Expose the http port of the service
+apiVersion: v1
+kind: Service
+metadata:
+  name: keramik-operator
+  namespace: default
+  labels:
+    app: keramik-operator
+    app.kubernetes.io/name: keramik-operator
+    app.kubernetes.io/version: "0.12.5"
+spec:
+  type: ClusterIP
+  ports:
+  - port: 80
+    targetPort: 8080
+    protocol: TCP
+    name: http
+  selector:
+    app: keramik-operator
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keramik-operator
+  namespace: default
+  labels:
+    app: keramik-operator
+    app.kubernetes.io/name: keramik-operator
+    app.kubernetes.io/version: "0.12.5"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keramik-operator
+  template:
+    metadata:
+      labels:
+        app: keramik-operator
+      annotations:
+        kubectl.kubernetes.io/default-container: keramik-operator
+    spec:
+      serviceAccountName: keramik-operator
+      securityContext:
+        {}
+      containers:
+      - name: keramik-operator
+        image: "keramik/operator"
+        imagePullPolicy: Always
+        command:
+          - "/usr/bin/keramik-operator"
+          - "daemon"
+        securityContext:
+          {}
+        resources:
+          limits:
+            cpu: 200m
+            memory: 256Mi
+          requests:
+            cpu: 50m
+            memory: 100Mi
+        ports:
+        - name: http
+          containerPort: 8080
+          protocol: TCP
+        env:
+        # We are pointing to tempo or grafana tracing agent's otlp grpc receiver port
+        - name: OPERATOR_OTLP_ENDPOINT
+          value: "https://otel:4317"
+        - name: RUST_LOG
+          value: "info,kube=debug,operator=debug"
+        #readinessProbe:
+        #  httpGet:
+        #    path: /health
+        #    port: http
+        #  initialDelaySeconds: 5
+        #  periodSeconds: 5
+

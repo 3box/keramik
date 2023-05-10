@@ -5,8 +5,9 @@
 mod bootstrap;
 mod scenario;
 mod simulate;
-mod telemetry;
 mod utils;
+
+use keramik_common::telemetry;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};

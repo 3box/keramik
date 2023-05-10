@@ -28,9 +28,9 @@ spec:
       containers:
       - name: manager
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -65,9 +65,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -96,9 +96,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -128,9 +128,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -160,9 +160,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -191,9 +191,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -222,9 +222,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -254,9 +254,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -285,9 +285,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -316,9 +316,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT
@@ -347,9 +347,9 @@ spec:
       containers:
       - name: worker
         image: keramik/runner
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
-          - "/usr/bin/runner"
+          - "/usr/bin/keramik-runner"
           - "simulate"
         env:
           - name: RUNNER_OTLP_ENDPOINT

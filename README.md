@@ -22,30 +22,30 @@ Requires
 # Create a new kind cluster (i.e. local k8s)
 kind create cluster
 kubectl create ns keramik-0
-# Build the runner image and load it into kind
-docker build -t keramik/runner:dev runner/
-kind load docker-image keramik/runner:dev
+
+# Create CRDs
+cargo run --bin crdgen | kubectl apply -f -
+
 # Create new random secrets
 ./k8s/ceramic/create-secrets.sh
+
 # Start up the network
 kubectl apply -k ./k8s/ceramic
 ```
 
 View logs
 
-```
-kubectl logs ceramic-0 -c ceramic
-```
+    kubectl logs ceramic-0 -c ceramic
 
 ## AWS EKS
 
 Keramik can also be deployed against an AWS EKS cluster.
 This process is much the same, however the container images must be accessible to the EKS cluster.
 
-    $ kubectl create namespace keramik-0
-    $ ./k8s/ceramic/create-secrets.sh
-    $ kubectl apply -k ./k8s/ceramic/        # Start up ceramic cluster
-    $ kubectl apply -k ./k8s/opentelemetry/  # Start up monitoring infra
+    kubectl create namespace keramik-0
+    ./k8s/ceramic/create-secrets.sh
+    kubectl apply -k ./k8s/ceramic/        # Start up ceramic cluster
+    kubectl apply -k ./k8s/opentelemetry/  # Start up monitoring infra
 
 
 ## Change network size
@@ -58,8 +58,33 @@ The network size can be increase by changing the number of replicas for the cera
 The `runner` is a utility for running various jobs to initialize the network and run workloads against it.
 Any changes to the runner require that you rebuild it and load it into kind again.
 
-    docker build -t keramik/runner:dev runner/
+    docker buildx build -t keramik/runner:dev -f Dockerfile_runner .
     kind load docker-image keramik/runner:dev
+
+Now edit `./k8s/ceramic/kustomization.yaml` to use the `dev` tag
+
+```yaml
+images:
+  - name: keramik/runner
+    newTag: dev
+```
+
+
+## Operator
+
+The `operator` automates creating and manipulating networks via custom resource definition.
+Any changes to the operator require that you rebuild it and load it into kind again.
+
+    docker buildx build -t keramik/operator:dev -f Dockerfile_operator .
+    kind load docker-image keramik/operator:dev
+
+Now edit `./k8s/ceramic/kustomization.yaml` to use the `dev` tag
+
+```yaml
+images:
+  - name: keramik/operator
+    newTag: dev
+```
 
 ## Opentelemetry
 

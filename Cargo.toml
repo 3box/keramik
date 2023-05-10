@@ -1,0 +1,26 @@
+[workspace]
+members = ["operator", "runner", "common"]
+
+[workspace.dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+env_logger = "0.10.0"
+keramik-common = { path = "./common/" }
+opentelemetry = { version = "0.18", features = [
+    "metrics",
+    "trace",
+    "rt-tokio",
+] }
+opentelemetry-otlp = { version = "0.11", features = [
+    "metrics",
+    "trace",
+    "tokio",
+] }
+tokio = { version = "1", features = ["full"] }
+tonic = { version = "0.8" }
+tracing = "0.1.37"
+tracing-opentelemetry = "0.18"
+tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
+
+[patch.crates-io]
+goose = { git = "https://github.com/nathanielc/goose.git", branch = "fixes-0.16.4" }

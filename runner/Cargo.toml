@@ -1,5 +1,5 @@
 [package]
-name = "runner"
+name = "keramik-runner"
 description = "Utility binary for performing various jobs to simulate Ceramic networks"
 version = "0.1.0"
 edition = "2021"
@@ -7,36 +7,25 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-anyhow = "1.0.70"
+anyhow.workspace = true
 cid = "0.9"
-clap = { version = "4", features = ["derive", "env"] }
-env_logger = "0.10.0"
-gethostname = "0.4.2"
+clap.workspace = true
+env_logger.workspace = true
 goose = { version = "0.16", features = ["gaggle"] }
+keramik-common.workspace = true
 libipld = "0.16.0"
 multiaddr = "0.17"
 multibase = "0.9.1"
 multihash = "0.17"
-opentelemetry = { version = "0.18", features = [
-    "metrics",
-    "trace",
-    "rt-tokio",
-] }
-opentelemetry-otlp = { version = "0.11", features = [
-    "metrics",
-    "trace",
-    "tokio",
-] }
+opentelemetry.workspace = true
+opentelemetry-otlp.workspace = true
 prometheus-client = "0.19"
 rand = "0.8.5"
 reqwest = { version = "0.11", features = ["json", "multipart"] }
 serde = { version = "1.0.160", features = ["derive"] }
 serde_json = "1.0.95"
-tokio = { version = "1", features = ["full"] }
-tonic = { version = "0.8" }
-tracing = "0.1.37"
-tracing-opentelemetry = "0.18"
-tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
-
-[patch.crates-io]
-goose = { git = "https://github.com/nathanielc/goose.git", branch = "fixes-0.16.4" }
+tokio.workspace = true
+tonic.workspace = true
+tracing.workspace = true
+tracing-opentelemetry.workspace = true
+tracing-subscriber.workspace = true

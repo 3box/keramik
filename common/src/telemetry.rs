@@ -21,7 +21,14 @@ pub async fn init(otlp_endpoint: String) -> Result<BasicController> {
                 .with_endpoint(otlp_endpoint.clone()),
         )
         .with_trace_config(opentelemetry::sdk::trace::config().with_resource(
-            opentelemetry::sdk::Resource::new(vec![opentelemetry::KeyValue::new(
+            opentelemetry::sdk::Resource::new(vec![
+                opentelemetry::KeyValue::new(
+                    "hostname",
+                    gethostname::gethostname()
+                        .into_string()
+                        .expect("hostname should be valid utf-8"),
+                ),
+                opentelemetry::KeyValue::new(
                 "service.name",
                 "keramik",
             )]),

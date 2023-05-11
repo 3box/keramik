@@ -1,4 +1,0 @@
----
-namespace: keramik-0
-resources:
-  - ./network.yaml

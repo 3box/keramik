@@ -1,3 +1,4 @@
+//! Provides helper functions for initializing telemetry collection and publication.
 use std::time::Duration;
 
 use anyhow::Result;
@@ -61,7 +62,7 @@ pub async fn init(otlp_endpoint: String) -> Result<BasicController> {
 
     // Setup tracing layers
     let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-    let logger = tracing_subscriber::fmt::layer().with_ansi(false).compact();
+    let logger = tracing_subscriber::fmt::layer().with_ansi(true).compact();
     let env_filter = EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("info"))?;
 
     let collector = Registry::default()

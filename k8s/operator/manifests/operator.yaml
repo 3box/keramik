@@ -17,12 +17,21 @@ apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: keramik-operator
 rules:
-  - apiGroups: ["keramik.3box.io"]
-    resources: ["networks", "networks/status"]
-    verbs: ["get", "list", "watch", "patch"]
+  - apiGroups: [""]
+    resources: ["namespaces","services","configmaps","secrets","pods"]
+    verbs: ["create", "get", "list", "watch", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets"]
+    verbs: ["create", "get", "list", "watch", "patch"]
+  - apiGroups: ["batch"]
+    resources: ["jobs"]
+    verbs: ["create", "delete", "get", "list", "watch", "patch"]
   - apiGroups: ["events.k8s.io"]
     resources: ["events"]
     verbs: ["create"]
+  - apiGroups: ["keramik.3box.io"]
+    resources: ["networks", "networks/status"]
+    verbs: ["get", "list", "watch", "patch"]
 ---
 # Binding the role to the account
 kind: ClusterRoleBinding
@@ -69,6 +78,8 @@ metadata:
     app.kubernetes.io/version: "0.12.5"
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app: keramik-operator
@@ -85,7 +96,7 @@ spec:
       containers:
       - name: keramik-operator
         image: "keramik/operator"
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         command:
           - "/usr/bin/keramik-operator"
           - "daemon"
@@ -107,7 +118,7 @@ spec:
         - name: OPERATOR_OTLP_ENDPOINT
           value: "https://otel:4317"
         - name: RUST_LOG
-          value: "info,kube=debug,operator=debug"
+          value: "info,kube=debug,keramik_operator=debug"
         #readinessProbe:
         #  httpGet:
         #    path: /health

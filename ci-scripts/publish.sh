@@ -10,11 +10,11 @@
 # to setup docker login.
 
 # Build runner image
-docker buildx build -t 3box/keramik-runner -f Dockerfile_runner .
+docker buildx build --load -t 3box/keramik-runner --target runner .
 docker tag 3box/keramik-runner:latest public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest
 docker push public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest
 
 # Build operator image
-docker buildx build -t 3box/keramik-operator -f Dockerfile_operator .
+docker buildx build --load -t 3box/keramik-operator --target operator .
 docker tag 3box/keramik-operator:latest public.ecr.aws/r5b3e0r5/3box/keramik-operator:latest
 docker push public.ecr.aws/r5b3e0r5/3box/keramik-operator:latest

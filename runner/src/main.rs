@@ -1,10 +1,10 @@
-//! Keramic is tool for simluating Ceramic networks
-#![deny(warnings)]
+//! Runner is a short lived process that performs various tasks within a Ceramic network.
 #![deny(missing_docs)]
 
 mod bootstrap;
-mod scenario;
-mod simulate;
+// TODO re-add these once the operator understands simulations
+//mod scenario;
+//mod simulate;
 mod utils;
 
 use keramik_common::telemetry;
@@ -13,10 +13,10 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use opentelemetry::{global, KeyValue};
 use opentelemetry::{global::shutdown_tracer_provider, Context};
-use tokio;
 use tracing::info;
 
-use crate::{bootstrap::bootstrap, simulate::simulate};
+//use crate::{bootstrap::bootstrap, simulate::simulate};
+use crate::bootstrap::bootstrap;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -38,7 +38,7 @@ pub enum Command {
     /// Bootstrap peers in the network
     Bootstrap(bootstrap::Opts),
     /// Simulate a load scenario against the network
-    Simulate(simulate::Opts),
+    //Simulate(simulate::Opts),
     /// Do nothing and exit
     Noop,
 }
@@ -47,7 +47,7 @@ impl Command {
     fn name(&self) -> &'static str {
         match self {
             Command::Bootstrap(_) => "bootstrap",
-            Command::Simulate(_) => "simulate",
+            //Command::Simulate(_) => "simulate",
             Command::Noop => "noop",
         }
     }
@@ -55,9 +55,7 @@ impl Command {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Init env_logger for deps that use log.
-    // TODO should we use tracing_log instead?
-    env_logger::init();
+    tracing_log::LogTracer::init()?;
 
     let args = Cli::parse();
     let cx = Context::current();
@@ -74,7 +72,7 @@ async fn main() -> Result<()> {
     info!(?args.command, ?args.otlp_endpoint, "starting runner");
     match args.command {
         Command::Bootstrap(opts) => bootstrap(opts).await?,
-        Command::Simulate(opts) => simulate(opts).await?,
+        //Command::Simulate(opts) => simulate(opts).await?,
         Command::Noop => {}
     }
 

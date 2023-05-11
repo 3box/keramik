@@ -10,22 +10,22 @@ edition = "2021"
 anyhow.workspace = true
 cid = "0.9"
 clap.workspace = true
-env_logger.workspace = true
 goose = { version = "0.16", features = ["gaggle"] }
 keramik-common.workspace = true
 libipld = "0.16.0"
-multiaddr = "0.17"
-multibase = "0.9.1"
-multihash = "0.17"
+multiaddr.workspace = true
+multibase.workspace = true
+multihash.workspace = true
 opentelemetry.workspace = true
 opentelemetry-otlp.workspace = true
 prometheus-client = "0.19"
 rand = "0.8.5"
-reqwest = { version = "0.11", features = ["json", "multipart"] }
-serde = { version = "1.0.160", features = ["derive"] }
-serde_json = "1.0.95"
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 tokio.workspace = true
 tonic.workspace = true
 tracing.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
+tracing-log.workspace = true

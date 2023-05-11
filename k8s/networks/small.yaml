@@ -1,7 +1,6 @@
 apiVersion: "keramik.3box.io/v1"
 kind: Network
 metadata:
-  name: bob
-  namespace: default
+  name: small
 spec:
-  enabled: false
+  replicas: 2

@@ -2,83 +2,116 @@
 
 Keramik is a Kubernetes operator for simulating Ceramic networks.
 
-The `k8s` directory contains the kubernetes manifests for a Ceramic network.
+The `k8s` directory contains the kubernetes manifests for deploying Keramik.
 
-The manifests require secrets for a Postgres database and a Ceramic node private key.
-An example of creating random secrets is in `create-secrets.sh`.
 
-Overlays:
-- overlays/ceramic-hds - an environment with an extra runner container and schemas to test historical data sync.
+## Setup Kubernetes
 
-## Local deployemnt
+Keramik can be used locally or via a cloud Kubernetes service.
+
+### Local deployment
 
 Requires
-  - [kind](https://kind.sigs.k8s.io/)
-  - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
-  - [docker](https://docs.docker.com/get-docker/)
 
+- [rust](https://rustup.rs/)
+- [kind](https://kind.sigs.k8s.io/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
+- [docker](https://docs.docker.com/get-docker/)
 
 ```
-# Create a new kind cluster (i.e. local k8s)
-kind create cluster
-kubectl create ns keramik-0
-
-# Create CRDs
-cargo run --bin crdgen | kubectl apply -f -
-
-# Create new random secrets
-./k8s/ceramic/create-secrets.sh
-
-# Start up the network
-kubectl apply -k ./k8s/ceramic
+kind create cluster # Create a new kind cluster (i.e. local k8s)
 ```
 
-View logs
+### AWS EKS
 
-    kubectl logs ceramic-0 -c ceramic
+Login to the EKS cluster using this [guide](https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html)
 
-## AWS EKS
+## Deploy a Ceramic network
 
-Keramik can also be deployed against an AWS EKS cluster.
-This process is much the same, however the container images must be accessible to the EKS cluster.
+First we need to deploy keramik in order to create and manage a Ceramic network:
 
-    kubectl create namespace keramik-0
-    ./k8s/ceramic/create-secrets.sh
-    kubectl apply -k ./k8s/ceramic/        # Start up ceramic cluster
-    kubectl apply -k ./k8s/opentelemetry/  # Start up monitoring infra
+    kubectl create namespace keramik
+    cargo run --bin crdgen | kubectl create -f - # Create CRDs
+    kubectl apply -k ./k8s/operator/             # Start up keramik operator
+
+With the operator running we can now define a Ceramic network.
+Place the following network definition into the file `small.yaml`.
+
+```yaml
+# small.yaml
+---
+apiVersion: "keramik.3box.io/v1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+```
+
+Apply this network definition to the k8s cluster:
+
+    kubectl apply -f small.yaml
+
+After a minute or two you should have a functioning Ceramic network.
+Check the status of the network:
+
+    kubectl describe network small
+
+Keramik places each network into its own namespace named after the name of the network.
+Inspect the pods within the network using:
+
+    kubectl -n keramik-small get pods
+
+>HINT: Use tools like [kubectx](https://github.com/ahmetb/kubectx) or [kubie](https://github.com/sbstp/kubie) to work with multiple namespaces and contexts.
+
+## Contributing
+
+Contributions are welcome! Opening an issue to disucss your idea is a good first step.
+When you are ready please use [convential commit](https://www.conventionalcommits.org/en/v1.0.0/)  messages in your commits and PR titles.
+
+Keramik is composed of two main components:
+
+* Runner - short lived process that performs various tasks within the network (i.e. bootstrapping)
+* Operator - long lived process that manages the network custom resource.
 
 
-## Change network size
-
-The network size can be increase by changing the number of replicas for the ceramic statefulset.
-
-
-## Runner
+### Runner
 
 The `runner` is a utility for running various jobs to initialize the network and run workloads against it.
 Any changes to the runner require that you rebuild it and load it into kind again.
 
-    docker buildx build -t keramik/runner:dev -f Dockerfile_runner .
+    docker buildx build --load -t keramik/runner:dev --target runner .
     kind load docker-image keramik/runner:dev
 
-Now edit `./k8s/ceramic/kustomization.yaml` to use the `dev` tag
+Now we need to tell the operator to use this new version of the runner.
+Edit `small.yaml` to configure the image of the runner.
 
 ```yaml
-images:
-  - name: keramik/runner
-    newTag: dev
+# small.yaml
+---
+apiVersion: "keramik.3box.io/v1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  # Change the runner image to our locally built one
+  runner_image: keramik/runner:dev
+  # Change the pull policy to not pull since `kind` load
+  # already made the image available and the image only exists locally.
+  runner_image_pull_policy: IfNotPresent
 ```
 
 
-## Operator
+### Operator
 
 The `operator` automates creating and manipulating networks via custom resource definition.
 Any changes to the operator require that you rebuild it and load it into kind again.
 
-    docker buildx build -t keramik/operator:dev -f Dockerfile_operator .
+    docker buildx build --load -t keramik/operator:dev --target operator .
     kind load docker-image keramik/operator:dev
 
-Now edit `./k8s/ceramic/kustomization.yaml` to use the `dev` tag
+Next edit `./k8s/operator/kustomization.yaml` to use the `dev` tag
 
 ```yaml
 images:
@@ -86,9 +119,13 @@ images:
     newTag: dev
 ```
 
+See the [operator/README.md](https://github.com/3box/keramik/blob/main/operator/README.md) for details on certain design patterns of the operator.
+
 ## Opentelemetry
 
-Add opentelemetry collector to the k8s cluster
+Add opentelemetry collector to a specific newtork.
+First edit `./k8s/opentelemetry/kustomization.yaml` and change the namespace to be the namespace of your network (i.e. `keramik-small`).
+Then run the following command to add opentelemetry to that network.
 
     kubectl apply -k ./k8s/opentelemetry/
 
@@ -128,7 +165,6 @@ Alternatively start a jupyter notebook using `analyze/sim.ipynb`:
 
     jupyter notebook
 
-## Contributing
 
-Contributions are welcome! Opening an issue to disucss your idea is a good first step.
-When you are ready please use [convential commit](https://www.conventionalcommits.org/en/v1.0.0/)  messages in your commits and PR titles.
+
+

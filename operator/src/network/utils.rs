@@ -6,7 +6,8 @@ use multihash::Multihash;
 use unimock::unimock;
 
 use crate::network::controller::{
-    CERAMIC_SERVICE_NAME, CERAMIC_SERVICE_RPC_PORT, CERAMIC_STATEFUL_SET_NAME,
+    CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME,
+    CERAMIC_STATEFUL_SET_NAME,
 };
 
 #[derive(serde::Deserialize)]
@@ -25,16 +26,19 @@ pub trait RpcClient {
 pub struct HttpRpcClient;
 
 fn peer_rpc_addr(ns: &str, peer: PeerIdx) -> String {
-    format!("http://{CERAMIC_STATEFUL_SET_NAME}-{peer}.{CERAMIC_SERVICE_NAME}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_RPC_PORT}")
+    format!("http://{CERAMIC_STATEFUL_SET_NAME}-{peer}.{CERAMIC_SERVICE_NAME}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_IPFS_PORT}")
+}
+fn ceramic_addr(ns: &str, peer: PeerIdx) -> String {
+    format!("http://{CERAMIC_STATEFUL_SET_NAME}-{peer}.{CERAMIC_SERVICE_NAME}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_API_PORT}")
 }
 
 #[async_trait]
 impl RpcClient for HttpRpcClient {
     async fn peer_info(&self, ns: &str, index: PeerIdx) -> Result<PeerInfo> {
-        let rpc_addr = peer_rpc_addr(ns, index);
+        let ipfs_rpc_addr = peer_rpc_addr(ns, index);
         let client = reqwest::Client::new();
         let resp = client
-            .post(format!("{}/api/v0/id", rpc_addr))
+            .post(format!("{}/api/v0/id", ipfs_rpc_addr))
             .send()
             .await?;
         if !resp.status().is_success() {
@@ -73,11 +77,13 @@ impl RpcClient for HttpRpcClient {
             })
             .collect::<Vec<String>>();
 
+        let ceramic_addr = ceramic_addr(ns, index);
         if !p2p_addrs.is_empty() {
             Ok(PeerInfo {
                 index,
                 peer_id: data.id,
-                rpc_addr,
+                ipfs_rpc_addr,
+                ceramic_addr,
                 p2p_addrs,
             })
         } else {

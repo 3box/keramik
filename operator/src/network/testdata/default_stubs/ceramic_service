@@ -17,12 +17,12 @@ Request {
       "spec": {
         "ports": [
           {
-            "name": "ceramic",
+            "name": "api",
             "port": 7007,
             "protocol": "TCP"
           },
           {
-            "name": "rpc",
+            "name": "ipfs",
             "port": 5001,
             "protocol": "TCP"
           },

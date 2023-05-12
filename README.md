@@ -229,7 +229,7 @@ Then navigate to http://localhost:9090 for metrics and http://localhost:16686 fo
 To run a simulation delete the old jobs and re-apply the simulation job definitions:
 
     kubectl delete jobs.batch simulate-manager simulate-worker-{0..9}
-    kubectl apply -k k8s/ceramic/
+    kubectl apply -k k8s/simulator/
 
 > NOTE: We will need the k8s operator to make job configuration dynamic.
 > This is a manual method in the meantime.

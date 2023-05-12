@@ -1,5 +1,7 @@
 {
-    "anchor": {},
+    "anchor": {
+        "auth-method": "did"
+    },
     "http-api": {
         "cors-allowed-origins": [
             "${CERAMIC_CORS_ALLOWED_ORIGINS}"
@@ -23,7 +25,9 @@
         "name": "${CERAMIC_NETWORK}",
         "pubsub-topic": "${CERAMIC_NETWORK_TOPIC}"
     },
-    "node": {},
+    "node": {
+        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}"
+    },
     "state-store": {
         "mode": "fs",
         "local-directory": "${CERAMIC_STATE_STORE_PATH}"

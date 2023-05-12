@@ -63,9 +63,7 @@ spec:
             - "--config"
             - "/config/daemon-config.json"
             - "--anchor-service-api"
-            - "http://cas:8081"
-            - "--ethereum-rpc"
-            - "http://ganache:8545"
+            - "https://cas-dev.3boxlabs.com"
           resources:
             limits:
               cpu: 250m

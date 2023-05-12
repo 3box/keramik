@@ -19,8 +19,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::network::controller::{
-    managed_labels, selector_labels, CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_NAME,
-    CERAMIC_SERVICE_RPC_PORT, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+    managed_labels, selector_labels, CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT,
+    CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
 };
 
 const IPFS_CONTAINER_NAME: &str = "ipfs";
@@ -75,7 +75,7 @@ r#"{
     "indexing": {
         "db": "sqlite://${CERAMIC_SQLITE_PATH}",
         "allow-queries-before-historical-sync": true,
-        "disable-composedb": true,
+        "disable-composedb": false,
         "enable-historical-sync": false
     }
 }"#.to_owned()),
@@ -89,14 +89,14 @@ pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![
             ServicePort {
-                port: 7007,
-                name: Some("ceramic".to_owned()),
+                port: CERAMIC_SERVICE_API_PORT,
+                name: Some("api".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
             ServicePort {
-                port: CERAMIC_SERVICE_RPC_PORT,
-                name: Some("rpc".to_owned()),
+                port: CERAMIC_SERVICE_IPFS_PORT,
+                name: Some("ipfs".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
@@ -272,7 +272,7 @@ impl RustIpfsConfig {
                 },
                 EnvVar {
                     name: "CERAMIC_ONE_BIND_ADDRESS".to_owned(),
-                    value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_RPC_PORT}")),
+                    value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_IPFS_PORT}")),
                     ..Default::default()
                 },
                 EnvVar {
@@ -307,7 +307,7 @@ impl RustIpfsConfig {
                     ..Default::default()
                 },
                 ContainerPort {
-                    container_port: CERAMIC_SERVICE_RPC_PORT,
+                    container_port: CERAMIC_SERVICE_IPFS_PORT,
                     name: Some("rpc".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
@@ -383,7 +383,7 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
                     ..Default::default()
                 },
                 ContainerPort {
-                    container_port: CERAMIC_SERVICE_RPC_PORT,
+                    container_port: CERAMIC_SERVICE_IPFS_PORT,
                     name: Some("rpc".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
@@ -464,7 +464,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
         },
         EnvVar {
             name: "CERAMIC_IPFS_HOST".to_owned(),
-            value: Some(format!("http://localhost:{CERAMIC_SERVICE_RPC_PORT}")),
+            value: Some(format!("http://localhost:{CERAMIC_SERVICE_IPFS_PORT}")),
             ..Default::default()
         },
         EnvVar {
@@ -565,7 +565,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                         image_pull_policy: Some("Always".to_owned()),
                         name: "ceramic".to_owned(),
                         ports: Some(vec![ContainerPort {
-                            container_port: 7007,
+                            container_port: CERAMIC_SERVICE_API_PORT,
                             name: Some("api".to_owned()),
                             ..Default::default()
                         }]),
@@ -577,6 +577,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             }),
                             initial_delay_seconds: Some(30),
                             period_seconds: Some(15),
+                            timeout_seconds: Some(30),
                             ..Default::default()
                         }),
                         liveness_probe: Some(Probe {
@@ -587,6 +588,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             }),
                             initial_delay_seconds: Some(30),
                             period_seconds: Some(15),
+                            timeout_seconds: Some(30),
                             ..Default::default()
                         }),
 
@@ -594,12 +596,12 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             limits: Some(BTreeMap::from_iter(vec![
                                 ("cpu".to_owned(), Quantity("250m".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
                             ])),
                             requests: Some(BTreeMap::from_iter(vec![
                                 ("cpu".to_owned(), Quantity("250m".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
                             ])),
                             ..Default::default()
                         }),

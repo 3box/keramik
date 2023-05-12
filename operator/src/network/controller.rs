@@ -145,7 +145,8 @@ pub async fn run() {
 pub const CONTROLLER_NAME: &str = "keramik";
 pub const CERAMIC_STATEFUL_SET_NAME: &str = "ceramic";
 pub const CERAMIC_SERVICE_NAME: &str = "ceramic";
-pub const CERAMIC_SERVICE_RPC_PORT: i32 = 5001;
+pub const CERAMIC_SERVICE_IPFS_PORT: i32 = 5001;
+pub const CERAMIC_SERVICE_API_PORT: i32 = 7007;
 
 pub const INIT_CONFIG_MAP_NAME: &str = "ceramic-init";
 pub const PEERS_CONFIG_MAP_NAME: &str = "keramik-peers";
@@ -729,7 +730,8 @@ mod test {
                 .returns(Ok(PeerInfo {
                     index: 0,
                     peer_id: "peer_id_0".to_owned(),
-                    rpc_addr: "http://peer0".to_owned(),
+                    ipfs_rpc_addr: "http://peer0:5001".to_owned(),
+                    ceramic_addr: "http://peer0:7007".to_owned(),
                     p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
                 })),
             RpcClientMock::peer_info
@@ -737,7 +739,8 @@ mod test {
                 .returns(Ok(PeerInfo {
                     index: 1,
                     peer_id: "peer_id_1".to_owned(),
-                    rpc_addr: "http://peer1".to_owned(),
+                    ipfs_rpc_addr: "http://peer1:5001".to_owned(),
+                    ceramic_addr: "http://peer1:7007".to_owned(),
                     p2p_addrs: vec!["/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1".to_owned()],
                 })),
         ));
@@ -764,7 +767,7 @@ mod test {
                    "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"index\":0,\"peerId\":\"peer_id_0\",\"rpcAddr\":\"http://peer0\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]},{\"index\":1,\"peerId\":\"peer_id_1\",\"rpcAddr\":\"http://peer1\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}]"
+            +        "peers.json": "[{\"index\":0,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://peer0:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]},{\"index\":1,\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://peer1:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}]"
                    },
                    "metadata": {
                      "labels": {
@@ -772,7 +775,7 @@ mod test {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,27 @@
+            @@ -7,10 +7,29 @@
                  },
                  body: {
                    "status": {
@@ -787,7 +790,8 @@ mod test {
             +          {
             +            "index": 0,
             +            "peerId": "peer_id_0",
-            +            "rpcAddr": "http://peer0",
+            +            "ipfsRpcAddr": "http://peer0:5001",
+            +            "ceramicAddr": "http://peer0:7007",
             +            "p2pAddrs": [
             +              "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
             +            ]
@@ -795,7 +799,8 @@ mod test {
             +          {
             +            "index": 1,
             +            "peerId": "peer_id_1",
-            +            "rpcAddr": "http://peer1",
+            +            "ipfsRpcAddr": "http://peer1:5001",
+            +            "ceramicAddr": "http://peer1:7007",
             +            "p2pAddrs": [
             +              "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
             +            ]
@@ -854,7 +859,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -125,39 +125,13 @@
+            @@ -127,39 +127,13 @@
                              ]
                            },
                            {
@@ -897,7 +902,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -187,6 +161,11 @@
+            @@ -189,6 +163,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -909,7 +914,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -287,6 +266,13 @@
+            @@ -289,6 +268,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -973,7 +978,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -125,39 +125,13 @@
+            @@ -127,39 +127,13 @@
                              ]
                            },
                            {
@@ -1016,7 +1021,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -187,6 +161,11 @@
+            @@ -189,6 +163,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1028,7 +1033,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -287,6 +266,13 @@
+            @@ -289,6 +268,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }

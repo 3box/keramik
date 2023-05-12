@@ -84,7 +84,8 @@ Request {
                     "port": "api"
                   },
                   "initialDelaySeconds": 30,
-                  "periodSeconds": 15
+                  "periodSeconds": 15,
+                  "timeoutSeconds": 30
                 },
                 "name": "ceramic",
                 "ports": [
@@ -99,18 +100,19 @@ Request {
                     "port": "api"
                   },
                   "initialDelaySeconds": 30,
-                  "periodSeconds": 15
+                  "periodSeconds": 15,
+                  "timeoutSeconds": 30
                 },
                 "resources": {
                   "limits": {
                     "cpu": "250m",
                     "ephemeral-storage": "1Gi",
-                    "memory": "512Mi"
+                    "memory": "1Gi"
                   },
                   "requests": {
                     "cpu": "250m",
                     "ephemeral-storage": "1Gi",
-                    "memory": "512Mi"
+                    "memory": "1Gi"
                   }
                 },
                 "volumeMounts": [

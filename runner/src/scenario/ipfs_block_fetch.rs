@@ -60,10 +60,7 @@ async fn put(topo: Topology, user: &mut GooseUser) -> TransactionResult {
     let (cid, data) = user_data(user.weighted_users_index, topo);
     println!(
         "put id: {} user: {} nonce: {} cid: {}",
-        topo.target_worker,
-        user.weighted_users_index,
-        topo.nonce,
-        cid.to_string(),
+        topo.target_worker, user.weighted_users_index, topo.nonce, cid,
     );
 
     // Build a Reqwest RequestBuilder object.
@@ -97,15 +94,13 @@ async fn get(mut topo: Topology, user: &mut GooseUser) -> TransactionResult {
     let (cid, _data) = user_data(user.weighted_users_index, topo);
     println!(
         "get id: {} user: {} cid: {}",
-        topo.target_worker,
-        user.weighted_users_index,
-        cid.to_string(),
+        topo.target_worker, user.weighted_users_index, cid,
     );
 
     let request_builder = user
         .get_request_builder(
             &GooseMethod::Post,
-            format!("/api/v0/dag/get?arg={}", cid.to_string()).as_str(),
+            format!("/api/v0/dag/get?arg={}", cid).as_str(),
         )?
         .timeout(Duration::from_secs(5));
 
@@ -127,15 +122,13 @@ async fn check(topo: Topology, user: &mut GooseUser) -> TransactionResult {
     let (cid, data) = user_data(user.weighted_users_index, topo);
     println!(
         "stop id: {} user: {} cid: {}",
-        topo.target_worker,
-        user.weighted_users_index,
-        cid.to_string(),
+        topo.target_worker, user.weighted_users_index, cid,
     );
 
     let request_builder = user
         .get_request_builder(
             &GooseMethod::Post,
-            format!("/api/v0/dag/get?arg={}", cid.to_string()).as_str(),
+            format!("/api/v0/dag/get?arg={}", cid).as_str(),
         )?
         .timeout(Duration::from_secs(15));
 

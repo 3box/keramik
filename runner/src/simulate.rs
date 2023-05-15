@@ -1,15 +1,18 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    collections::BTreeMap,
+    fs::File,
+    path::PathBuf,
+    sync::{Arc, Mutex},
+};
 
 use anyhow::{bail, Result};
 use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
+use keramik_common::peer_info::PeerInfo;
 use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
 use tracing::error;
 
-use crate::{
-    scenario::ipfs_block_fetch,
-    utils::{PeerId, PeerRpcAddr},
-};
+use crate::scenario::ipfs_block_fetch;
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -26,9 +29,10 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_TARGET_PEER")]
     target_peer: usize,
 
-    /// Total number of peers in the network
-    #[arg(long, env = "SIMULATE_TOTAL_PEERS")]
-    total_peers: usize,
+    /// Path to file containing the list of peers.
+    /// File should contian JSON encoding of Vec<PeerInfo>.
+    #[arg(long, env = "SIMULATE_PEERS_PATH")]
+    peers: PathBuf,
 
     /// Number of users to simulate
     #[arg(long, default_value_t = 100, env = "SIMULATE_USERS")]
@@ -65,6 +69,79 @@ impl Scenario {
     }
 }
 
+#[tracing::instrument]
+pub async fn simulate(opts: Opts) -> Result<()> {
+    let mut metrics = Metrics::init(&opts)?;
+
+    let f = File::open(opts.peers)?;
+    let peers: Vec<PeerInfo> = serde_json::from_reader(f)?;
+    let peers: BTreeMap<usize, PeerInfo> =
+        BTreeMap::from_iter(peers.into_iter().map(|info| (info.index as usize, info)));
+
+    if opts.users % peers.len() != 0 {
+        bail!("number of users must be a multiple of the number of peers, this ensures we can deterministically identifiy each user")
+    }
+    // We assume exactly one worker per peer.
+    // This allows us to be deterministic in how each user operates.
+    let topo = Topology {
+        target_worker: opts.target_peer,
+        total_workers: peers.len(),
+        nonce: opts.nonce,
+    };
+
+    let scenario = match opts.scenario {
+        Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
+    };
+    let config = if opts.manager {
+        manager_config(&peers, opts.users, opts.run_time)
+    } else {
+        worker_config(peers[&opts.target_peer].rpc_addr.to_owned())
+    };
+
+    let goose_metrics = match GooseAttack::initialize_with_config(config)?
+        .register_scenario(scenario)
+        .execute()
+        .await
+    {
+        Ok(m) => m,
+        Err(e) => {
+            error!("{:#?}", e);
+            return Err(e.into());
+        }
+    };
+
+    metrics.record(goose_metrics);
+
+    Ok(())
+}
+
+fn manager_config(
+    peers: &BTreeMap<usize, PeerInfo>,
+    users: usize,
+    run_time: String,
+) -> GooseConfiguration {
+    let mut config = GooseConfiguration::default();
+    config.log_level = 2;
+    config.users = Some(users);
+    // manager requires a host to be set even if its not doing any simulations.
+    config.host = peers[&0].rpc_addr.to_owned();
+    config.manager = true;
+    config.manager_bind_port = 5115;
+    config.expect_workers = Some(peers.len());
+    config.startup_time = "10s".to_owned();
+    config.run_time = run_time;
+    config
+}
+fn worker_config(target_peer_addr: String) -> GooseConfiguration {
+    let mut config = GooseConfiguration::default();
+    config.log_level = 2;
+    config.worker = true;
+    config.host = target_peer_addr;
+    config.manager_host = "manager.goose.keramik-0.svc.cluster.local".to_string();
+    config.manager_port = 5115;
+    config
+}
+
 struct Metrics {
     inner: Arc<Mutex<MetricsInner>>,
 }
@@ -80,7 +157,7 @@ struct MetricsInner {
 }
 
 impl Metrics {
-    fn init(opts: &Opts) -> Self {
+    fn init(opts: &Opts) -> Result<Self> {
         let mut attrs = vec![
             KeyValue::new("scenario", opts.scenario.name()),
             KeyValue::new("nonce", opts.nonce.to_string()),
@@ -131,23 +208,20 @@ impl Metrics {
             requests_duration_percentiles,
         }));
         let m = inner.clone();
-        meter
-            .register_callback(move |cx| {
-                let mut metrics = m
-                    .lock()
-                    .expect("should be able to acquire metrics lock for reading");
-                metrics.observe(cx)
-            })
-            // TODO handle this
-            .unwrap();
-        Self { inner }
+        meter.register_callback(move |cx| {
+            let mut metrics = m
+                .lock()
+                .expect("should be able to acquire metrics lock for reading");
+            metrics.observe(cx)
+        })?;
+        Ok(Self { inner })
     }
     fn record(&mut self, metrics: GooseMetrics) {
         let mut gm = self
             .inner
             .lock()
             .expect("should be able to acquire metrics lock for mutation");
-        (*gm).goose_metrics = Some(metrics);
+        gm.goose_metrics = Some(metrics);
     }
 }
 
@@ -155,11 +229,11 @@ impl MetricsInner {
     fn observe(&mut self, cx: &Context) {
         if let Some(ref metrics) = self.goose_metrics {
             self.duration
-                .observe(&cx, metrics.duration as u64, &self.attrs);
+                .observe(cx, metrics.duration as u64, &self.attrs);
             self.maximum_users
-                .observe(&cx, metrics.maximum_users as u64, &self.attrs);
+                .observe(cx, metrics.maximum_users as u64, &self.attrs);
             self.users_total
-                .observe(&cx, metrics.total_users as u64, &self.attrs);
+                .observe(cx, metrics.total_users as u64, &self.attrs);
 
             for req_metrics in metrics.requests.values() {
                 // Push and pop unique attributes for each new metric
@@ -170,25 +244,25 @@ impl MetricsInner {
 
                 self.attrs.push(KeyValue::new("result", "success"));
                 self.requests_total
-                    .observe(&cx, req_metrics.success_count as u64, &self.attrs);
+                    .observe(cx, req_metrics.success_count as u64, &self.attrs);
                 self.attrs.pop();
 
                 self.attrs.push(KeyValue::new("result", "fail"));
                 self.requests_total
-                    .observe(&cx, req_metrics.fail_count as u64, &self.attrs);
+                    .observe(cx, req_metrics.fail_count as u64, &self.attrs);
                 self.attrs.pop();
 
                 for (code, count) in &req_metrics.status_code_counts {
                     self.attrs.push(KeyValue::new("code", code.to_string()));
                     self.requests_status_codes_total
-                        .observe(&cx, *count as u64, &self.attrs);
+                        .observe(cx, *count as u64, &self.attrs);
                     self.attrs.pop();
                 }
 
                 for q in [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] {
                     self.attrs.push(KeyValue::new("percentile", q.to_string()));
                     self.requests_duration_percentiles.observe(
-                        &cx,
+                        cx,
                         req_metrics.raw_data.histogram.estimate_quantile(q),
                         &self.attrs,
                     );
@@ -201,68 +275,4 @@ impl MetricsInner {
             }
         }
     }
-}
-
-#[tracing::instrument]
-pub async fn simulate(opts: Opts) -> Result<()> {
-    let mut metrics = Metrics::init(&opts);
-
-    if opts.users % opts.total_peers != 0 {
-        bail!("number of users must be a multiple of the number of peers, this ensures we can deterministically identifiy each user")
-    }
-    // We assume exactly one worker per peer.
-    // This allows us to be deterministic in how each user operates.
-    let topo = Topology {
-        target_worker: opts.target_peer,
-        total_workers: opts.total_peers,
-        nonce: opts.nonce,
-    };
-
-    let scenario = match opts.scenario {
-        Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
-    };
-    let config = if opts.manager {
-        manager_config(opts.total_peers, opts.users, opts.run_time)
-    } else {
-        worker_config(opts.target_peer)
-    };
-
-    let goose_metrics = match GooseAttack::initialize_with_config(config)?
-        .register_scenario(scenario)
-        .execute()
-        .await
-    {
-        Ok(m) => m,
-        Err(e) => {
-            error!("{:#?}", e);
-            return Err(e.into());
-        }
-    };
-
-    metrics.record(goose_metrics);
-
-    Ok(())
-}
-
-fn manager_config(total: usize, users: usize, run_time: String) -> GooseConfiguration {
-    let mut config = GooseConfiguration::default();
-    config.log_level = 2;
-    config.users = Some(users);
-    // manager requires a host to be set even if its not doing any simulations.
-    config.host = PeerRpcAddr::from(0).as_string();
-    config.manager = true;
-    config.manager_bind_port = 5115;
-    config.expect_workers = Some(total);
-    config.startup_time = "10s".to_owned();
-    config.run_time = run_time;
-    config
-}
-fn worker_config(target_peer: PeerId) -> GooseConfiguration {
-    let mut config = GooseConfiguration::default();
-    config.log_level = 2;
-    config.worker = true;
-    config.host = PeerRpcAddr::from(target_peer).as_string();
-    config.manager_host = "manager.goose.keramik-0.svc.cluster.local".to_string();
-    config.manager_port = 5115;
-    config
 }

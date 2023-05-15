@@ -1,7 +1,6 @@
 .PHONY: all
 all: build check-fmt check-clippy test
 
-
 .PHONY: test
 test:
 	# Test with default features

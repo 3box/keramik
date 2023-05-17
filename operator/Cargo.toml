@@ -1,123 +1,58 @@
-bench = []
-test = []
-example = []
 
 [[bin]]
 path = "src/crdgen.rs"
 name = "crdgen"
-test = true
-doctest = true
-bench = true
-doc = false
-plugin = false
-proc-macro = false
-harness = true
-required-features = []
 
 [[bin]]
 path = "src/main.rs"
 name = "keramik-operator"
-test = true
-doctest = true
-bench = true
-doc = true
-plugin = false
-proc-macro = false
-harness = true
-required-features = []
 
 [package]
 name = "keramik-operator"
 edition = "2021"
 version = "0.0.1"
 description = "K8s operator binary for automating Ceramic networks"
-autobins = true
-autoexamples = true
-autotests = true
-autobenches = true
 
 [dependencies]
+async-trait = "0.1.68"
 futures = "0.3"
 hex = "0.4.3"
 once_cell = "1.17.1"
 rand = "0.8.5"
 serde_yaml = "0.9.21"
 thiserror = "1"
+anyhow.workspace = true
+clap.workspace = true
+k8s-openapi = { version = "0.18", features = [
+    "v1_26",
+    "schemars",
+], default-features = false }
+keramik-common.workspace = true
+kube = { version = "0.82", features = [
+    "derive",
+    "runtime",
+], default-features = true }
+multiaddr.workspace = true
+multibase.workspace = true
+multihash.workspace = true
+opentelemetry.workspace = true
+opentelemetry-otlp.workspace = true
+reqwest.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio.workspace = true
+tonic.workspace = true
+tracing.workspace = true
+tracing-log.workspace = true
+tracing-opentelemetry.workspace = true
+tracing-subscriber.workspace = true
+unimock = "0.4"
 
-[dependencies.anyhow]
-workspace = true
 
-[dependencies.clap]
-workspace = true
-
-[dependencies.k8s-openapi]
-version = "0.18"
-features = ["v1_26", "schemars"]
-default-features = false
-
-[dependencies.keramik-common]
-workspace = true
-
-[dependencies.kube]
-version = "0.82"
-features = ["derive", "runtime"]
-default-features = true
-
-[dependencies.multiaddr]
-workspace = true
-
-[dependencies.multibase]
-workspace = true
-
-[dependencies.multihash]
-workspace = true
-
-[dependencies.opentelemetry]
-workspace = true
-
-[dependencies.opentelemetry-otlp]
-workspace = true
-
-[dependencies.reqwest]
-workspace = true
-
-[dependencies.schemars]
-workspace = true
-
-[dependencies.serde]
-workspace = true
-
-[dependencies.serde_json]
-workspace = true
-
-[dependencies.tokio]
-workspace = true
-
-[dependencies.tonic]
-workspace = true
-
-[dependencies.tracing]
-workspace = true
-
-[dependencies.tracing-log]
-workspace = true
-
-[dependencies.tracing-opentelemetry]
-workspace = true
-
-[dependencies.tracing-subscriber]
-workspace = true
-
-[lib]
-path = "src/lib.rs"
-name = "keramik_operator"
-test = true
-doctest = true
-bench = true
-doc = true
-plugin = false
-proc-macro = false
-harness = true
-edition = "2021"
-required-features = []
-crate-type = ["rlib"]
+[dev-dependencies]
+diffy = "0.3.0"
+expect-test = "1.4.1"
+http = "0.2.9"
+hyper = "0.14.26"
+tower-test = "0.4.0"

@@ -1,0 +1,108 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/ganache?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "ganache"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "ganache"
+          }
+        },
+        "serviceName": "ganache",
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "ganache"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "command": [
+                  "node",
+                  "/app/ganache-core.docker.cli.js",
+                  "--deterministic",
+                  "--db=/ganache/db",
+                  "--mnemonic",
+                  "move sense much taxi wave hurry recall stairs thank brother nut woman",
+                  "--networkId",
+                  "5777",
+                  "--hostname",
+                  "0.0.0.0",
+                  "-l",
+                  "80000000",
+                  "--quiet"
+                ],
+                "image": "trufflesuite/ganache-cli",
+                "imagePullPolicy": "Always",
+                "name": "ganache",
+                "ports": [
+                  {
+                    "containerPort": 8545
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/ganache-data",
+                    "name": "ganache-data"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "ganache-data",
+                "persistentVolumeClaim": {
+                  "claimName": "ganache-data"
+                }
+              }
+            ]
+          }
+        },
+        "volumeClaimTemplates": [
+          {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+              "name": "ganache-data"
+            },
+            "spec": {
+              "accessModes": [
+                "ReadWriteOnce"
+              ],
+              "resources": {
+                "requests": {
+                  "storage": "10Gi"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+}

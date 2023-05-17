@@ -1,0 +1,22 @@
+Request {
+    method: "PATCH",
+    uri: "/api/v1/namespaces/keramik-test/configmaps/ceramic-init?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "v1",
+      "kind": "ConfigMap",
+      "data": {
+        "ceramic-init.sh": "#!/bin/bash\n\nset -eo pipefail\n\nexport CERAMIC_ADMIN_DID=$(composedb did:from-private-key ${CERAMIC_ADMIN_PRIVATE_KEY})\n\nCERAMIC_ADMIN_DID=$CERAMIC_ADMIN_DID envsubst < /ceramic-init/daemon-config.json > /config/daemon-config.json\n",
+        "daemon-config.json": "{\n    \"anchor\": {},\n    \"http-api\": {\n        \"cors-allowed-origins\": [\n            \"${CERAMIC_CORS_ALLOWED_ORIGINS}\"\n        ],\n        \"admin-dids\": [\n            \"${CERAMIC_ADMIN_DID}\"\n        ]\n    },\n    \"ipfs\": {\n        \"mode\": \"remote\",\n        \"host\": \"${CERAMIC_IPFS_HOST}\"\n    },\n    \"logger\": {\n        \"log-level\": ${CERAMIC_LOG_LEVEL},\n        \"log-to-files\": false\n    },\n    \"metrics\": {\n        \"metrics-exporter-enabled\": false\n    },\n    \"network\": {\n        \"name\": \"${CERAMIC_NETWORK}\",\n        \"pubsub-topic\": \"${CERAMIC_NETWORK_TOPIC}\"\n    },\n    \"node\": {},\n    \"state-store\": {\n        \"mode\": \"fs\",\n        \"local-directory\": \"${CERAMIC_STATE_STORE_PATH}\"\n    },\n    \"indexing\": {\n        \"db\": \"sqlite://${CERAMIC_SQLITE_PATH}\",\n        \"allow-queries-before-historical-sync\": true,\n        \"disable-composedb\": true,\n        \"enable-historical-sync\": false\n    }\n}"
+      },
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "ceramic-init"
+      }
+    },
+}

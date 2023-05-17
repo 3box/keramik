@@ -1,0 +1,124 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/cas-postgres?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "cas-postgres"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "cas-postgres"
+          }
+        },
+        "serviceName": "cas-postgres",
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "cas-postgres"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "POSTGRES_DB",
+                    "value": "anchor_db"
+                  },
+                  {
+                    "name": "POSTGRES_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POSTGRES_USER",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  }
+                ],
+                "image": "postgres:15-alpine",
+                "imagePullPolicy": "Always",
+                "name": "postgres",
+                "ports": [
+                  {
+                    "containerPort": 5432,
+                    "name": "postgres"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "512Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/var/lib/postgresql",
+                    "name": "postgres-data",
+                    "subPath": "ceradmic_data"
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 70,
+              "runAsGroup": 70,
+              "runAsUser": 70
+            },
+            "volumes": [
+              {
+                "name": "postgres-data",
+                "persistentVolumeClaim": {
+                  "claimName": "postgres-data"
+                }
+              }
+            ]
+          }
+        },
+        "volumeClaimTemplates": [
+          {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+              "name": "postgres-data"
+            },
+            "spec": {
+              "accessModes": [
+                "ReadWriteOnce"
+              ],
+              "resources": {
+                "requests": {
+                  "storage": "10Gi"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+}

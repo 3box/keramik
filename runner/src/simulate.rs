@@ -7,9 +7,10 @@ use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
 use tracing::error;
 
 use crate::{
-    scenario::ipfs_block_fetch,
+    scenario::ipfs::ipfs_block_fetch,
     utils::{PeerId, PeerRpcAddr},
 };
+use crate::scenario::ceramic;
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -55,12 +56,15 @@ pub struct Topology {
 pub enum Scenario {
     /// Queries the Id of the IPFS peers.
     IpfsRpc,
+    /// Creates and updates Ceramic streams.
+    CeramicSimpleScenario,
 }
 
 impl Scenario {
     pub fn name(&self) -> &'static str {
         match self {
             Scenario::IpfsRpc => "ipfs_rpc",
+            Scenario::CeramicSimpleScenario => "ceramic_simple",
         }
     }
 }
@@ -220,6 +224,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
 
     let scenario = match opts.scenario {
         Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
+        Scenario::CeramicSimpleScenario => ceramic::scenario(topo)?,
     };
     let config = if opts.manager {
         manager_config(opts.total_peers, opts.users, opts.run_time)

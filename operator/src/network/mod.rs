@@ -6,6 +6,12 @@ pub(crate) mod controller;
 pub(crate) mod peers;
 pub(crate) mod utils;
 
+#[cfg(test)]
+pub mod stub;
+// Expose Context for testing
+#[cfg(test)]
+pub use controller::Context;
+
 pub use bootstrap::BootstrapSpec;
 pub use ceramic::CeramicSpec;
 pub use controller::run;
@@ -16,7 +22,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Primary CRD for creating and managing a Ceramic network.
-#[derive(CustomResource, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[derive(CustomResource, Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
 #[kube(
     group = "keramik.3box.io",
     version = "v1",

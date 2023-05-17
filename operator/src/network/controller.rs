@@ -9,7 +9,6 @@ use k8s_openapi::{
     },
     apimachinery::pkg::util::intstr::IntOrString,
 };
-use keramik_common::peer_info::PeerInfo;
 use kube::{
     api::{DeleteParams, Patch, PatchParams},
     client::Client,
@@ -30,22 +29,35 @@ use tracing::{debug, error, trace};
 use crate::network::{
     bootstrap, cas,
     ceramic::{self, CeramicConfig},
-    peers, utils, BootstrapSpec, CeramicSpec, Network, NetworkStatus,
+    peers,
+    utils::{HttpRpcClient, RpcClient},
+    BootstrapSpec, CeramicSpec, Network, NetworkStatus,
 };
 
 //can add resource apis here
-struct ContextData {
-    client: Client,
+pub struct Context<R> {
+    pub k_client: Client,
+    pub rpc_client: R,
 }
 
-impl ContextData {
-    pub fn new(client: Client) -> Self {
-        ContextData { client }
+impl<R> Context<R> {
+    pub fn new(k_client: Client, rpc_client: R) -> Self
+    where
+        R: RpcClient,
+    {
+        Context {
+            k_client,
+            rpc_client,
+        }
     }
 }
 
 /// Handle errors during reconciliation.
-fn on_error(_network: Arc<Network>, _error: &Error, _context: Arc<ContextData>) -> Action {
+fn on_error(
+    _network: Arc<Network>,
+    _error: &Error,
+    _context: Arc<Context<impl RpcClient>>,
+) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
 
@@ -66,8 +78,8 @@ enum Error {
 
 /// Start a controller for the Network CRD.
 pub async fn run() {
-    let k_client: Client = Client::try_default().await.unwrap();
-    let context: Arc<ContextData> = Arc::new(ContextData::new(k_client.clone()));
+    let k_client = Client::try_default().await.unwrap();
+    let context = Arc::new(Context::new(k_client.clone(), HttpRpcClient));
 
     // Add api for other resources, ie ceramic nodes
     let networks: Api<Network> = Api::all(k_client.clone());
@@ -172,7 +184,10 @@ pub fn managed_labels() -> Option<BTreeMap<String, String>> {
 }
 
 /// Perform a reconile pass for the Network CRD
-async fn reconcile(network: Arc<Network>, cx: Arc<ContextData>) -> Result<Action, Error> {
+async fn reconcile(
+    network: Arc<Network>,
+    cx: Arc<Context<impl RpcClient>>,
+) -> Result<Action, Error> {
     let spec = network.spec();
     debug!(?spec, "reconcile");
 
@@ -225,7 +240,7 @@ async fn reconcile(network: Arc<Network>, cx: Arc<ContextData>) -> Result<Action
     )
     .await?;
 
-    let networks: Api<Network> = Api::all(cx.client.clone());
+    let networks: Api<Network> = Api::all(cx.k_client.clone());
     let _patched = networks
         .patch_status(
             &network.name_any(),
@@ -239,18 +254,18 @@ async fn reconcile(network: Arc<Network>, cx: Arc<ContextData>) -> Result<Action
 
 // Applies the namespace
 async fn apply_network_namespace(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     network: Arc<Network>,
 ) -> Result<String, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let namespaces: Api<Namespace> = Api::all(cx.client.clone());
+    let namespaces: Api<Namespace> = Api::all(cx.k_client.clone());
 
     let ns = "keramik-".to_owned() + &network.name_any();
-    let oref = network.controller_owner_ref(&()).unwrap();
+    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
     let namespace_data: Namespace = Namespace {
         metadata: ObjectMeta {
             name: Some(ns.clone()),
-            owner_references: Some(vec![oref]),
+            owner_references: oref,
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
@@ -264,7 +279,7 @@ async fn apply_network_namespace(
 }
 
 async fn apply_cas(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
@@ -341,13 +356,13 @@ async fn apply_cas(
 }
 
 async fn is_cas_postgres_secret_missing(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, CAS_POSTGRES_SECRET_NAME).await
 }
 async fn create_cas_postgres_secret(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
@@ -365,13 +380,13 @@ async fn create_cas_postgres_secret(
 }
 
 async fn is_admin_secret_missing(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, ADMIN_SECRET_NAME).await
 }
 async fn create_admin_secret(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
@@ -385,7 +400,7 @@ async fn create_admin_secret(
     Ok(())
 }
 async fn apply_ceramic(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     replicas: i32,
@@ -405,19 +420,19 @@ async fn apply_ceramic(
 }
 
 async fn apply_init_config(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
 ) -> Result<(), kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let config_maps: Api<ConfigMap> = Api::namespaced(cx.client.clone(), ns);
+    let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
     // Apply config map
-    let oref = network.controller_owner_ref(&()).unwrap();
+    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
     let map_data = ConfigMap {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
+            owner_references: oref,
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
@@ -431,7 +446,7 @@ async fn apply_init_config(
 }
 
 async fn apply_ceramic_service(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
@@ -446,7 +461,7 @@ async fn apply_ceramic_service(
 }
 
 async fn apply_ceramic_stateful_set(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     replicas: i32,
@@ -457,7 +472,7 @@ async fn apply_ceramic_stateful_set(
 }
 
 async fn apply_bootstrap_job(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     status: &NetworkStatus,
@@ -486,7 +501,7 @@ async fn apply_bootstrap_job(
         1.0
     };
     let ready = status.peers.len();
-    if ready as f64 >= replicas as f64 * percent {
+    if ready > 0 && ready as f64 >= replicas as f64 * percent {
         debug!("creating bootstrap job");
         // Create bootstrap jobs
         let spec = bootstrap::bootstrap_job_spec(spec);
@@ -496,29 +511,25 @@ async fn apply_bootstrap_job(
 }
 
 async fn update_peer_info(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     status: &mut NetworkStatus,
 ) -> Result<(), Error> {
+    println!("update_peer_info {:?}", status);
     for index in 0..status.replicas {
         if status.peers.iter().any(|info| info.index == index) {
             // Skip peers we already know
             continue;
         }
-        let (peer_id, rpc_addr, p2p_addrs) = match utils::peer_addr(ns, index).await {
+        let info = match cx.rpc_client.peer_info(ns, index).await {
             Ok(res) => res,
             Err(err) => {
                 trace!(%err, index, "failed to get peer id and mulitaddrs for peer");
                 continue;
             }
         };
-        status.peers.push(PeerInfo {
-            index,
-            peer_id,
-            rpc_addr,
-            p2p_addrs,
-        });
+        status.peers.push(info);
     }
     status.ready_replicas = status.peers.len() as i32;
     apply_config_map(
@@ -533,21 +544,21 @@ async fn update_peer_info(
 }
 
 async fn apply_service(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
     spec: ServiceSpec,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let services: Api<Service> = Api::namespaced(cx.client.clone(), ns);
+    let services: Api<Service> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply service
-    let oref = network.controller_owner_ref(&()).unwrap();
+    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
     let service: Service = Service {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
+            owner_references: oref,
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
@@ -561,21 +572,21 @@ async fn apply_service(
 }
 
 async fn apply_stateful_set(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
     spec: StatefulSetSpec,
 ) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.client.clone(), ns);
+    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply stateful_set
-    let oref = network.controller_owner_ref(&()).unwrap();
+    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
     let stateful_set: StatefulSet = StatefulSet {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
+            owner_references: oref,
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
@@ -589,28 +600,28 @@ async fn apply_stateful_set(
 }
 
 async fn is_secret_missing(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     name: &str,
 ) -> Result<bool, kube::error::Error> {
-    let secrets: Api<Secret> = Api::namespaced(cx.client.clone(), ns);
+    let secrets: Api<Secret> = Api::namespaced(cx.k_client.clone(), ns);
     Ok(secrets.get_opt(name).await?.is_none())
 }
 async fn create_secret(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
     string_data: BTreeMap<String, String>,
 ) -> Result<(), kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let secrets: Api<Secret> = Api::namespaced(cx.client.clone(), ns);
+    let secrets: Api<Secret> = Api::namespaced(cx.k_client.clone(), ns);
 
-    let oref = network.controller_owner_ref(&()).unwrap();
+    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
     let secret = Secret {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
+            owner_references: oref,
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
@@ -625,21 +636,21 @@ async fn create_secret(
 }
 
 async fn apply_job(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
     spec: JobSpec,
 ) -> Result<Option<JobStatus>, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let jobs: Api<Job> = Api::namespaced(cx.client.clone(), ns);
+    let jobs: Api<Job> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply stateful_set
-    let oref = network.controller_owner_ref(&()).unwrap();
+    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
     let job: Job = Job {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
+            owner_references: oref,
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
@@ -651,8 +662,12 @@ async fn apply_job(
 }
 
 // Deletes a job. Does nothing if the job does not exist.
-async fn delete_job(cx: Arc<ContextData>, ns: &str, name: &str) -> Result<(), kube::error::Error> {
-    let jobs: Api<Job> = Api::namespaced(cx.client.clone(), ns);
+async fn delete_job(
+    cx: Arc<Context<impl RpcClient>>,
+    ns: &str,
+    name: &str,
+) -> Result<(), kube::error::Error> {
+    let jobs: Api<Job> = Api::namespaced(cx.k_client.clone(), ns);
     if jobs.get_opt(name).await?.is_some() {
         jobs.delete(name, &DeleteParams::default()).await?;
     }
@@ -660,20 +675,20 @@ async fn delete_job(cx: Arc<ContextData>, ns: &str, name: &str) -> Result<(), ku
 }
 
 async fn apply_config_map(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
     data: BTreeMap<String, String>,
 ) -> Result<(), kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let config_maps: Api<ConfigMap> = Api::namespaced(cx.client.clone(), ns);
+    let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
     // Apply config map
-    let oref = network.controller_owner_ref(&()).unwrap();
+    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
     let map_data = ConfigMap {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
+            owner_references: oref,
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
@@ -684,4 +699,142 @@ async fn apply_config_map(
         .patch(name, &serverside, &Patch::Apply(map_data))
         .await?;
     Ok(())
+}
+
+// Stub tests relying on stub.rs and its apiserver stubs
+#[cfg(test)]
+mod test {
+    use super::{reconcile, Context, Network};
+
+    use crate::network::{
+        stub::{timeout_after_1s, Stub},
+        utils::RpcClientMock,
+        NetworkSpec, NetworkStatus,
+    };
+
+    use expect_test::{expect, expect_file};
+    use keramik_common::peer_info::PeerInfo;
+
+    use std::sync::Arc;
+    use unimock::{matching, MockFn, Unimock};
+
+    // This tests defines the default stubs,
+    // meaning the default stubs are the request response pairs
+    // that occur when reconiling a default spec and status.
+    #[tokio::test]
+    async fn reconcile_from_empty() {
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let network = Network::test();
+        let mocksrv = fakeserver.run(Stub::default());
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn reconcile_two_peers() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                replicas: 2,
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                replicas: 2,
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new((
+            RpcClientMock::peer_info
+                .next_call(matching!(_))
+                .returns(Ok(PeerInfo {
+                    index: 0,
+                    peer_id: "peer_id_0".to_owned(),
+                    rpc_addr: "http://peer0".to_owned(),
+                    p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
+                })),
+            RpcClientMock::peer_info
+                .next_call(matching!(_))
+                .returns(Ok(PeerInfo {
+                    index: 1,
+                    peer_id: "peer_id_1".to_owned(),
+                    rpc_addr: "http://peer1".to_owned(),
+                    p2p_addrs: vec!["/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1".to_owned()],
+                })),
+        ));
+        let mut stub = Stub::default().with_network(network.clone());
+        // Patch expected request values
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -16,7 +16,7 @@
+                   },
+                   "spec": {
+                     "podManagementPolicy": "Parallel",
+            -        "replicas": 0,
+            +        "replicas": 2,
+                     "selector": {
+                       "matchLabels": {
+                         "app": "ceramic"
+        "#]]);
+        stub.keramik_peers_configmap.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "apiVersion": "v1",
+                   "kind": "ConfigMap",
+                   "data": {
+            -        "peers.json": "[]"
+            +        "peers.json": "[{\"index\":0,\"peer_id\":\"peer_id_0\",\"rpc_addr\":\"http://peer0\",\"p2p_addrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]},{\"index\":1,\"peer_id\":\"peer_id_1\",\"rpc_addr\":\"http://peer1\",\"p2p_addrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}]"
+                   },
+                   "metadata": {
+                     "labels": {
+        "#]]);
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -7,10 +7,27 @@
+                 },
+                 body: {
+                   "status": {
+            -        "replicas": 0,
+            -        "ready_replicas": 0,
+            -        "namespace": null,
+            -        "peers": []
+            +        "replicas": 2,
+            +        "ready_replicas": 2,
+            +        "namespace": "keramik-test",
+            +        "peers": [
+            +          {
+            +            "index": 0,
+            +            "peer_id": "peer_id_0",
+            +            "rpc_addr": "http://peer0",
+            +            "p2p_addrs": [
+            +              "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
+            +            ]
+            +          },
+            +          {
+            +            "index": 1,
+            +            "peer_id": "peer_id_1",
+            +            "rpc_addr": "http://peer1",
+            +            "p2p_addrs": [
+            +              "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
+            +            ]
+            +          }
+            +        ]
+                   }
+                 },
+             }
+        "#]]);
+        stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
 }

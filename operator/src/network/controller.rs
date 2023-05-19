@@ -788,7 +788,7 @@ mod test {
                    "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"index\":0,\"peer_id\":\"peer_id_0\",\"rpc_addr\":\"http://peer0\",\"p2p_addrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]},{\"index\":1,\"peer_id\":\"peer_id_1\",\"rpc_addr\":\"http://peer1\",\"p2p_addrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}]"
+            +        "peers.json": "[{\"index\":0,\"peerId\":\"peer_id_0\",\"rpcAddr\":\"http://peer0\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]},{\"index\":1,\"peerId\":\"peer_id_1\",\"rpcAddr\":\"http://peer1\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}]"
                    },
                    "metadata": {
                      "labels": {
@@ -801,26 +801,26 @@ mod test {
                  body: {
                    "status": {
             -        "replicas": 0,
-            -        "ready_replicas": 0,
+            -        "readyReplicas": 0,
             -        "namespace": null,
             -        "peers": []
             +        "replicas": 2,
-            +        "ready_replicas": 2,
+            +        "readyReplicas": 2,
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "index": 0,
-            +            "peer_id": "peer_id_0",
-            +            "rpc_addr": "http://peer0",
-            +            "p2p_addrs": [
+            +            "peerId": "peer_id_0",
+            +            "rpcAddr": "http://peer0",
+            +            "p2pAddrs": [
             +              "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
             +            ]
             +          },
             +          {
             +            "index": 1,
-            +            "peer_id": "peer_id_1",
-            +            "rpc_addr": "http://peer1",
-            +            "p2p_addrs": [
+            +            "peerId": "peer_id_1",
+            +            "rpcAddr": "http://peer1",
+            +            "p2pAddrs": [
             +              "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
             +            ]
             +          }

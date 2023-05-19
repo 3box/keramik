@@ -8,7 +8,7 @@ Request {
     body: {
       "status": {
         "replicas": 0,
-        "ready_replicas": 0,
+        "readyReplicas": 0,
         "namespace": null,
         "peers": []
       }

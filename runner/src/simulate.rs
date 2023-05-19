@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    fs::File,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -10,6 +9,7 @@ use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
 use keramik_common::peer_info::PeerInfo;
 use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
+use tokio::{fs::File, io::AsyncReadExt};
 use tracing::error;
 
 use crate::scenario::ipfs_block_fetch;
@@ -73,8 +73,10 @@ impl Scenario {
 pub async fn simulate(opts: Opts) -> Result<()> {
     let mut metrics = Metrics::init(&opts)?;
 
-    let f = File::open(opts.peers)?;
-    let peers: Vec<PeerInfo> = serde_json::from_reader(f)?;
+    let mut f = File::open(opts.peers).await?;
+    let mut peers_json = String::new();
+    f.read_to_string(&mut peers_json).await?;
+    let peers: Vec<PeerInfo> = serde_json::from_str(&peers_json)?;
     let peers: BTreeMap<usize, PeerInfo> =
         BTreeMap::from_iter(peers.into_iter().map(|info| (info.index as usize, info)));
 

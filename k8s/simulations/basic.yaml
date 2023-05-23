@@ -1,0 +1,9 @@
+apiVersion: "keramik.3box.io/v1"
+kind: Simulation
+metadata:
+  name: basic
+spec:
+  selector: small
+  scenario: ipfs-rpc
+  users: 2
+  run_time: 3

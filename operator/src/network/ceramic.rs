@@ -19,9 +19,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::network::controller::{
-    managed_labels, selector_labels, CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_NAME,
+    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_NAME,
     CERAMIC_SERVICE_RPC_PORT, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
 };
+
+use crate::utils::{ managed_labels, selector_labels,};
 
 pub fn init_config_map_data() -> BTreeMap<String, String> {
     BTreeMap::from_iter(vec![

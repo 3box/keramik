@@ -38,8 +38,10 @@ pub struct NetworkSpec {
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkStatus {
-    replicas: i32,
-    ready_replicas: i32,
+    /// Number of Ceramic peers
+    pub replicas: i32,
+    ///  Describes how new peers in the network should be bootstrapped.
+    pub ready_replicas: i32,
     namespace: Option<String>,
     // Information about each Ceramic peer
     peers: Vec<PeerInfo>,

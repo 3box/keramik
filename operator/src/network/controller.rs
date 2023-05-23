@@ -33,16 +33,7 @@ use crate::network::{
     peers, utils, BootstrapSpec, CeramicSpec, Network, NetworkStatus,
 };
 
-//can add resource apis here
-struct ContextData {
-    client: Client,
-}
-
-impl ContextData {
-    pub fn new(client: Client) -> Self {
-        ContextData { client }
-    }
-}
+use crate::utils::{ apply_job, apply_service, ContextData, MANAGED_BY_LABEL_SELECTOR, managed_labels};
 
 /// Handle errors during reconciliation.
 fn on_error(_network: Arc<Network>, _error: &Error, _context: Arc<ContextData>) -> Action {
@@ -153,24 +144,6 @@ pub const GANACHE_APP: &str = "ganache";
 
 pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 
-// Create lables that can be used as a unique selector for a given app name.
-pub fn selector_labels(app: &str) -> Option<BTreeMap<String, String>> {
-    Some(BTreeMap::from_iter(vec![(
-        "app".to_owned(),
-        app.to_owned(),
-    )]))
-}
-
-pub const MANAGED_BY_LABEL_SELECTOR: &str = "managed-by=keramik";
-
-// Labels that indicate the resource is managed by the keramik operator.
-pub fn managed_labels() -> Option<BTreeMap<String, String>> {
-    Some(BTreeMap::from_iter(vec![(
-        "managed-by".to_owned(),
-        "keramik".to_owned(),
-    )]))
-}
-
 /// Perform a reconile pass for the Network CRD
 async fn reconcile(network: Arc<Network>, cx: Arc<ContextData>) -> Result<Action, Error> {
     let spec = network.spec();
@@ -244,7 +217,6 @@ async fn apply_network_namespace(
 ) -> Result<String, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
     let namespaces: Api<Namespace> = Api::all(cx.client.clone());
-
     let ns = "keramik-".to_owned() + &network.name_any();
     let oref = network.controller_owner_ref(&()).unwrap();
     let namespace_data: Namespace = Namespace {
@@ -271,10 +243,13 @@ async fn apply_cas(
     if is_cas_postgres_secret_missing(cx.clone(), ns).await? {
         create_cas_postgres_secret(cx.clone(), ns, network.clone()).await?;
     }
+    let oref = network.controller_owner_ref(&()).unwrap();
+    let orefs = vec![oref];
+
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         CAS_SERVICE_NAME,
         cas::cas_service_spec(),
     )
@@ -282,7 +257,7 @@ async fn apply_cas(
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         CAS_IFPS_SERVICE_NAME,
         cas::cas_ipfs_service_spec(),
     )
@@ -290,7 +265,7 @@ async fn apply_cas(
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         GANACHE_SERVICE_NAME,
         cas::ganache_service_spec(),
     )
@@ -298,7 +273,7 @@ async fn apply_cas(
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         CAS_POSTGRES_SERVICE_NAME,
         cas::postgres_service_spec(),
     )
@@ -435,10 +410,12 @@ async fn apply_ceramic_service(
     ns: &str,
     network: Arc<Network>,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
+    let oref = network.controller_owner_ref(&()).unwrap();
+    let orefs = vec![oref];
     apply_service(
         cx,
         ns,
-        network,
+        orefs.clone(),
         CERAMIC_SERVICE_NAME,
         ceramic::service_spec(),
     )
@@ -490,7 +467,9 @@ async fn apply_bootstrap_job(
         debug!("creating bootstrap job");
         // Create bootstrap jobs
         let spec = bootstrap::bootstrap_job_spec(spec);
-        apply_job(cx.clone(), ns, network.clone(), BOOTSTRAP_JOB_NAME, spec).await?;
+        let oref = network.controller_owner_ref(&()).unwrap();
+        let orefs = vec![oref];
+        apply_job(cx.clone(), ns, orefs.clone(), BOOTSTRAP_JOB_NAME, spec).await?;
     }
     Ok(())
 }
@@ -530,34 +509,6 @@ async fn update_peer_info(
     )
     .await?;
     Ok(())
-}
-
-async fn apply_service(
-    cx: Arc<ContextData>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    spec: ServiceSpec,
-) -> Result<Option<ServiceStatus>, kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let services: Api<Service> = Api::namespaced(cx.client.clone(), ns);
-
-    // Server-side apply service
-    let oref = network.controller_owner_ref(&()).unwrap();
-    let service: Service = Service {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        spec: Some(spec),
-        ..Default::default()
-    };
-    let service = services
-        .patch(name, &serverside, &Patch::Apply(service))
-        .await?;
-    Ok(service.status)
 }
 
 async fn apply_stateful_set(
@@ -622,32 +573,6 @@ async fn create_secret(
         .await?;
 
     Ok(())
-}
-
-async fn apply_job(
-    cx: Arc<ContextData>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    spec: JobSpec,
-) -> Result<Option<JobStatus>, kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let jobs: Api<Job> = Api::namespaced(cx.client.clone(), ns);
-
-    // Server-side apply stateful_set
-    let oref = network.controller_owner_ref(&()).unwrap();
-    let job: Job = Job {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        spec: Some(spec),
-        ..Default::default()
-    };
-    let job = jobs.patch(name, &serverside, &Patch::Apply(job)).await?;
-    Ok(job.status)
 }
 
 // Deletes a job. Does nothing if the job does not exist.

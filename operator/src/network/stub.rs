@@ -78,7 +78,7 @@ pub struct Stub {
     pub cas_ipfs_stateful_set: ExpectPatch<ExpectFile>,
     pub ganache_stateful_set: ExpectPatch<ExpectFile>,
     pub cas_postgres_stateful_set: ExpectPatch<ExpectFile>,
-    pub ceramic_init_configmap: ExpectPatch<ExpectFile>,
+    pub ceramic_configmaps: Vec<ExpectPatch<ExpectFile>>,
     pub ceramic_service: ExpectPatch<ExpectFile>,
     pub bootstrap_job: Option<ExpectFile>,
 }
@@ -137,8 +137,10 @@ impl Default for Stub {
                 "./testdata/default_stubs/cas_postgres_stateful_set"
             ]
             .into(),
-            ceramic_init_configmap: expect_file!["./testdata/default_stubs/ceramic_init_configmap"]
-                .into(),
+            ceramic_configmaps: vec![expect_file![
+                "./testdata/default_stubs/ceramic_init_configmap"
+            ]
+            .into()],
             ceramic_service: expect_file!["./testdata/default_stubs/ceramic_service"].into(),
             bootstrap_job: None,
         }
@@ -197,9 +199,11 @@ impl ApiServerVerifier {
             self.handle_request_response(stub.ceramic_admin_secret.0, &stub.ceramic_admin_secret.1)
                 .await
                 .expect("ceramic-admin secret should exist");
-            self.handle_apply(stub.ceramic_init_configmap)
-                .await
-                .expect("ceramic-init configmap should apply");
+            for cm in stub.ceramic_configmaps {
+                self.handle_apply(cm)
+                    .await
+                    .expect("ceramic configmap should apply");
+            }
             self.handle_apply(stub.ceramic_service)
                 .await
                 .expect("ceramic service should apply");

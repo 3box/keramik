@@ -408,40 +408,15 @@ async fn apply_ceramic(
 ) -> Result<(), kube::error::Error> {
     let config: CeramicConfig = spec.into();
 
-    if config.init_config_map == INIT_CONFIG_MAP_NAME {
-        //Only create the config map if its the one we own.
-        apply_init_config(cx.clone(), ns, network.clone(), &config.init_config_map).await?;
+    let config_maps = ceramic::config_maps(&config);
+
+    for (name, data) in config_maps {
+        apply_config_map(cx.clone(), ns, network.clone(), &name, data).await?;
     }
 
     apply_ceramic_service(cx.clone(), ns, network.clone()).await?;
     apply_ceramic_stateful_set(cx.clone(), ns, network.clone(), replicas, config).await?;
 
-    Ok(())
-}
-
-async fn apply_init_config(
-    cx: Arc<Context<impl RpcClient>>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-) -> Result<(), kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
-    // Apply config map
-    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
-    let map_data = ConfigMap {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: oref,
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        data: Some(ceramic::init_config_map_data()),
-        ..Default::default()
-    };
-    config_maps
-        .patch(name, &serverside, &Patch::Apply(map_data))
-        .await?;
     Ok(())
 }
 
@@ -562,7 +537,7 @@ async fn apply_service(
             labels: managed_labels(),
             ..ObjectMeta::default()
         },
-        spec: Some(spec),
+        spec: Some(spec.clone()),
         ..Default::default()
     };
     let service = services
@@ -707,9 +682,10 @@ mod test {
     use super::{reconcile, Context, Network};
 
     use crate::network::{
+        ceramic::{IpfsKind, IpfsSpec},
         stub::{timeout_after_1s, Stub},
         utils::RpcClientMock,
-        NetworkSpec, NetworkStatus,
+        CeramicSpec, NetworkSpec, NetworkStatus,
     };
 
     use expect_test::{expect, expect_file};
@@ -830,6 +806,243 @@ mod test {
              }
         "#]]);
         stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn go_ipfs_defaults() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                ceramic: Some(CeramicSpec {
+                    ipfs: Some(IpfsSpec {
+                        kind: IpfsKind::Go,
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "status": {
+                     "replicas": 0,
+                     "readyReplicas": 0,
+            -        "namespace": null,
+            +        "namespace": "keramik-test",
+                     "peers": []
+                   }
+                 },
+        "#]]);
+        stub.ceramic_configmaps
+            .push(expect_file!["./testdata/go_ipfs_configmap"].into());
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -125,39 +125,13 @@
+                             ]
+                           },
+                           {
+            -                "env": [
+            -                  {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
+            -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_METRICS",
+            -                    "value": "true"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
+            -                    "value": "0.0.0.0:9090"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_STORE_DIR",
+            -                    "value": "/data/ipfs"
+            -                  }
+            -                ],
+            -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "name": "ipfs",
+                             "ports": [
+                               {
+                                 "containerPort": 4001,
+            -                    "name": "swarm-tcp",
+            +                    "name": "swarm",
+                                 "protocol": "TCP"
+                               },
+                               {
+            @@ -187,6 +161,11 @@
+                               {
+                                 "mountPath": "/data/ipfs",
+                                 "name": "ipfs-data"
+            +                  },
+            +                  {
+            +                    "mountPath": "/container-init.d/001-config.sh",
+            +                    "name": "ipfs-container-init",
+            +                    "subPath": "001-config.sh"
+                               }
+                             ]
+                           }
+            @@ -287,6 +266,13 @@
+                             "persistentVolumeClaim": {
+                               "claimName": "ipfs-data"
+                             }
+            +              },
+            +              {
+            +                "configMap": {
+            +                  "defaultMode": 493,
+            +                  "name": "ipfs-container-init"
+            +                },
+            +                "name": "ipfs-container-init"
+                           }
+                         ]
+                       }
+        "#]]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn go_ipfs_image() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                ceramic: Some(CeramicSpec {
+                    ipfs: Some(IpfsSpec {
+                        kind: IpfsKind::Go,
+                        image: Some("ipfs/ipfs:go".to_owned()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "status": {
+                     "replicas": 0,
+                     "readyReplicas": 0,
+            -        "namespace": null,
+            +        "namespace": "keramik-test",
+                     "peers": []
+                   }
+                 },
+        "#]]);
+        stub.ceramic_configmaps
+            .push(expect_file!["./testdata/go_ipfs_configmap"].into());
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -125,39 +125,13 @@
+                             ]
+                           },
+                           {
+            -                "env": [
+            -                  {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
+            -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_METRICS",
+            -                    "value": "true"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
+            -                    "value": "0.0.0.0:9090"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_STORE_DIR",
+            -                    "value": "/data/ipfs"
+            -                  }
+            -                ],
+            -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "ipfs/ipfs:go",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "name": "ipfs",
+                             "ports": [
+                               {
+                                 "containerPort": 4001,
+            -                    "name": "swarm-tcp",
+            +                    "name": "swarm",
+                                 "protocol": "TCP"
+                               },
+                               {
+            @@ -187,6 +161,11 @@
+                               {
+                                 "mountPath": "/data/ipfs",
+                                 "name": "ipfs-data"
+            +                  },
+            +                  {
+            +                    "mountPath": "/container-init.d/001-config.sh",
+            +                    "name": "ipfs-container-init",
+            +                    "subPath": "001-config.sh"
+                               }
+                             ]
+                           }
+            @@ -287,6 +266,13 @@
+                             "persistentVolumeClaim": {
+                               "claimName": "ipfs-data"
+                             }
+            +              },
+            +              {
+            +                "configMap": {
+            +                  "defaultMode": 493,
+            +                  "name": "ipfs-container-init"
+            +                },
+            +                "name": "ipfs-container-init"
+                           }
+                         ]
+                       }
+        "#]]);
         let (testctx, fakeserver) = Context::test(mock_rpc_client);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)

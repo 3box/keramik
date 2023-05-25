@@ -25,7 +25,7 @@ use serde::{Deserialize, Serialize};
 #[derive(CustomResource, Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
 #[kube(
     group = "keramik.3box.io",
-    version = "v1",
+    version = "v1alpha1",
     kind = "Network",
     plural = "networks",
     status = "NetworkStatus",

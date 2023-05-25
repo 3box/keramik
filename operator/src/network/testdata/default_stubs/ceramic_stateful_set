@@ -161,11 +161,6 @@ Request {
                     "protocol": "TCP"
                   },
                   {
-                    "containerPort": 4002,
-                    "name": "swarm-quic",
-                    "protocol": "UDP"
-                  },
-                  {
                     "containerPort": 5001,
                     "name": "rpc",
                     "protocol": "TCP"

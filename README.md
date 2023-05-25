@@ -57,7 +57,7 @@ Place the following network definition into the file `small.yaml`.
 ```yaml
 # small.yaml
 ---
-apiVersion: "keramik.3box.io/v1"
+apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
   name: small
@@ -101,22 +101,21 @@ Any changes to the runner require that you rebuild it and load it into kind agai
     kind load docker-image keramik/runner:dev
 
 Now we need to tell the operator to use this new version of the runner.
-Edit `small.yaml` to configure the image of the runner.
+Edit `small.yaml` to configure the image of the bootstrap runner.
 
 ```yaml
 # small.yaml
 ---
-apiVersion: "keramik.3box.io/v1"
+apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
   name: small
 spec:
   replicas: 2
-  # Change the runner image to our locally built one
-  runner_image: keramik/runner:dev
-  # Change the pull policy to not pull since `kind` load
-  # already made the image available and the image only exists locally.
-  runner_image_pull_policy: IfNotPresent
+  # Use custom runner image for bootstrapping
+  bootstrap:
+    image: keramik/runner:dev
+    imagePullPolicy: IfNotPresent
 ```
 
 
@@ -136,7 +135,79 @@ images:
     newTag: dev
 ```
 
+Finally apply these changes:
+
+    $ kubectl apply -k ./k8s/operator/
+
 See the [operator/README.md](https://github.com/3box/keramik/blob/main/operator/README.md) for details on certain design patterns of the operator.
+
+## IPFS
+
+The IPFS behavior used by Ceramic can be customized.
+
+### Rust IPFS
+
+Example network config that uses Rust based IPFS (i.e. ceramic-one) with its defaults.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: example-vanilla-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      kind: rust
+```
+
+Example network config that uses Rust based IPFS (i.e. ceramic-one) with a specific image.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: example-vanilla-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      kind: rust
+      image: rust-ceramic/ceramic-one:dev
+      imagePullPolicy: IfNotPresent
+```
+
+### Kubo IPFS
+
+Example network config that uses Go based IPFS (i.e. Kubo) with its defaults.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: example-vanilla-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      kind: go
+```
+
+Example network config that uses Go based IPFS (i.e. Kubo) with a specific image.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      kind: go
+      image: ceramic/go-ipfs:dev-validator
+      imagePullPolicy: IfNotPresent
+```
 
 ## Opentelemetry
 

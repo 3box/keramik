@@ -6,6 +6,6 @@ resources:
 
 images:
   - name: keramik/operator
-    #newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
-    #newTag: latest
-    newTag: dev
+    newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
+    newTag: latest
+      #newTag: dev

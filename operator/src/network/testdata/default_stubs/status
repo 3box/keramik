@@ -1,6 +1,6 @@
 Request {
     method: "PATCH",
-    uri: "/apis/keramik.3box.io/v1/networks/test/status?",
+    uri: "/apis/keramik.3box.io/v1alpha1/networks/test/status?",
     headers: {
         "accept": "application/json",
         "content-type": "application/merge-patch+json",

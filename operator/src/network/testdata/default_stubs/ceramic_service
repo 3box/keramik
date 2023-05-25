@@ -30,11 +30,6 @@ Request {
             "name": "swarm-tcp",
             "port": 4001,
             "protocol": "TCP"
-          },
-          {
-            "name": "swarm-udp",
-            "port": 4002,
-            "protocol": "UDP"
           }
         ],
         "selector": {

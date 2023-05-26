@@ -125,8 +125,6 @@ fn manager_config(
     let mut config = GooseConfiguration::default();
     config.log_level = 2;
     config.users = Some(users);
-    // manager requires a host to be set even if its not doing any simulations.
-    config.host = peers[&0].rpc_addr.to_owned();
     config.manager = true;
     config.manager_bind_port = 5115;
     config.expect_workers = Some(peers.len());

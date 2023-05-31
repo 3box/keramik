@@ -17,6 +17,7 @@ Requires
 - [kind](https://kind.sigs.k8s.io/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [docker](https://docs.docker.com/get-docker/)
+- [protoc](https://grpc.io/docs/protoc-installation/)
 
 ```
 kind create cluster # Create a new kind cluster (i.e. local k8s)

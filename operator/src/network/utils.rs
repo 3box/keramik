@@ -25,7 +25,15 @@ struct ErrorResponse {
 #[unimock(api=IpfsRpcClientMock)]
 #[async_trait]
 pub trait IpfsRpcClient {
-    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: String) -> Result<IpfsPeerInfo>;
+    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo>;
+    async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus>;
+}
+
+/// Status of the current peer
+#[derive(Debug)]
+pub struct PeerStatus {
+    /// Number of connected peers
+    pub connected_peers: i32,
 }
 
 pub struct HttpRpcClient;
@@ -41,7 +49,7 @@ pub fn ceramic_addr(ns: &str, peer: PeerIdx) -> String {
 
 #[async_trait]
 impl IpfsRpcClient for HttpRpcClient {
-    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: String) -> Result<IpfsPeerInfo> {
+    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo> {
         let client = reqwest::Client::new();
         let resp = client
             .post(format!("{}/api/v0/id", ipfs_rpc_addr))
@@ -87,7 +95,7 @@ impl IpfsRpcClient for HttpRpcClient {
             Ok(IpfsPeerInfo {
                 index,
                 peer_id: data.id,
-                ipfs_rpc_addr,
+                ipfs_rpc_addr: ipfs_rpc_addr.to_owned(),
                 p2p_addrs,
             })
         } else {
@@ -96,6 +104,32 @@ impl IpfsRpcClient for HttpRpcClient {
                 index
             ))
         }
+    }
+    async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus> {
+        let client = reqwest::Client::new();
+        let resp = client
+            .post(format!("{}/api/v0/swarm/peers", ipfs_rpc_addr))
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            let data: ErrorResponse = resp.json().await?;
+            bail!("peer id failed: {}", data.message)
+        }
+
+        #[derive(serde::Deserialize)]
+        struct Peer {
+            //We currently do not care about any of the information of connected peers,
+            // just the number of them. As a result this struct does not have any fields.
+        }
+        #[derive(serde::Deserialize)]
+        struct Response {
+            #[serde(rename = "Peers")]
+            peers: Vec<Peer>,
+        }
+        let data: Response = resp.json().await?;
+        Ok(PeerStatus {
+            connected_peers: data.peers.len() as i32,
+        })
     }
 }
 

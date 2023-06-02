@@ -281,7 +281,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                                 port: IntOrString::String("api".to_owned()),
                                 ..Default::default()
                             }),
-                            initial_delay_seconds: Some(600),
+                            initial_delay_seconds: Some(400),
                             period_seconds: Some(15),
                             ..Default::default()
                         }),
@@ -291,7 +291,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                                 port: IntOrString::String("api".to_owned()),
                                 ..Default::default()
                             }),
-                            initial_delay_seconds: Some(600),
+                            initial_delay_seconds: Some(400),
                             period_seconds: Some(15),
                             ..Default::default()
                         }),
@@ -300,12 +300,12 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             limits: Some(BTreeMap::from_iter(vec![
                                 ("cpu".to_owned(), Quantity("250m".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
                             ])),
                             requests: Some(BTreeMap::from_iter(vec![
                                 ("cpu".to_owned(), Quantity("250m".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
                             ])),
                             ..Default::default()
                         }),
@@ -356,12 +356,12 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                         ]),
                         resources: Some(ResourceRequirements {
                             limits: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                                ("cpu".to_owned(), Quantity("500m".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
                                 ("memory".to_owned(), Quantity("512Mi".to_owned())),
                             ])),
                             requests: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                                ("cpu".to_owned(), Quantity("500m".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
                                 ("memory".to_owned(), Quantity("512Mi".to_owned())),
                             ])),

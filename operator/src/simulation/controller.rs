@@ -28,7 +28,7 @@ use kube::{
 use tracing::{debug, error };
 
 use crate::simulation::{ 
-    manager, worker, Simulation, manager::ManagerConfig, worker::WorkerConfig
+    manager, worker, Simulation, manager::ManagerConfig, worker::WorkerConfig, SimulationStatus
 };
 
 use crate::opentelemetry::{opentelemetry, jaeger, prometheus };
@@ -102,11 +102,11 @@ pub async fn run() {
         .run(reconcile, on_error, context)
         .for_each(|rec_res| async move {
             match rec_res {
-                Ok((network, _)) => {
-                    debug!(network.name, "reconile success");
+                Ok((simulation, _)) => {
+                    debug!(simulation.name, "reconcile success");
                 }
                 Err(err) => {
-                    error!(?err, "reconile error")
+                    error!(?err, "reconcile error")
                 }
             }
         })
@@ -118,11 +118,11 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<ContextData>) -> Result<
     let spec = simulation.spec();
     debug!(?spec, "reconcile");
 
-    // let mut status = if let Some(status) = &simulation.status {
-    //     status.clone()
-    // } else {
-    //     SimulationStatus::default()
-    // };
+    let status = if let Some(status) = &simulation.status {
+        status.clone()
+    } else {
+       SimulationStatus::default()
+    };
 
     let sim_name = &spec.selector;
     let net_status = get_network_status(cx.clone(), sim_name).await?;
@@ -143,29 +143,19 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<ContextData>) -> Result<
     apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
     apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
 
-    // add into from sim spec 
-    // let config = ManagerSpec {
-    //     scenario: Some(spec.scenario.to_owned()),
-    //     total_peers: Some(num_peers),
-    //     users: Some(spec.users.to_owned()),
-    //     run_time: Some(spec.run_time.to_owned()),
-    //     nonce: None
-    // };
-
-    let config = ManagerConfig {
-        scenario: "ipfs-rpc".to_owned(),
-        // TODO
-        nonce: 1,
-        total_peers: 1,
-        users: 100,
-        run_time: 10,
+    let manager_config = ManagerConfig {
+        scenario: spec.scenario.to_owned(),
+        total_peers: num_peers as u32,
+        users: spec.users.to_owned(),
+        run_time: spec.run_time.to_owned(),
+        nonce: status.nonce,
     };
 
     apply_manager(
         cx.clone(),
         &ns,
         simulation.clone(),
-        config.into(),
+        manager_config,
     )
     .await?;
 
@@ -260,6 +250,7 @@ async fn apply_n_workers(
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
     let spec = simulation.spec();
+    let status = simulation.status.clone().unwrap();
     let oref_sim = simulation.controller_owner_ref(&()).unwrap();
     let orefs = vec![oref_sim];
 
@@ -268,8 +259,7 @@ async fn apply_n_workers(
             scenario: spec.scenario.to_owned(),
             target_peer: i,
             total_peers: n,
-            // TODO, what does nonce do 
-            nonce: 1,
+            nonce: status.nonce,
         };
 
         apply_job(

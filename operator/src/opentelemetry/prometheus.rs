@@ -93,22 +93,20 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
 
 pub fn config_map_data() -> BTreeMap<String, String> {
     BTreeMap::from_iter(vec![
-		("otel-config.yaml".to_owned(),
-		r#"
+		("prom-config.yaml".to_owned(),
+        r#"
         global:
-            scrape_interval: 10s
-            scrape_timeout: 5s
+          scrape_interval: 10s
+          scrape_timeout: 5s
         
         scrape_configs:
-            - job_name: services
+          - job_name: services
             metrics_path: /metrics
             honor_labels: true
             static_configs:
-                - targets:
+              - targets:
                 - 'localhost:9090'
                 - 'otel:9090'
-                - 'otel:8888'
-      
-		"#.to_owned()),
+                - 'otel:8888'"#.to_owned()),
 	])
 }

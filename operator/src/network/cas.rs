@@ -201,7 +201,7 @@ pub fn cas_stateful_set_spec() -> StatefulSetSpec {
                                             "1Gi".to_owned(),
                                         )),
                                         ("memory".to_owned(), Quantity(
-                                            "512Mi".to_owned(),
+                                            "1Gi".to_owned(),
                                         )),
                                     ])),
                                 requests: Some(BTreeMap::from_iter(vec![
@@ -212,7 +212,7 @@ pub fn cas_stateful_set_spec() -> StatefulSetSpec {
                                             "1Gi".to_owned(),
                                         )),
                                         ("memory".to_owned(), Quantity(
-                                            "512Mi".to_owned(),
+                                            "1Gi".to_owned(),
                                         )),
                                     ])),
                             ..Default::default()},

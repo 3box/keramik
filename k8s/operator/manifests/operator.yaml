@@ -18,19 +18,22 @@ metadata:
   name: keramik-operator
 rules:
   - apiGroups: [""]
-    resources: ["namespaces","services","configmaps","secrets","pods"]
+    resources: ["namespaces","services","configmaps","secrets","pods", "serviceaccounts"]
     verbs: ["create", "get", "list", "watch", "patch"]
   - apiGroups: ["apps"]
     resources: ["statefulsets"]
     verbs: ["create", "get", "list", "watch", "patch"]
   - apiGroups: ["batch"]
-    resources: ["jobs"]
+    resources: ["jobs", "jobs/status"]
     verbs: ["create", "delete", "get", "list", "watch", "patch"]
   - apiGroups: ["events.k8s.io"]
     resources: ["events"]
     verbs: ["create"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["create", "get", "patch"]
   - apiGroups: ["keramik.3box.io"]
-    resources: ["networks", "networks/status"]
+    resources: ["networks", "networks/status", "simulations"]
     verbs: ["get", "list", "watch", "patch"]
 ---
 # Binding the role to the account

@@ -31,7 +31,7 @@ pub fn service_spec() -> ServiceSpec {
   }
 }
 
-/// WorkerSpec defines a goose worker 
+/// ManagerSpec defines a goose manager
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct ManagerSpec {
@@ -42,7 +42,7 @@ pub struct ManagerSpec {
     pub nonce: Option<u32>,
 }
 
-// WorkerConfig defines which properties of the JobSpec can be customized.
+// ManagerConfig defines which properties of the JobSpec can be customized.
 pub struct ManagerConfig {
     pub scenario: String,
     pub total_peers: u32,
@@ -94,8 +94,8 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
         spec: Some(PodSpec {
             containers: vec![Container {
                 name: "manager".to_owned(),
-                image: Some("keramik/runner".to_owned()),
-                image_pull_policy: Some("Always".to_owned()),
+                image: Some("keramik/runner:dev".to_owned()),
+                image_pull_policy: Some("IfNotPresent".to_owned()),
                 command: Some(vec![
                     "/usr/bin/keramik-runner".to_owned(),
                     "simulate".to_owned(),

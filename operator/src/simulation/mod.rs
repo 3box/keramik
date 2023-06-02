@@ -9,6 +9,8 @@ use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
+use rand::random;
+
 /// Primary CRD for creating and managing a Ceramic Simulation.
 #[derive(CustomResource, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[kube(
@@ -51,8 +53,19 @@ pub struct SimulationSpec {
 // }
 
 /// Current status of the network.
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationStatus {
+  //  TODO ENUM states
   phase: String,
+  nonce: u32, 
+}
+
+impl Default for SimulationStatus {
+  fn default() -> SimulationStatus {
+    SimulationStatus {
+        phase: "initialize".to_owned(),
+        nonce: random::<u32>(), 
+      }
+  }
 }

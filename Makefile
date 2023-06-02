@@ -24,8 +24,8 @@ build: runner operator
 
 .PHONY: runner
 runner:
-	RUSTFLAGS="-D warnings" cargo build --bin keramik-runner --release --locked
+	CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse RUSTFLAGS="-D warnings" cargo build --bin keramik-runner --release --locked  --config net.git-fetch-with-cli=true
 
 .PHONY: operator
 operator:
-	RUSTFLAGS="-D warnings" cargo build --bin keramik-operator --release --locked
+	CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse RUSTFLAGS="-D warnings" cargo build --bin keramik-operator --release --locked  --config net.git-fetch-with-cli=true

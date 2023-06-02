@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_variables)]
 use std::{ sync::Arc, time::Duration};
 
 use futures::stream::StreamExt;
@@ -9,7 +11,7 @@ use k8s_openapi::{
 };
 
 use kube::{
-    api::{ Patch, PatchParams},
+    // api::{ Patch, PatchParams},
     client::Client,
     core::{object::HasSpec },
     runtime::Controller,
@@ -26,11 +28,16 @@ use kube::{
 use tracing::{debug, error };
 
 use crate::simulation::{ 
-    manager, worker, Simulation, SimulationStatus, manager::ManagerSpec, manager::ManagerConfig, worker::WorkerConfig
+    manager, worker, Simulation, manager::ManagerConfig, worker::WorkerConfig
 };
 
+use crate::opentelemetry::{opentelemetry, jaeger, prometheus };
+
 use crate::network::{ Network, NetworkStatus};
-use crate::utils::{ apply_job, apply_service, ContextData, MANAGED_BY_LABEL_SELECTOR};
+use crate::utils::{ 
+    apply_job, apply_service, apply_stateful_set, apply_account, apply_cluster_role, 
+    apply_cluster_role_binding, apply_config_map, ContextData, MANAGED_BY_LABEL_SELECTOR
+};
 
 /// Handle errors during reconciliation.
 fn on_error(_network: Arc<Simulation>, _error: &Error, _context: Arc<ContextData>) -> Action {
@@ -111,11 +118,11 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<ContextData>) -> Result<
     let spec = simulation.spec();
     debug!(?spec, "reconcile");
 
-    let mut status = if let Some(status) = &simulation.status {
-        status.clone()
-    } else {
-        SimulationStatus::default()
-    };
+    // let mut status = if let Some(status) = &simulation.status {
+    //     status.clone()
+    // } else {
+    //     SimulationStatus::default()
+    // };
 
     let sim_name = &spec.selector;
     let net_status = get_network_status(cx.clone(), sim_name).await?;
@@ -130,6 +137,11 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<ContextData>) -> Result<
 
     let num_peers = net_status.ready_replicas;
     let ns = "keramik-".to_owned() + sim_name;
+
+
+    apply_jaeger(cx.clone(), &ns, simulation.clone()).await?;
+    apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
+    apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
 
     // add into from sim spec 
     // let config = ManagerSpec {
@@ -193,6 +205,16 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<ContextData>) -> Result<
 pub const MANAGER_SERVICE_NAME: &str = "sim-manager";
 pub const MANAGER_JOB_NAME: &str = "sim-manager-job";
 pub const WORKER_JOB_NAME: &str = "worker-job";
+
+pub const JAEGER_SERVICE_NAME: &str = "jaeger";
+pub const OTEL_SERVICE_NAME: &str = "otel";
+
+pub const OTEL_CR_BINDING: &str = "monitoring-cluster-role-binding";
+pub const OTEL_CR: &str = "monitoring-cluster-role";
+pub const OTEL_ACCOUNT: &str = "monitoring-service-account";
+
+pub const OTEL_CONFIG_MAP_NAME: &str = "otel-config";
+pub const PROM_CONFIG_MAP_NAME: &str = "prom-config";
 
 async fn apply_manager(
     cx: Arc<ContextData>,
@@ -259,6 +281,122 @@ async fn apply_n_workers(
         )
         .await?;
     }
+
+    Ok(())
+}
+
+
+async fn apply_jaeger(
+    cx: Arc<ContextData>,
+    ns: &str,
+    simulation: Arc<Simulation>,
+) -> Result<(), kube::error::Error> {
+    let oref_sim = simulation.controller_owner_ref(&()).unwrap();
+    let orefs = vec![oref_sim];
+
+    apply_service(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        JAEGER_SERVICE_NAME,
+        jaeger::service_spec(),
+    )
+    .await?;
+
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        "jaeger",
+        jaeger::stateful_set_spec(),
+    )
+    .await?;
+    Ok(())
+}
+
+async fn apply_prometheus(
+    cx: Arc<ContextData>,
+    ns: &str,
+    simulation: Arc<Simulation>,
+) -> Result<(), kube::error::Error> {
+    let oref_sim = simulation.controller_owner_ref(&()).unwrap();
+    let orefs = vec![oref_sim];
+
+    apply_config_map(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        PROM_CONFIG_MAP_NAME,
+       prometheus::config_map_data(),
+    )
+    .await?;
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        "prometheus",
+        prometheus::stateful_set_spec(),
+    )
+    .await?;
+    Ok(())
+}
+
+
+async fn apply_opentelemetry(
+    cx: Arc<ContextData>,
+    ns: &str,
+    simulation: Arc<Simulation>,
+) -> Result<(), kube::error::Error> {
+    let oref_sim = simulation.controller_owner_ref(&()).unwrap();
+    let orefs = vec![oref_sim];
+
+    apply_account(
+        cx.clone(), 
+        ns, 
+        orefs.clone(), 
+        OTEL_ACCOUNT
+    )
+    .await?;
+    apply_cluster_role(
+        cx.clone(), 
+        ns, 
+        orefs.clone(), 
+        OTEL_CR, 
+        opentelemetry::cluster_role()
+    )
+    .await?;
+    apply_cluster_role_binding(
+        cx.clone(), 
+        ns, 
+        orefs.clone(), 
+        OTEL_CR_BINDING, 
+        opentelemetry::cluster_role_binding()
+    )
+    .await?;
+    apply_config_map(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        OTEL_CONFIG_MAP_NAME,
+        opentelemetry::config_map_data(),
+    )
+    .await?;
+    apply_service(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        OTEL_SERVICE_NAME,
+        opentelemetry::service_spec(),
+    )
+    .await?;
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        "opentelemetry",
+        opentelemetry::stateful_set_spec(),
+    )
+    .await?;
 
     Ok(())
 }

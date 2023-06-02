@@ -3,9 +3,9 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use futures::stream::StreamExt;
 use k8s_openapi::{
     api::{
-        apps::v1::{StatefulSet, StatefulSetSpec, StatefulSetStatus},
-        batch::v1::{Job, JobSpec, JobStatus},
-        core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceSpec, ServiceStatus},
+        apps::v1::{StatefulSet, StatefulSetStatus},
+        batch::v1::{ Job },
+        core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceStatus},
     },
     apimachinery::pkg::util::intstr::IntOrString,
 };
@@ -33,7 +33,7 @@ use crate::network::{
     peers, utils, BootstrapSpec, CeramicSpec, Network, NetworkStatus,
 };
 
-use crate::utils::{ apply_job, apply_service, ContextData, MANAGED_BY_LABEL_SELECTOR, managed_labels};
+use crate::utils::{ apply_job, apply_service, apply_config_map, apply_stateful_set, ContextData, MANAGED_BY_LABEL_SELECTOR, managed_labels};
 
 /// Handle errors during reconciliation.
 fn on_error(_network: Arc<Network>, _error: &Error, _context: Arc<ContextData>) -> Action {
@@ -282,7 +282,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "cas",
         cas::cas_stateful_set_spec(),
     )
@@ -290,7 +290,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "cas-ipfs",
         cas::cas_ipfs_stateful_set_spec(),
     )
@@ -298,7 +298,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "ganache",
         cas::ganache_stateful_set_spec(),
     )
@@ -306,7 +306,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "cas-postgres",
         cas::postgres_stateful_set_spec(),
     )
@@ -370,38 +370,14 @@ async fn apply_ceramic(
 
     if config.init_config_map == INIT_CONFIG_MAP_NAME {
         //Only create the config map if its the one we own.
-        apply_init_config(cx.clone(), ns, network.clone(), &config.init_config_map).await?;
+        let oref = network.controller_owner_ref(&()).unwrap();
+        let orefs = vec![oref];
+        apply_config_map(cx.clone(), ns, orefs.clone(), &config.init_config_map, ceramic::init_config_map_data()).await?;
     }
 
     apply_ceramic_service(cx.clone(), ns, network.clone()).await?;
     apply_ceramic_stateful_set(cx.clone(), ns, network.clone(), replicas, config).await?;
 
-    Ok(())
-}
-
-async fn apply_init_config(
-    cx: Arc<ContextData>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-) -> Result<(), kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let config_maps: Api<ConfigMap> = Api::namespaced(cx.client.clone(), ns);
-    // Apply config map
-    let oref = network.controller_owner_ref(&()).unwrap();
-    let map_data = ConfigMap {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        data: Some(ceramic::init_config_map_data()),
-        ..Default::default()
-    };
-    config_maps
-        .patch(name, &serverside, &Patch::Apply(map_data))
-        .await?;
     Ok(())
 }
 
@@ -430,7 +406,9 @@ async fn apply_ceramic_stateful_set(
     config: CeramicConfig,
 ) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
     let spec = ceramic::stateful_set_spec(replicas, config);
-    apply_stateful_set(cx, ns, network, CERAMIC_STATEFUL_SET_NAME, spec).await
+    let oref = network.controller_owner_ref(&()).unwrap();
+    let orefs = vec![oref];
+    apply_stateful_set(cx, ns, orefs, CERAMIC_STATEFUL_SET_NAME, spec).await
 }
 
 async fn apply_bootstrap_job(
@@ -500,10 +478,13 @@ async fn update_peer_info(
         });
     }
     status.ready_replicas = status.peers.len() as i32;
+
+    let oref = network.controller_owner_ref(&()).unwrap();
+    let orefs = vec![oref];
     apply_config_map(
         cx,
         ns,
-        network,
+        orefs,
         PEERS_CONFIG_MAP_NAME,
         peers::peer_config_map_data(&status.peers),
     )
@@ -511,33 +492,7 @@ async fn update_peer_info(
     Ok(())
 }
 
-async fn apply_stateful_set(
-    cx: Arc<ContextData>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    spec: StatefulSetSpec,
-) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.client.clone(), ns);
 
-    // Server-side apply stateful_set
-    let oref = network.controller_owner_ref(&()).unwrap();
-    let stateful_set: StatefulSet = StatefulSet {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        spec: Some(spec),
-        ..Default::default()
-    };
-    let stateful_set = stateful_sets
-        .patch(name, &serverside, &Patch::Apply(stateful_set))
-        .await?;
-    Ok(stateful_set.status)
-}
 
 async fn is_secret_missing(
     cx: Arc<ContextData>,
@@ -581,32 +536,5 @@ async fn delete_job(cx: Arc<ContextData>, ns: &str, name: &str) -> Result<(), ku
     if jobs.get_opt(name).await?.is_some() {
         jobs.delete(name, &DeleteParams::default()).await?;
     }
-    Ok(())
-}
-
-async fn apply_config_map(
-    cx: Arc<ContextData>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    data: BTreeMap<String, String>,
-) -> Result<(), kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let config_maps: Api<ConfigMap> = Api::namespaced(cx.client.clone(), ns);
-    // Apply config map
-    let oref = network.controller_owner_ref(&()).unwrap();
-    let map_data = ConfigMap {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: Some(vec![oref]),
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        data: Some(data),
-        ..Default::default()
-    };
-    config_maps
-        .patch(name, &serverside, &Patch::Apply(map_data))
-        .await?;
     Ok(())
 }

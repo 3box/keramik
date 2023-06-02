@@ -3,3 +3,4 @@
 pub mod network;
 pub mod simulation;
 pub mod utils;
+pub mod opentelemetry;

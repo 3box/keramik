@@ -8,6 +8,8 @@ use k8s_openapi::{
         },
     },
 };
+use kube::core::ObjectMeta;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -38,7 +40,6 @@ pub fn service_spec() -> ServiceSpec {
 #[serde(rename_all = "camelCase")]
 pub struct ManagerSpec {
     pub scenario: Option<String>,
-    pub total_peers: Option<u32>,
     pub users: Option<u32>,
     pub run_time: Option<u32>,
     pub nonce: Option<u32>,
@@ -47,7 +48,6 @@ pub struct ManagerSpec {
 // ManagerConfig defines which properties of the JobSpec can be customized.
 pub struct ManagerConfig {
     pub scenario: String,
-    pub total_peers: u32,
     pub users: u32,
     pub run_time: u32,
     pub nonce: u32,
@@ -58,7 +58,6 @@ impl Default for ManagerConfig {
     fn default() -> Self {
         Self {
             scenario: "ceramic-simple".to_owned(),
-            total_peers: 1,
             users: 100,
             run_time: 10,
             nonce: random::<u32>(),
@@ -80,7 +79,6 @@ impl From<ManagerSpec> for ManagerConfig {
         let default = Self::default();
         Self {
             scenario: value.scenario.unwrap_or(default.scenario),
-            total_peers: value.total_peers.unwrap_or(default.total_peers),
             users: value.users.unwrap_or(default.users),
             run_time: value.run_time.unwrap_or(default.run_time),
             nonce: value.nonce.unwrap_or(default.nonce),
@@ -93,6 +91,13 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
   JobSpec {
     backoff_limit: Some(4),
     template: PodTemplateSpec {
+        metadata: Some(ObjectMeta {
+            labels: Some(BTreeMap::from_iter(vec![(
+                "name".to_owned(),
+                "goose".to_owned(),
+              )])),
+            ..Default::default()
+        }),
         spec: Some(PodSpec {
             hostname: Some("manager".to_owned()),
             subdomain: Some("goose".to_owned()),
@@ -137,7 +142,7 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
                     },
                     EnvVar {
                         name: "SIMULATE_NONCE".to_owned(),
-                        value: Some(10986711.to_string()),
+                        value: Some(config.nonce.to_string()),
                         ..Default::default()
                     },
                     EnvVar {
@@ -145,10 +150,9 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
                         value: Some(config.users.to_string()),
                         ..Default::default()
                     },
-                    // TODO
                     EnvVar {
                         name: "SIMULATE_RUN_TIME".to_owned(),
-                        value: Some("10m".to_owned()),
+                        value: Some(format!("{}m", config.run_time.to_string())),
                         ..Default::default()
                     },
                     EnvVar {

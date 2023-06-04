@@ -1,3 +1,5 @@
+use std::{collections::BTreeMap};
+
 use k8s_openapi::{
   api::{
       batch::v1::JobSpec,
@@ -6,6 +8,9 @@ use k8s_openapi::{
       },
   },
 };
+
+use kube::core::ObjectMeta;
+
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +22,6 @@ use crate::network::controller::PEERS_CONFIG_MAP_NAME;
 pub struct WorkerSpec {
     pub scenario: Option<String>,
     pub target_peer: Option<u32>,
-    pub total_peers: Option<u32>,
     pub nonce: Option<u32>,
 }
 
@@ -25,7 +29,6 @@ pub struct WorkerSpec {
 pub struct WorkerConfig {
     pub scenario: String,
     pub target_peer: u32,
-    pub total_peers: u32,
     pub nonce: u32,
 }
 
@@ -35,7 +38,6 @@ impl Default for WorkerConfig {
         Self {
             scenario: "ceramic-simple".to_owned(),
             target_peer: 0,
-            total_peers: 1,
             nonce: 1
         }
     }
@@ -56,7 +58,6 @@ impl From<WorkerSpec> for WorkerConfig {
         Self {
             scenario: value.scenario.unwrap_or(default.scenario),
             target_peer: value.target_peer.unwrap_or(default.target_peer),
-            total_peers: value.total_peers.unwrap_or(default.total_peers),
             nonce: value.nonce.unwrap_or(default.nonce),
         }
     }
@@ -67,6 +68,13 @@ pub fn worker_job_spec(config: impl Into<WorkerConfig>) -> JobSpec {
   JobSpec {
     backoff_limit: Some(4),
     template: PodTemplateSpec {
+        metadata: Some(ObjectMeta {
+            labels: Some(BTreeMap::from_iter(vec![(
+                "name".to_owned(),
+                "goose".to_owned(),
+              )])),
+            ..Default::default()
+        }),
         spec: Some(PodSpec {
             containers: vec![Container {
                 name: "worker".to_owned(),
@@ -92,7 +100,6 @@ pub fn worker_job_spec(config: impl Into<WorkerConfig>) -> JobSpec {
                         value: Some("1".to_owned()),
                         ..Default::default()
                     },
-
                     EnvVar {
                         name: "SIMULATE_SCENARIO".to_owned(),
                         value: Some(config.scenario.to_owned()),

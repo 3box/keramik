@@ -11,7 +11,7 @@ use k8s_openapi::{
 };
 
 use kube::{
-    // api::{ Patch, PatchParams},
+    api::{ Patch, PatchParams},
     client::Client,
     core::{object::HasSpec },
     runtime::Controller,
@@ -22,7 +22,7 @@ use kube::{
         controller::Action,
         watcher::{self, Config},
     },
-    Resource,
+    Resource, ResourceExt,
 };
 
 use tracing::{debug, error };
@@ -142,14 +142,12 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<Context<impl RpcClient>>
     let num_peers = net_status.ready_replicas;
     let ns = "keramik-".to_owned() + sim_name;
 
-
     apply_jaeger(cx.clone(), &ns, simulation.clone()).await?;
     apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
     apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
 
     let manager_config = ManagerConfig {
         scenario: spec.scenario.to_owned(),
-        total_peers: num_peers as u32,
         users: spec.users.to_owned(),
         run_time: spec.run_time.to_owned(),
         nonce: status.nonce,
@@ -163,11 +161,8 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<Context<impl RpcClient>>
     )
     .await?;
 
-
-    // assume there is a ready event as well that could be used
     let jobs: Api<Job> = Api::namespaced(cx.k_client.clone(), &ns);
     let manager_job = jobs.get_status(MANAGER_JOB_NAME).await?;
-    // why not ?, compiler
     let manager_ready = manager_job.status.unwrap().ready.unwrap();
 
     if manager_ready > 0 {
@@ -176,29 +171,29 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<Context<impl RpcClient>>
             cx.clone(),
             &ns,
             num_peers as u32,
+            status.nonce,
             simulation.clone(),
           )
         .await?;
     }
 
-    // TODO, simulation status
-    // let networks: Api<Network> = Api::all(cx.k_client.clone());
-    // let _patched = networks
-    //     .patch_status(
-    //         &network.name_any(),
-    //         &PatchParams::default(),
-    //         &Patch::Merge(serde_json::json!({ "status": status })),
-    //     )
-    //     .await?;
+    let simulations: Api<Simulation> = Api::all(cx.k_client.clone());
+    let _patched = simulations
+        .patch_status(
+            &simulation.name_any(),
+            &PatchParams::default(),
+            &Patch::Merge(serde_json::json!({ "status": status })),
+        )
+        .await?;
 
     //TODO jobs done/fail cleanup, post process
 
     Ok(Action::requeue(Duration::from_secs(10)))
 }
 
-pub const MANAGER_SERVICE_NAME: &str = "sim-manager";
-pub const MANAGER_JOB_NAME: &str = "sim-manager-job";
-pub const WORKER_JOB_NAME: &str = "worker-job";
+pub const MANAGER_SERVICE_NAME: &str = "goose";
+pub const MANAGER_JOB_NAME: &str = "simulate-manager";
+pub const WORKER_JOB_NAME: &str = "simulate-worker";
 
 pub const JAEGER_SERVICE_NAME: &str = "jaeger";
 pub const OTEL_SERVICE_NAME: &str = "otel";
@@ -249,19 +244,18 @@ async fn get_network_status(
 async fn apply_n_workers(
     cx: Arc<Context<impl RpcClient>>,
     ns: &str,
-    n: u32,
+    peers: u32,
+    nonce: u32,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
     let spec = simulation.spec();
-    let status = simulation.status.clone().unwrap();
     let orefs = simulation.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
 
-    for i in 0..n {
+    for i in 0..peers {
         let config = WorkerConfig {
             scenario: spec.scenario.to_owned(),
             target_peer: i,
-            total_peers: n,
-            nonce: status.nonce,
+            nonce: nonce,
         };
 
         apply_job(
@@ -276,7 +270,6 @@ async fn apply_n_workers(
 
     Ok(())
 }
-
 
 async fn apply_jaeger(
     cx: Arc<Context<impl RpcClient>>,

@@ -15,7 +15,7 @@ use rand::random;
 #[derive(CustomResource, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[kube(
     group = "keramik.3box.io",
-    version = "v1",
+    version = "v1alpha1",
     kind = "Simulation",
     plural = "simulations",
     status = "SimulationStatus",

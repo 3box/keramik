@@ -17,7 +17,9 @@ pub struct PeerInfo {
     /// The public ID of the peer.
     pub peer_id: PeerId,
     /// RPC address of the peer.
-    pub rpc_addr: String,
+    pub ipfs_rpc_addr: String,
+    /// Ceramic API address of the peer.
+    pub ceramic_addr: String,
     /// Set of p2p addresses of the peer.
     /// Each address contains the /p2p/<peer_id> protocol.
     pub p2p_addrs: Vec<String>,

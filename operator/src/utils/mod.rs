@@ -12,6 +12,10 @@ use k8s_openapi::{
     }, apimachinery::pkg::apis::meta::v1::OwnerReference
 };
 
+use crate::network::{
+    utils::RpcClient,
+};
+
 use kube::{
     api::{ Patch, PatchParams},
     client::Client,
@@ -19,17 +23,25 @@ use kube::{
     Api,
 };
 
-/// Client Context
-pub struct ContextData {
-  /// A kube client
-  pub client: Client,
+/// Operator Context
+pub struct Context<R> {
+    /// Kube client
+    pub k_client: Client,
+    /// IPFS client
+    pub rpc_client: R,
 }
 
-impl ContextData {
-  /// Create a new context
-  pub fn new(client: Client) -> Self {
-      ContextData { client }
-  }
+impl<R> Context<R> {
+    /// Create new context
+    pub fn new(k_client: Client, rpc_client: R) -> Self
+    where
+        R: RpcClient,
+    {
+        Context {
+            k_client,
+            rpc_client,
+        }
+    }
 }
 
 /// A list of constants used in various K8s resources
@@ -56,68 +68,69 @@ pub fn managed_labels() -> Option<BTreeMap<String, String>> {
 
 /// Apply a Service
 pub async fn apply_service(
-  cx: Arc<ContextData>,
-  ns: &str,
-  orefs: Vec<OwnerReference>,
-  name: &str,
-  spec: ServiceSpec,
+    cx: Arc<Context<impl RpcClient>>,
+    ns: &str,
+    orefs: Vec<OwnerReference>,
+    name: &str,
+    spec: ServiceSpec,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
-  let serverside = PatchParams::apply(CONTROLLER_NAME);
-  let services: Api<Service> = Api::namespaced(cx.client.clone(), ns);
+    let serverside = PatchParams::apply(CONTROLLER_NAME);
+    let services: Api<Service> = Api::namespaced(cx.k_client.clone(), ns);
 
-  // Server-side apply service
-  let service: Service = Service {
-      metadata: ObjectMeta {
-          name: Some(name.to_owned()),
-          owner_references: Some(orefs),
-          labels: managed_labels(),
-          ..ObjectMeta::default()
-      },
-      spec: Some(spec),
-      ..Default::default()
-  };
-  let service = services
-      .patch(name, &serverside, &Patch::Apply(service))
-      .await?;
-  Ok(service.status)
+    // Server-side apply service
+    let service: Service = Service {
+        metadata: ObjectMeta {
+            name: Some(name.to_owned()),
+            owner_references: Some(orefs),
+            labels: managed_labels(),
+            ..ObjectMeta::default()
+        },
+        spec: Some(spec),
+        ..Default::default()
+    };
+    let service = services
+        .patch(name, &serverside, &Patch::Apply(service))
+        .await?;
+    Ok(service.status)
 }
+
 
 /// Apply a Job 
 pub async fn apply_job(
-  cx: Arc<ContextData>,
-  ns: &str,
-  orefs: Vec<OwnerReference>,
-  name: &str,
-  spec: JobSpec,
+    cx: Arc<Context<impl RpcClient>>,
+    ns: &str,
+    orefs: Vec<OwnerReference>,
+    name: &str,
+    spec: JobSpec,
 ) -> Result<Option<JobStatus>, kube::error::Error> {
-  let serverside = PatchParams::apply(CONTROLLER_NAME);
-  let jobs: Api<Job> = Api::namespaced(cx.client.clone(), ns);
+    let serverside = PatchParams::apply(CONTROLLER_NAME);
+    let jobs: Api<Job> = Api::namespaced(cx.k_client.clone(), ns);
 
-  // Server-side apply stateful_set
-  let job: Job = Job {
-      metadata: ObjectMeta {
-          name: Some(name.to_owned()),
-          owner_references: Some(orefs),
-          labels: managed_labels(),
-          ..ObjectMeta::default()
-      },
-      spec: Some(spec),
-      ..Default::default()
-  };
-  let job = jobs.patch(name, &serverside, &Patch::Apply(job)).await?;
-  Ok(job.status)
+    // Server-side apply job
+    let job: Job = Job {
+        metadata: ObjectMeta {
+            name: Some(name.to_owned()),
+            owner_references: Some(orefs),
+            labels: managed_labels(),
+            ..ObjectMeta::default()
+        },
+        spec: Some(spec),
+        ..Default::default()
+    };
+    let job = jobs.patch(name, &serverside, &Patch::Apply(job)).await?;
+    Ok(job.status)
 }
 
 /// Apply a stateful set in namespace
 pub async fn apply_stateful_set(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
     spec: StatefulSetSpec,
 ) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.client.clone(), ns);
+    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply stateful_set
     let stateful_set: StatefulSet = StatefulSet {
@@ -138,14 +151,14 @@ pub async fn apply_stateful_set(
 
 /// Apply account in namespace
 pub async fn apply_account(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
 ) -> Result<ServiceAccount, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let accounts: Api<ServiceAccount> = Api::namespaced(cx.client.clone(), ns);
-    // let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.client.clone(), ns);
+    let accounts: Api<ServiceAccount> = Api::namespaced(cx.k_client.clone(), ns);
+    // let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply account
     let account: ServiceAccount  = ServiceAccount {
@@ -165,16 +178,15 @@ pub async fn apply_account(
 
 /// Apply cluster role
 pub async fn apply_cluster_role(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     _ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
     cr: ClusterRole
 ) -> Result<ClusterRole, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    // let roles: Api<ClusterRole> = Api::namespaced(cx.client.clone(), ns);
-    let roles: Api<ClusterRole> = Api::all(cx.client.clone());
-    // let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.client.clone(), ns);
+    // let roles: Api<ClusterRole> = Api::namespaced(cx.k_client.clone(), ns);
+    let roles: Api<ClusterRole> = Api::all(cx.k_client.clone());
 
     // Server-side apply cluster role
     let role: ClusterRole  = ClusterRole {
@@ -194,7 +206,7 @@ pub async fn apply_cluster_role(
 
 /// Apply cluster role binding
 pub async fn apply_cluster_role_binding(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     // TODO
     _ns: &str,
     orefs: Vec<OwnerReference>,
@@ -202,9 +214,8 @@ pub async fn apply_cluster_role_binding(
     crb: ClusterRoleBinding 
 ) -> Result<ClusterRoleBinding , kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    // let roles: Api<ClusterRole> = Api::namespaced(cx.client.clone(), ns);
-    let role_bindings: Api<ClusterRoleBinding > = Api::all(cx.client.clone());
-    // let role_bindings: Api<ClusterRoleBinding> = Api::namespaced(cx.client.clone(), ns);
+    let role_bindings: Api<ClusterRoleBinding > = Api::all(cx.k_client.clone());
+    // let role_bindings: Api<ClusterRoleBinding> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply cluster role binding
     let role_binding: ClusterRoleBinding = ClusterRoleBinding  {
@@ -225,14 +236,14 @@ pub async fn apply_cluster_role_binding(
 
 /// Apply a config map
 pub async fn apply_config_map(
-    cx: Arc<ContextData>,
+    cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
     data: BTreeMap<String, String>,
 ) -> Result<(), kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let config_maps: Api<ConfigMap> = Api::namespaced(cx.client.clone(), ns);
+    let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
     // Apply config map
     let map_data = ConfigMap {
         metadata: ObjectMeta {

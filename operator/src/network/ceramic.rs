@@ -19,14 +19,20 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::network::controller::{
-    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_NAME,
-    CERAMIC_SERVICE_RPC_PORT, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT,
+    CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
 };
 
-use crate::utils::{ managed_labels, selector_labels,};
+use crate::utils::{ managed_labels, selector_labels};
 
-pub fn init_config_map_data() -> BTreeMap<String, String> {
-    BTreeMap::from_iter(vec![
+const IPFS_CONTAINER_NAME: &str = "ipfs";
+const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
+
+pub fn config_maps(config: &CeramicConfig) -> BTreeMap<String, BTreeMap<String, String>> {
+    let mut config_maps = BTreeMap::new();
+    if config.init_config_map == INIT_CONFIG_MAP_NAME {
+        config_maps.insert(INIT_CONFIG_MAP_NAME.to_owned(),
+            BTreeMap::from_iter(vec![
              ("ceramic-init.sh".to_owned(),
 r#"#!/bin/bash
 
@@ -71,25 +77,28 @@ r#"{
     "indexing": {
         "db": "sqlite://${CERAMIC_SQLITE_PATH}",
         "allow-queries-before-historical-sync": true,
-        "disable-composedb": true,
+        "disable-composedb": false,
         "enable-historical-sync": false
     }
 }"#.to_owned()),
-])
+]));
+    }
+    config_maps.append(&mut config.ipfs.config_maps());
+    config_maps
 }
 
 pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![
             ServicePort {
-                port: 7007,
-                name: Some("ceramic".to_owned()),
+                port: CERAMIC_SERVICE_API_PORT,
+                name: Some("api".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
             ServicePort {
-                port: CERAMIC_SERVICE_RPC_PORT,
-                name: Some("rpc".to_owned()),
+                port: CERAMIC_SERVICE_IPFS_PORT,
+                name: Some("ipfs".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
@@ -97,12 +106,6 @@ pub fn service_spec() -> ServiceSpec {
                 port: 4001,
                 name: Some("swarm-tcp".to_owned()),
                 protocol: Some("TCP".to_owned()),
-                ..Default::default()
-            },
-            ServicePort {
-                port: 4002,
-                name: Some("swarm-udp".to_owned()),
-                protocol: Some("UDP".to_owned()),
                 ..Default::default()
             },
         ]),
@@ -118,15 +121,117 @@ pub fn service_spec() -> ServiceSpec {
 pub struct CeramicSpec {
     /// Name of a config map with a ceramic-init.sh script that runs as an initialization step.
     pub init_config_map: Option<String>,
+    /// Configuration of the IPFS container
+    pub ipfs: Option<IpfsSpec>,
+}
+
+/// Describes how the IPFS node for a peer should behave.
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct IpfsSpec {
+    // Both Go and Rust have the same specification.
+    // If this changes, its possible to convert IpfsSpec into an enum
+    // with variants for each kind.
+    // Until that need arises we use a `kind` field on the struct.
+    pub kind: IpfsKind,
+    pub image: Option<String>,
+    pub image_pull_policy: Option<String>,
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum IpfsKind {
+    #[default]
+    Rust,
+    Go,
 }
 
 pub struct CeramicConfig {
     pub init_config_map: String,
+    pub ipfs: IpfsConfig,
 }
+
+pub enum IpfsConfig {
+    Rust(RustIpfsConfig),
+    Go(GoIpfsConfig),
+}
+
+impl Default for IpfsConfig {
+    fn default() -> Self {
+        Self::Rust(Default::default())
+    }
+}
+impl IpfsConfig {
+    fn config_maps(&self) -> BTreeMap<String, BTreeMap<String, String>> {
+        match self {
+            IpfsConfig::Rust(_) => BTreeMap::new(),
+            IpfsConfig::Go(config) => config.config_maps(),
+        }
+    }
+    fn into_container(self) -> Container {
+        match self {
+            IpfsConfig::Rust(config) => config.into_container(),
+            IpfsConfig::Go(config) => config.into_container(),
+        }
+    }
+    fn volumes(&self) -> Vec<Volume> {
+        match self {
+            IpfsConfig::Rust(_) => Vec::new(),
+            IpfsConfig::Go(config) => config.volumes(),
+        }
+    }
+}
+
+pub struct RustIpfsConfig {
+    image: String,
+    image_pull_policy: String,
+}
+
+impl Default for RustIpfsConfig {
+    fn default() -> Self {
+        Self {
+            image: "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest".to_owned(),
+            image_pull_policy: "Always".to_owned(),
+        }
+    }
+}
+impl From<IpfsSpec> for RustIpfsConfig {
+    fn from(value: IpfsSpec) -> Self {
+        let default = RustIpfsConfig::default();
+        Self {
+            image: value.image.unwrap_or(default.image),
+            image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
+        }
+    }
+}
+
+pub struct GoIpfsConfig {
+    image: String,
+    image_pull_policy: String,
+}
+impl Default for GoIpfsConfig {
+    fn default() -> Self {
+        Self {
+            image: "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d". to_owned(),
+            image_pull_policy: "IfNotPresent".to_owned(),
+        }
+    }
+}
+impl From<IpfsSpec> for GoIpfsConfig {
+    fn from(value: IpfsSpec) -> Self {
+        let default = GoIpfsConfig::default();
+        Self {
+            image: value.image.unwrap_or(default.image),
+            image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
+        }
+    }
+}
+
 impl Default for CeramicConfig {
     fn default() -> Self {
         Self {
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
+            ipfs: IpfsConfig::default(),
         }
     }
 }
@@ -144,7 +249,195 @@ impl From<CeramicSpec> for CeramicConfig {
         let default = Self::default();
         Self {
             init_config_map: value.init_config_map.unwrap_or(default.init_config_map),
+            ipfs: value.ipfs.map(Into::into).unwrap_or(default.ipfs),
         }
+    }
+}
+
+impl From<IpfsSpec> for IpfsConfig {
+    fn from(value: IpfsSpec) -> Self {
+        match value.kind {
+            IpfsKind::Rust => Self::Rust(value.into()),
+            IpfsKind::Go => Self::Go(value.into()),
+        }
+    }
+}
+
+impl RustIpfsConfig {
+    fn into_container(self) -> Container {
+        Container {
+            env: Some(vec![
+                EnvVar {
+                    name: "RUST_LOG".to_owned(),
+                    value: Some("info,ceramic_one=debug,tracing_actix_web=debug".to_owned()),
+                    ..Default::default()
+                },
+                EnvVar {
+                    name: "CERAMIC_ONE_BIND_ADDRESS".to_owned(),
+                    value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_IPFS_PORT}")),
+                    ..Default::default()
+                },
+                EnvVar {
+                    name: "CERAMIC_ONE_METRICS".to_owned(),
+                    value: Some("true".to_owned()),
+                    ..Default::default()
+                },
+                EnvVar {
+                    name: "CERAMIC_ONE_METRICS_BIND_ADDRESS".to_owned(),
+                    value: Some("0.0.0.0:9090".to_owned()),
+                    ..Default::default()
+                },
+                EnvVar {
+                    name: "CERAMIC_ONE_SWARM_ADDRESSES".to_owned(),
+                    value: Some("/ip4/0.0.0.0/tcp/4001".to_owned()),
+                    ..Default::default()
+                },
+                EnvVar {
+                    name: "CERAMIC_ONE_STORE_DIR".to_owned(),
+                    value: Some("/data/ipfs".to_owned()),
+                    ..Default::default()
+                },
+            ]),
+            image: Some(self.image),
+            image_pull_policy: Some(self.image_pull_policy),
+            name: IPFS_CONTAINER_NAME.to_owned(),
+            ports: Some(vec![
+                ContainerPort {
+                    container_port: 4001,
+                    name: Some("swarm-tcp".to_owned()),
+                    protocol: Some("TCP".to_owned()),
+                    ..Default::default()
+                },
+                ContainerPort {
+                    container_port: CERAMIC_SERVICE_IPFS_PORT,
+                    name: Some("rpc".to_owned()),
+                    protocol: Some("TCP".to_owned()),
+                    ..Default::default()
+                },
+                ContainerPort {
+                    container_port: 9090,
+                    name: Some("metrics".to_owned()),
+                    protocol: Some("TCP".to_owned()),
+                    ..Default::default()
+                },
+            ]),
+            resources: Some(ResourceRequirements {
+                limits: Some(BTreeMap::from_iter(vec![
+                    ("cpu".to_owned(), Quantity("250m".to_owned())),
+                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                ])),
+                requests: Some(BTreeMap::from_iter(vec![
+                    ("cpu".to_owned(), Quantity("250m".to_owned())),
+                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                ])),
+                ..Default::default()
+            }),
+            volume_mounts: Some(vec![VolumeMount {
+                mount_path: "/data/ipfs".to_owned(),
+                name: IPFS_DATA_PV_CLAIM.to_owned(),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        }
+    }
+}
+
+impl GoIpfsConfig {
+    fn config_maps(&self) -> BTreeMap<String, BTreeMap<String, String>> {
+        BTreeMap::from_iter(vec![(
+            "ipfs-container-init".to_owned(),
+            BTreeMap::from_iter(vec![(
+                "001-config.sh".to_owned(),
+                r#"#!/bin/sh
+set -ex
+# Do not bootstrap against public nodes
+ipfs bootstrap rm all
+# Do not sticky peer with ceramic specific peers
+# We want an isolated network
+ipfs config --json Peering.Peers '[]'
+# Disable the gateway
+ipfs config  --json Addresses.Gateway '[]'
+# Enable pubsub
+ipfs config  --json PubSub.Enabled true
+# Only listen on specific tcp address as nothing else is exposed
+ipfs config  --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/4001"]'
+# Set explicit resource manager limits as Kubo computes them based off
+# the k8s node resources and not the pods limits.
+ipfs config Swarm.ResourceMgr.MaxMemory '400 MB'
+ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
+"#
+                .to_owned(),
+            )]),
+        )])
+    }
+    fn into_container(self) -> Container {
+        Container {
+            image: Some(self.image),
+            image_pull_policy: Some(self.image_pull_policy),
+            name: IPFS_CONTAINER_NAME.to_owned(),
+            ports: Some(vec![
+                ContainerPort {
+                    container_port: 4001,
+                    name: Some("swarm".to_owned()),
+                    protocol: Some("TCP".to_owned()),
+                    ..Default::default()
+                },
+                ContainerPort {
+                    container_port: CERAMIC_SERVICE_IPFS_PORT,
+                    name: Some("rpc".to_owned()),
+                    protocol: Some("TCP".to_owned()),
+                    ..Default::default()
+                },
+                ContainerPort {
+                    container_port: 9090,
+                    name: Some("metrics".to_owned()),
+                    protocol: Some("TCP".to_owned()),
+                    ..Default::default()
+                },
+            ]),
+            resources: Some(ResourceRequirements {
+                limits: Some(BTreeMap::from_iter(vec![
+                    ("cpu".to_owned(), Quantity("250m".to_owned())),
+                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                ])),
+                requests: Some(BTreeMap::from_iter(vec![
+                    ("cpu".to_owned(), Quantity("250m".to_owned())),
+                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                ])),
+                ..Default::default()
+            }),
+            volume_mounts: Some(vec![
+                VolumeMount {
+                    mount_path: "/data/ipfs".to_owned(),
+                    name: IPFS_DATA_PV_CLAIM.to_owned(),
+                    ..Default::default()
+                },
+                VolumeMount {
+                    mount_path: "/container-init.d/001-config.sh".to_owned(),
+                    name: "ipfs-container-init".to_owned(),
+                    // Use an explict subpath otherwise, k8s uses symlinks which breaks
+                    // kubo's init logic.
+                    sub_path: Some("001-config.sh".to_owned()),
+                    ..Default::default()
+                },
+            ]),
+            ..Default::default()
+        }
+    }
+    fn volumes(&self) -> Vec<Volume> {
+        vec![Volume {
+            name: "ipfs-container-init".to_owned(),
+            config_map: Some(ConfigMapVolumeSource {
+                default_mode: Some(0o755),
+                name: Some("ipfs-container-init".to_owned()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }]
     }
 }
 
@@ -173,7 +466,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
         },
         EnvVar {
             name: "CERAMIC_IPFS_HOST".to_owned(),
-            value: Some(format!("http://localhost:{CERAMIC_SERVICE_RPC_PORT}")),
+            value: Some(format!("http://localhost:{CERAMIC_SERVICE_IPFS_PORT}")),
             ..Default::default()
         },
         EnvVar {
@@ -201,38 +494,41 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
     }];
     init_env.append(&mut ceramic_env.clone());
 
-    let ipfs_env = vec![
-        EnvVar {
-            name: "RUST_LOG".to_owned(),
-            value: Some("info,ceramic_one=debug,tracing_actix_web=debug".to_owned()),
+    let mut volumes = vec![
+        Volume {
+            empty_dir: Some(EmptyDirVolumeSource::default()),
+            name: "config-volume".to_owned(),
             ..Default::default()
         },
-        EnvVar {
-            name: "CERAMIC_ONE_BIND_ADDRESS".to_owned(),
-            value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_RPC_PORT}")),
+        Volume {
+            config_map: Some(ConfigMapVolumeSource {
+                default_mode: Some(0o755),
+                name: Some(config.init_config_map),
+                ..Default::default()
+            }),
+            name: "ceramic-init".to_owned(),
             ..Default::default()
         },
-        EnvVar {
-            name: "CERAMIC_ONE_METRICS".to_owned(),
-            value: Some("true".to_owned()),
+        Volume {
+            name: "ceramic-data".to_owned(),
+            persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
+                claim_name: "ceramic-data".to_owned(),
+                ..Default::default()
+            }),
             ..Default::default()
         },
-        EnvVar {
-            name: "CERAMIC_ONE_METRICS_BIND_ADDRESS".to_owned(),
-            value: Some("0.0.0.0:9090".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "CERAMIC_ONE_SWARM_ADDRESSES".to_owned(),
-            value: Some("/ip4/0.0.0.0/tcp/4001".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "CERAMIC_ONE_STORE_DIR".to_owned(),
-            value: Some("/data/ipfs".to_owned()),
+        Volume {
+            name: IPFS_DATA_PV_CLAIM.to_owned(),
+            persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
+                claim_name: IPFS_DATA_PV_CLAIM.to_owned(),
+                ..Default::default()
+            }),
             ..Default::default()
         },
     ];
+
+    volumes.append(&mut config.ipfs.volumes());
+
     StatefulSetSpec {
         pod_management_policy: Some("Parallel".to_owned()),
         replicas: Some(replicas),
@@ -271,7 +567,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                         image_pull_policy: Some("Always".to_owned()),
                         name: "ceramic".to_owned(),
                         ports: Some(vec![ContainerPort {
-                            container_port: 7007,
+                            container_port: CERAMIC_SERVICE_API_PORT,
                             name: Some("api".to_owned()),
                             ..Default::default()
                         }]),
@@ -283,6 +579,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             }),
                             initial_delay_seconds: Some(400),
                             period_seconds: Some(15),
+                            timeout_seconds: Some(30),
                             ..Default::default()
                         }),
                         liveness_probe: Some(Probe {
@@ -293,6 +590,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             }),
                             initial_delay_seconds: Some(400),
                             period_seconds: Some(15),
+                            timeout_seconds: Some(30),
                             ..Default::default()
                         }),
 
@@ -323,57 +621,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                         ]),
                         ..Default::default()
                     },
-                    Container {
-                        env: Some(ipfs_env),
-                        image: Some("public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest".to_owned()),
-                        image_pull_policy: Some("Always".to_owned()),
-                        name: "ipfs".to_owned(),
-                        ports: Some(vec![
-                            ContainerPort {
-                                container_port: 4001,
-                                name: Some("swarm-tcp".to_owned()),
-                                protocol: Some("TCP".to_owned()),
-                                ..Default::default()
-                            },
-                            ContainerPort {
-                                container_port: 4002,
-                                name: Some("swarm-quic".to_owned()),
-                                protocol: Some("UDP".to_owned()),
-                                ..Default::default()
-                            },
-                            ContainerPort {
-                                container_port: CERAMIC_SERVICE_RPC_PORT,
-                                name: Some("rpc".to_owned()),
-                                protocol: Some("TCP".to_owned()),
-                                ..Default::default()
-                            },
-                            ContainerPort {
-                                container_port: 9090,
-                                name: Some("metrics".to_owned()),
-                                protocol: Some("TCP".to_owned()),
-                                ..Default::default()
-                            },
-                        ]),
-                        resources: Some(ResourceRequirements {
-                            limits: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("500m".to_owned())),
-                                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                            ])),
-                            requests: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("500m".to_owned())),
-                                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                            ])),
-                            ..Default::default()
-                        }),
-                        volume_mounts: Some(vec![VolumeMount {
-                            mount_path: "/data/ipfs".to_owned(),
-                            name: "ipfs-data".to_owned(),
-                            ..Default::default()
-                        }]),
-                        ..Default::default()
-                    },
+                    config.ipfs.into_container(),
                 ],
                 init_containers: Some(vec![Container {
                     command: Some(vec![
@@ -412,38 +660,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                     ]),
                     ..Default::default()
                 }]),
-                volumes: Some(vec![
-                    Volume {
-                        empty_dir: Some(EmptyDirVolumeSource::default()),
-                        name: "config-volume".to_owned(),
-                        ..Default::default()
-                    },
-                    Volume {
-                        config_map: Some(ConfigMapVolumeSource {
-                            default_mode: Some(0o755),
-                            name: Some(config.init_config_map),
-                            ..Default::default()
-                        }),
-                        name: "ceramic-init".to_owned(),
-                        ..Default::default()
-                    },
-                    Volume {
-                        name: "ceramic-data".to_owned(),
-                        persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
-                            claim_name: "ceramic-data".to_owned(),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                    Volume {
-                        name: "ipfs-data".to_owned(),
-                        persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
-                            claim_name: "ipfs-data".to_owned(),
-                            ..Default::default()
-                        }),
-                        ..Default::default()
-                    },
-                ]),
+                volumes: Some(volumes),
                 ..Default::default()
             }),
         },
@@ -475,7 +692,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
             },
             PersistentVolumeClaim {
                 metadata: ObjectMeta {
-                    name: Some("ipfs-data".to_owned()),
+                    name: Some(IPFS_DATA_PV_CLAIM.to_owned()),
                     ..Default::default()
                 },
                 spec: Some(PersistentVolumeClaimSpec {

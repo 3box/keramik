@@ -1,4 +1,4 @@
-use std::{cmp::min, collections::BTreeMap, fs::File, path::PathBuf};
+use std::{cmp::min, collections::BTreeMap, path::PathBuf};
 
 use anyhow::Result;
 use clap::{Args, ValueEnum};
@@ -6,7 +6,7 @@ use keramik_common::peer_info::PeerInfo;
 use rand::seq::IteratorRandom;
 use tracing::{debug, error};
 
-use crate::utils::connect_peers;
+use crate::utils::{connect_peers, parse_peers_info};
 
 /// Options to Bootstrap command
 #[derive(Args, Debug)]
@@ -40,10 +40,7 @@ impl Default for Method {
 
 #[tracing::instrument]
 pub async fn bootstrap(opts: Opts) -> Result<()> {
-    let f = File::open(opts.peers)?;
-    let peers: Vec<PeerInfo> = serde_json::from_reader(f)?;
-    let peers: BTreeMap<usize, PeerInfo> =
-        BTreeMap::from_iter(peers.into_iter().map(|info| (info.index as usize, info)));
+    let peers = parse_peers_info(opts.peers).await?;
     match opts.method {
         Method::Ring => ring(opts.n, &peers).await?,
         Method::Random => random(opts.n, &peers).await?,

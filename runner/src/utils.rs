@@ -1,5 +1,8 @@
+use std::{collections::BTreeMap, path::Path};
+
 use anyhow::{bail, Result};
 use keramik_common::peer_info::PeerInfo;
+use tokio::{fs::File, io::AsyncReadExt};
 use tracing::debug;
 
 /// Initiate connection from peer to other.
@@ -14,7 +17,7 @@ pub async fn connect_peers(peer: &PeerInfo, other: &PeerInfo) -> Result<()> {
     let client = reqwest::Client::new();
     let url = format!(
         "{}/api/v0/swarm/connect?{}",
-        peer.rpc_addr,
+        peer.ipfs_rpc_addr,
         other
             .p2p_addrs
             .iter()
@@ -40,4 +43,15 @@ pub async fn connect_peers(peer: &PeerInfo, other: &PeerInfo) -> Result<()> {
     }
 
     Ok(())
+}
+
+/// Parse the peers info file.
+pub async fn parse_peers_info(path: impl AsRef<Path>) -> Result<BTreeMap<usize, PeerInfo>> {
+    let mut f = File::open(path).await?;
+    let mut peers_json = String::new();
+    f.read_to_string(&mut peers_json).await?;
+    let peers: Vec<PeerInfo> = serde_json::from_str(&peers_json)?;
+    Ok(BTreeMap::from_iter(
+        peers.into_iter().map(|info| (info.index as usize, info)),
+    ))
 }

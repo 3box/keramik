@@ -6,6 +6,12 @@ pub(crate) mod controller;
 pub(crate) mod peers;
 pub(crate) mod utils;
 
+#[cfg(test)]
+pub mod stub;
+// Expose Context for testing
+#[cfg(test)]
+pub use controller::Context;
+
 pub use bootstrap::BootstrapSpec;
 pub use ceramic::CeramicSpec;
 pub use controller::run;
@@ -16,10 +22,10 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 /// Primary CRD for creating and managing a Ceramic network.
-#[derive(CustomResource, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[derive(CustomResource, Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
 #[kube(
     group = "keramik.3box.io",
-    version = "v1",
+    version = "v1alpha1",
     kind = "Network",
     plural = "networks",
     status = "NetworkStatus",
@@ -42,7 +48,8 @@ pub struct NetworkStatus {
     pub replicas: i32,
     ///  Describes how new peers in the network should be bootstrapped.
     pub ready_replicas: i32,
-    namespace: Option<String>,
-    // Information about each Ceramic peer
-    peers: Vec<PeerInfo>,
+    /// K8s namespace this network is deployed in
+    pub namespace: Option<String>,
+    /// Information about each Ceramic peer
+    pub peers: Vec<PeerInfo>,
 }

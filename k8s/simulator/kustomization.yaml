@@ -1,0 +1,9 @@
+---
+namespace: keramik-small
+
+resources:
+  - ./simulate.yaml
+
+images:
+  - name: keramik/runner
+    newTag: dev

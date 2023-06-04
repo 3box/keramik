@@ -1,0 +1,181 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/cas?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "cas"
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "cas"
+          }
+        },
+        "serviceName": "cas",
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "cas"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "NODE_ENV",
+                    "value": "dev"
+                  },
+                  {
+                    "name": "ANCHOR_EXPIRATION_PERIOD",
+                    "value": "300000"
+                  },
+                  {
+                    "name": "ANCHOR_SCHEDULE_EXPRESSION",
+                    "value": "0/1 * * * ? *"
+                  },
+                  {
+                    "name": "APP_MODE",
+                    "value": "bundled"
+                  },
+                  {
+                    "name": "APP_PORT",
+                    "value": "8081"
+                  },
+                  {
+                    "name": "BLOCKCHAIN_CONNECTOR",
+                    "value": "ethereum"
+                  },
+                  {
+                    "name": "ETH_NETWORK",
+                    "value": "ganache"
+                  },
+                  {
+                    "name": "ETH_RPC_URL",
+                    "value": "http://ganache:8545"
+                  },
+                  {
+                    "name": "ETH_WALLET_PK",
+                    "value": "0x16dd0990d19001c50eeea6d32e8fdeef40d3945962caf18c18c3930baa5a6ec9"
+                  },
+                  {
+                    "name": "ETH_CONTRACT_ADDRESS",
+                    "value": "0xD3f84Cf6Be3DD0EB16dC89c972f7a27B441A39f2"
+                  },
+                  {
+                    "name": "IPFS_API_URL",
+                    "value": "http://cas-ipfs:5001"
+                  },
+                  {
+                    "name": "IPFS_PUBSUB_TOPIC",
+                    "value": "local"
+                  },
+                  {
+                    "name": "LOG_LEVEL",
+                    "value": "debug"
+                  },
+                  {
+                    "name": "MERKLE_DEPTH_LIMIT",
+                    "value": "0"
+                  },
+                  {
+                    "name": "VALIDATE_RECORDS",
+                    "value": "false"
+                  },
+                  {
+                    "name": "DB_NAME",
+                    "value": "anchor_db"
+                  },
+                  {
+                    "name": "DB_HOST",
+                    "value": "cas-postgres"
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  }
+                ],
+                "image": "ceramicnetwork/ceramic-anchor-service",
+                "imagePullPolicy": "Always",
+                "name": "cas",
+                "ports": [
+                  {
+                    "containerPort": 8081
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "512Mi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "512Mi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/cas/db",
+                    "name": "cas-data"
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "name": "cas-data",
+                "persistentVolumeClaim": {
+                  "claimName": "cas-data"
+                }
+              }
+            ]
+          }
+        },
+        "volumeClaimTemplates": [
+          {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+              "name": "cas-data"
+            },
+            "spec": {
+              "accessModes": [
+                "ReadWriteOnce"
+              ],
+              "resources": {
+                "requests": {
+                  "storage": "10Gi"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+}

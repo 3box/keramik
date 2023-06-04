@@ -4,12 +4,14 @@ use k8s_openapi::{
     api::{
         batch::v1::JobSpec,
         core::v1::{
-            Container, EnvVar, PodSpec, PodTemplateSpec, ServicePort, ServiceSpec,
+            ServiceSpec, ServicePort, ConfigMapVolumeSource, Container, EnvVar, PodSpec, PodTemplateSpec, Volume, VolumeMount,
         },
     },
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+
+use crate::network::controller::PEERS_CONFIG_MAP_NAME;
 
 use rand::random;
 
@@ -55,7 +57,7 @@ pub struct ManagerConfig {
 impl Default for ManagerConfig {
     fn default() -> Self {
         Self {
-            scenario: "ipfs-rpc".to_owned(),
+            scenario: "ceramic-simple".to_owned(),
             total_peers: 1,
             users: 100,
             run_time: 10,
@@ -92,6 +94,8 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
     backoff_limit: Some(4),
     template: PodTemplateSpec {
         spec: Some(PodSpec {
+            hostname: Some("manager".to_owned()),
+            subdomain: Some("goose".to_owned()),
             containers: vec![Container {
                 name: "manager".to_owned(),
                 image: Some("keramik/runner:dev".to_owned()),
@@ -108,7 +112,7 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
                     },
                     EnvVar {
                         name: "RUST_LOG".to_owned(),
-                        value: Some("info,runner=trace".to_owned()),
+                        value: Some("info,keramik_runner=trace".to_owned()),
                         ..Default::default()
                     },
                     EnvVar {
@@ -117,34 +121,63 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
                         ..Default::default()
                     },
                     EnvVar {
-                        name: "SIMULATE_TARGET_PEER".to_owned(),
-                        value: Some(1.to_string()),
+                        name: "SIMULATE_MANAGER".to_owned(),
+                        value: Some("true".to_owned()),
                         ..Default::default()
                     },
                     EnvVar {
-                        name: "SIMULATE_TOTAL_PEERS".to_owned(),
-                        value: Some(config.total_peers.to_string()),
+                        name: "SIMULATE_PEERS_PATH".to_owned(),
+                        value: Some("/keramik-peers/peers.json".to_owned()),
                         ..Default::default()
                     },
-                    // TODO what does this do, pass opt?
+                    EnvVar {
+                        name: "SIMULATE_TARGET_PEER".to_owned(),
+                        value: Some(0.to_string()),
+                        ..Default::default()
+                    },
                     EnvVar {
                         name: "SIMULATE_NONCE".to_owned(),
                         value: Some(10986711.to_string()),
                         ..Default::default()
                     },
                     EnvVar {
-                      name: "SIMULATE_USERS".to_owned(),
-                      value: Some(config.users.to_string()),
-                      ..Default::default()
-                  },
+                        name: "SIMULATE_USERS".to_owned(),
+                        value: Some(config.users.to_string()),
+                        ..Default::default()
+                    },
+                    // TODO
                     EnvVar {
-                      name: "SIMULATE_RUN_TIME".to_owned(),
-                      value: Some(config.run_time.to_string()),
-                      ..Default::default()
-                  },
+                        name: "SIMULATE_RUN_TIME".to_owned(),
+                        value: Some("10m".to_owned()),
+                        ..Default::default()
+                    },
+                    EnvVar {
+                        name: "DID_KEY".to_owned(),
+                        value: Some("did:key:z6Mkqn5jbycThHcBtakJZ8fHBQ2oVRQhXQEdQk5ZK2NDtNZA".to_owned()),
+                        ..Default::default()
+                    },
+                    EnvVar {
+                        name: "DID_PRIVATE_KEY".to_owned(),
+                        value: Some("86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a".to_owned()),
+                        ..Default::default()
+                    },
                 ]),
+                volume_mounts: Some(vec![VolumeMount {
+                    mount_path: "/keramik-peers".to_owned(),
+                    name: "keramik-peers".to_owned(),
+                    ..Default::default()
+                }]),
                 ..Default::default()
             }],
+            volumes: Some(vec![Volume {
+                config_map: Some(ConfigMapVolumeSource {
+                    default_mode: Some(0o755),
+                    name: Some(PEERS_CONFIG_MAP_NAME.to_owned()),
+                    ..Default::default()
+                }),
+                name: "keramik-peers".to_owned(),
+                ..Default::default()
+            }]),
             restart_policy: Some("Never".to_owned()),
             ..Default::default()
         }),

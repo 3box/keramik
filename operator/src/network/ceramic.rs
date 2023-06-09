@@ -403,14 +403,14 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
             ]),
             resources: Some(ResourceRequirements {
                 limits: Some(BTreeMap::from_iter(vec![
-                    ("cpu".to_owned(), Quantity("250m".to_owned())),
+                    ("cpu".to_owned(), Quantity("4.0".to_owned())),
                     ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                    ("memory".to_owned(), Quantity("8Gi".to_owned())),
                 ])),
                 requests: Some(BTreeMap::from_iter(vec![
-                    ("cpu".to_owned(), Quantity("250m".to_owned())),
+                    ("cpu".to_owned(), Quantity("4.0".to_owned())),
                     ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
+                    ("memory".to_owned(), Quantity("8Gi".to_owned())),
                 ])),
                 ..Default::default()
             }),
@@ -605,14 +605,14 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
 
                         resources: Some(ResourceRequirements {
                             limits: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                                ("cpu".to_owned(), Quantity("4.0".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+                                ("memory".to_owned(), Quantity("8Gi".to_owned())),
                             ])),
                             requests: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                                ("cpu".to_owned(), Quantity("4.0".to_owned())),
                                 ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+                                ("memory".to_owned(), Quantity("8Gi".to_owned())),
                             ])),
                             ..Default::default()
                         }),

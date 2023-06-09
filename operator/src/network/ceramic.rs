@@ -51,6 +51,7 @@ r#"{
             "${CERAMIC_CORS_ALLOWED_ORIGINS}"
         ],
         "admin-dids": [
+            "auth-method": "did",
             "${CERAMIC_ADMIN_DID}"
         ]
     },

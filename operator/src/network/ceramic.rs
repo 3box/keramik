@@ -38,7 +38,6 @@ r#"#!/bin/bash
 
 set -eo pipefail
 
-export CERAMIC_SKIP_IPFS_PERSISTENCE_STARTUP_CHECK=true
 export CERAMIC_ADMIN_DID=$(composedb did:from-private-key ${CERAMIC_ADMIN_PRIVATE_KEY})
 
 CERAMIC_ADMIN_DID=$CERAMIC_ADMIN_DID envsubst < /ceramic-init/daemon-config.json > /config/daemon-config.json
@@ -482,6 +481,11 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
         EnvVar {
             name: "CERAMIC_LOG_LEVEL".to_owned(),
             value: Some("2".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "CERAMIC_SKIP_IPFS_PERSISTENCE_STARTUP_CHECK".to_owned(),
+            value: Some("true".to_owned()),
             ..Default::default()
         },
     ];

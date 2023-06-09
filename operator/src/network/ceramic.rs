@@ -19,8 +19,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::network::controller::{
-    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
-    CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+    CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
+    CERAMIC_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
 };
 
 use crate::utils::{managed_labels, selector_labels};
@@ -66,8 +66,7 @@ r#"{
         "metrics-exporter-enabled": false
     },
     "network": {
-        "name": "${CERAMIC_NETWORK}",
-        "pubsub-topic": "${CERAMIC_NETWORK_TOPIC}"
+        "name": "dev-unstable"
     },
     "node": {},
     "state-store": {
@@ -558,9 +557,9 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             "--config".to_owned(),
                             "/config/daemon-config.json".to_owned(),
                             "--anchor-service-api".to_owned(),
-                            format!("http://{CAS_SERVICE_NAME}:8081"),
-                            "--ethereum-rpc".to_owned(),
-                            format!("http://{GANACHE_SERVICE_NAME}:8545"),
+                            "https://cas-dev.3boxlabs.com".to_owned(),
+                            "--network".to_owned(),
+                            "dev-unstable".to_owned(),
                         ]),
                         env: Some(ceramic_env),
                         image: Some("3boxben/composedb:latest".to_owned()),

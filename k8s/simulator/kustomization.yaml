@@ -6,4 +6,5 @@ resources:
 
 images:
   - name: keramik/runner
+    newName: smrz2001/keramik-runner
     newTag: dev

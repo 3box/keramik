@@ -36,7 +36,7 @@ pub struct Opts {
     peers: PathBuf,
 
     /// Number of users to simulate
-    #[arg(long, default_value_t = 2, env = "SIMULATE_USERS")]
+    #[arg(long, default_value_t = 100, env = "SIMULATE_USERS")]
     users: usize,
 
     /// Duration of the simulation

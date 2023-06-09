@@ -45,13 +45,14 @@ CERAMIC_ADMIN_DID=$CERAMIC_ADMIN_DID envsubst < /ceramic-init/daemon-config.json
 
 ("daemon-config.json".to_owned(),
 r#"{
-    "anchor": {},
+    "anchor": {
+        "auth-method": "did"
+    },
     "http-api": {
         "cors-allowed-origins": [
             "${CERAMIC_CORS_ALLOWED_ORIGINS}"
         ],
         "admin-dids": [
-            "auth-method": "did",
             "${CERAMIC_ADMIN_DID}"
         ]
     },

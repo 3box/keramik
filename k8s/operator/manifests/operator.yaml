@@ -99,7 +99,7 @@ spec:
       containers:
       - name: keramik-operator
         image: "keramik/operator"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: Always
         command:
           - "/usr/bin/keramik-operator"
           - "daemon"

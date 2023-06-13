@@ -19,11 +19,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::network::controller::{
-    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT,
-    CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
+    CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
 };
 
-use crate::utils::{ managed_labels, selector_labels};
+use crate::utils::{managed_labels, selector_labels};
 
 const IPFS_CONTAINER_NAME: &str = "ipfs";
 const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";

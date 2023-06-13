@@ -4,7 +4,7 @@ use futures::stream::StreamExt;
 use k8s_openapi::{
     api::{
         apps::v1::{StatefulSet, StatefulSetStatus},
-        batch::v1::{ Job },
+        batch::v1::Job,
         core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceStatus},
     },
     apimachinery::pkg::util::intstr::IntOrString,
@@ -34,7 +34,10 @@ use crate::network::{
     BootstrapSpec, CeramicSpec, Network, NetworkStatus,
 };
 
-use crate::utils::{ apply_job, apply_service, apply_config_map, apply_stateful_set, Context, MANAGED_BY_LABEL_SELECTOR, managed_labels };
+use crate::utils::{
+    apply_config_map, apply_job, apply_service, apply_stateful_set, managed_labels, Context,
+    MANAGED_BY_LABEL_SELECTOR,
+};
 
 /// Handle errors during reconciliation.
 fn on_error(
@@ -253,7 +256,10 @@ async fn apply_cas(
     if is_cas_postgres_secret_missing(cx.clone(), ns).await? {
         create_cas_postgres_secret(cx.clone(), ns, network.clone()).await?;
     }
-    let orefs: Vec<_> = network.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
     apply_service(
         cx.clone(),
@@ -378,7 +384,10 @@ async fn apply_ceramic(
     let config: CeramicConfig = spec.into();
 
     let config_maps = ceramic::config_maps(&config);
-    let orefs: Vec<_> = network.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
     for (name, data) in config_maps {
         apply_config_map(cx.clone(), ns, orefs.clone(), &name, data).await?;
@@ -395,16 +404,12 @@ async fn apply_ceramic_service(
     ns: &str,
     network: Arc<Network>,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
-    let orefs: Vec<_> = network.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
-    apply_service(
-        cx,
-        ns,
-        orefs,
-        CERAMIC_SERVICE_NAME,
-        ceramic::service_spec(),
-    )
-    .await
+    apply_service(cx, ns, orefs, CERAMIC_SERVICE_NAME, ceramic::service_spec()).await
 }
 
 async fn apply_ceramic_stateful_set(
@@ -415,7 +420,10 @@ async fn apply_ceramic_stateful_set(
     config: CeramicConfig,
 ) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
     let spec = ceramic::stateful_set_spec(replicas, config);
-    let orefs: Vec<_> = network.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
     apply_stateful_set(cx, ns, orefs, CERAMIC_STATEFUL_SET_NAME, spec).await
 }
 
@@ -453,7 +461,10 @@ async fn apply_bootstrap_job(
         debug!("creating bootstrap job");
         // Create bootstrap jobs
         let spec = bootstrap::bootstrap_job_spec(spec);
-        let orefs: Vec<_> = network.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+        let orefs: Vec<_> = network
+            .controller_owner_ref(&())
+            .map(|oref| vec![oref])
+            .unwrap();
         apply_job(cx.clone(), ns, orefs, BOOTSTRAP_JOB_NAME, spec).await?;
     }
     Ok(())
@@ -481,7 +492,10 @@ async fn update_peer_info(
         status.peers.push(info);
     }
     status.ready_replicas = status.peers.len() as i32;
-    let orefs: Vec<_> = network.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
     apply_config_map(
         cx,

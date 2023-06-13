@@ -1,23 +1,20 @@
 //! Utils is shared functions and contants for the controller
-use std::{collections::BTreeMap, sync::Arc };
+use std::{collections::BTreeMap, sync::Arc};
 
 use k8s_openapi::{
     api::{
         apps::v1::{StatefulSet, StatefulSetSpec, StatefulSetStatus},
         batch::v1::{Job, JobSpec, JobStatus},
-        core::v1::{ ConfigMap, Service, ServiceSpec, ServiceStatus, ServiceAccount },
-        rbac::v1::{
-			ClusterRole, ClusterRoleBinding
-		}
-    }, apimachinery::pkg::apis::meta::v1::OwnerReference
+        core::v1::{ConfigMap, Service, ServiceAccount, ServiceSpec, ServiceStatus},
+        rbac::v1::{ClusterRole, ClusterRoleBinding},
+    },
+    apimachinery::pkg::apis::meta::v1::OwnerReference,
 };
 
-use crate::network::{
-    utils::RpcClient,
-};
+use crate::network::utils::RpcClient;
 
 use kube::{
-    api::{ Patch, PatchParams},
+    api::{Patch, PatchParams},
     client::Client,
     core::ObjectMeta,
     Api,
@@ -94,8 +91,7 @@ pub async fn apply_service(
     Ok(service.status)
 }
 
-
-/// Apply a Job 
+/// Apply a Job
 pub async fn apply_job(
     cx: Arc<Context<impl RpcClient>>,
     ns: &str,
@@ -161,7 +157,7 @@ pub async fn apply_account(
     // let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply account
-    let account: ServiceAccount  = ServiceAccount {
+    let account: ServiceAccount = ServiceAccount {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
             owner_references: Some(orefs),
@@ -182,14 +178,14 @@ pub async fn apply_cluster_role(
     _ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
-    cr: ClusterRole
+    cr: ClusterRole,
 ) -> Result<ClusterRole, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
     // let roles: Api<ClusterRole> = Api::namespaced(cx.k_client.clone(), ns);
     let roles: Api<ClusterRole> = Api::all(cx.k_client.clone());
 
     // Server-side apply cluster role
-    let role: ClusterRole  = ClusterRole {
+    let role: ClusterRole = ClusterRole {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
             owner_references: Some(orefs),
@@ -198,9 +194,7 @@ pub async fn apply_cluster_role(
         },
         ..cr
     };
-    let role = roles
-        .patch(name, &serverside, &Patch::Apply(role))
-        .await?;
+    let role = roles.patch(name, &serverside, &Patch::Apply(role)).await?;
     Ok(role)
 }
 
@@ -211,20 +205,19 @@ pub async fn apply_cluster_role_binding(
     _ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
-    crb: ClusterRoleBinding 
-) -> Result<ClusterRoleBinding , kube::error::Error> {
+    crb: ClusterRoleBinding,
+) -> Result<ClusterRoleBinding, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let role_bindings: Api<ClusterRoleBinding > = Api::all(cx.k_client.clone());
+    let role_bindings: Api<ClusterRoleBinding> = Api::all(cx.k_client.clone());
     // let role_bindings: Api<ClusterRoleBinding> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply cluster role binding
-    let role_binding: ClusterRoleBinding = ClusterRoleBinding  {
+    let role_binding: ClusterRoleBinding = ClusterRoleBinding {
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
             owner_references: Some(orefs),
             labels: managed_labels(),
-            ..crb.metadata
-            // ..ObjectMeta::default()
+            ..crb.metadata // ..ObjectMeta::default()
         },
         ..crb
     };

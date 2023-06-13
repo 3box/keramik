@@ -1,20 +1,19 @@
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
 
 use k8s_openapi::{
     api::{
-        apps::v1::{ StatefulSetSpec },
+        apps::v1::StatefulSetSpec,
         core::v1::{
-            Container, PodSpec, PodTemplateSpec, ContainerPort, ResourceRequirements, VolumeMount, Volume, ConfigMapVolumeSource
+            ConfigMapVolumeSource, Container, ContainerPort, PodSpec, PodTemplateSpec,
+            ResourceRequirements, Volume, VolumeMount,
         },
     },
     apimachinery::pkg::{
-        apis::meta::v1::LabelSelector, apis::meta::v1::ObjectMeta, api::resource::Quantity
+        api::resource::Quantity, apis::meta::v1::LabelSelector, apis::meta::v1::ObjectMeta,
     },
 };
 
-use crate::simulation::controller::{
-    PROM_CONFIG_MAP_NAME
-};
+use crate::simulation::controller::PROM_CONFIG_MAP_NAME;
 
 use crate::utils::selector_labels;
 
@@ -41,13 +40,11 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         "--web.enable-lifecycle".to_owned(),
                         "--config.file=/config/prom-config.yaml".to_owned(),
                     ]),
-                    ports: Some(vec![
-                        ContainerPort {
-                            container_port: 9090,
-                            name: Some("webui".to_owned()),
-                            ..Default::default()
-                        },
-                    ]), 
+                    ports: Some(vec![ContainerPort {
+                        container_port: 9090,
+                        name: Some("webui".to_owned()),
+                        ..Default::default()
+                    }]),
                     resources: Some(ResourceRequirements {
                         limits: Some(BTreeMap::from_iter(vec![
                             ("cpu".to_owned(), Quantity("250m".to_owned())),
@@ -61,39 +58,35 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         ])),
                         ..Default::default()
                     }),
-                    volume_mounts: Some(vec![
-                        VolumeMount {
-                            mount_path: "/config".to_owned(),
-                            name: "config".to_owned(),
-                            read_only: Some(true),
-                            ..Default::default()
-                        },
-                    ]),
+                    volume_mounts: Some(vec![VolumeMount {
+                        mount_path: "/config".to_owned(),
+                        name: "config".to_owned(),
+                        read_only: Some(true),
+                        ..Default::default()
+                    }]),
                     ..Default::default()
                 }],
-                volumes: Some(vec![
-                    Volume {
-                        config_map: Some(ConfigMapVolumeSource {
-                            // TODO ?, how to create config map? 
-                            default_mode: Some(0o755),
-                            name: Some(PROM_CONFIG_MAP_NAME.to_owned()),
-                            ..Default::default()
-                        }),
-                        name: "config".to_owned(),
+                volumes: Some(vec![Volume {
+                    config_map: Some(ConfigMapVolumeSource {
+                        // TODO ?, how to create config map?
+                        default_mode: Some(0o755),
+                        name: Some(PROM_CONFIG_MAP_NAME.to_owned()),
                         ..Default::default()
-                    },
-                ]),
+                    }),
+                    name: "config".to_owned(),
+                    ..Default::default()
+                }]),
                 ..Default::default()
             }),
             ..Default::default()
         },
         ..Default::default()
-    } 
+    }
 }
 
 pub fn config_map_data() -> BTreeMap<String, String> {
-    BTreeMap::from_iter(vec![
-		("prom-config.yaml".to_owned(),
+    BTreeMap::from_iter(vec![(
+        "prom-config.yaml".to_owned(),
         r#"
         global:
           scrape_interval: 10s
@@ -107,6 +100,7 @@ pub fn config_map_data() -> BTreeMap<String, String> {
               - targets:
                 - 'localhost:9090'
                 - 'otel:9090'
-                - 'otel:8888'"#.to_owned()),
-	])
+                - 'otel:8888'"#
+            .to_owned(),
+    )])
 }

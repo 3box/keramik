@@ -1,19 +1,17 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
-use std::{ sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use futures::stream::StreamExt;
-use k8s_openapi::{
-    api::{
-        batch::v1::Job,
-        core::v1::{ConfigMap, Namespace, Pod, Service },
-    },
+use k8s_openapi::api::{
+    batch::v1::Job,
+    core::v1::{ConfigMap, Namespace, Pod, Service},
 };
 
 use kube::{
-    api::{ Patch, PatchParams},
+    api::{Patch, PatchParams},
     client::Client,
-    core::{object::HasSpec },
+    core::object::HasSpec,
     runtime::Controller,
     Api,
 };
@@ -25,19 +23,22 @@ use kube::{
     Resource, ResourceExt,
 };
 
-use tracing::{debug, error };
+use tracing::{debug, error};
 
-use crate::simulation::{ 
-    manager, worker, Simulation, manager::ManagerConfig, worker::WorkerConfig, SimulationStatus
+use crate::simulation::{
+    manager, manager::ManagerConfig, worker, worker::WorkerConfig, Simulation, SimulationStatus,
 };
 
-use crate::opentelemetry::{opentelemetry, jaeger, prometheus };
+use crate::opentelemetry::{jaeger, opentelemetry, prometheus};
 
-use crate::network::{ Network, NetworkStatus, utils::{HttpRpcClient, RpcClient}};
+use crate::network::{
+    utils::{HttpRpcClient, RpcClient},
+    Network, NetworkStatus,
+};
 
-use crate::utils::{ 
-    apply_job, apply_service, apply_stateful_set, apply_account, apply_cluster_role, 
-    apply_cluster_role_binding, apply_config_map, Context, MANAGED_BY_LABEL_SELECTOR
+use crate::utils::{
+    apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map, apply_job,
+    apply_service, apply_stateful_set, Context, MANAGED_BY_LABEL_SELECTOR,
 };
 
 /// Handle errors during reconciliation.
@@ -118,14 +119,17 @@ pub async fn run() {
 }
 
 /// Perform a reconile pass for the Simulation CRD
-async fn reconcile(simulation: Arc<Simulation>, cx: Arc<Context<impl RpcClient>>) -> Result<Action, Error> {
+async fn reconcile(
+    simulation: Arc<Simulation>,
+    cx: Arc<Context<impl RpcClient>>,
+) -> Result<Action, Error> {
     let spec = simulation.spec();
     debug!(?spec, "reconcile");
 
     let status = if let Some(status) = &simulation.status {
         status.clone()
     } else {
-       SimulationStatus::default()
+        SimulationStatus::default()
     };
 
     let sim_name = &spec.selector;
@@ -136,7 +140,7 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<Context<impl RpcClient>>
 
     if !net_ready {
         debug!("simulation waiting, network not ready");
-        return  Ok(Action::requeue(Duration::from_secs(10)))
+        return Ok(Action::requeue(Duration::from_secs(10)));
     }
 
     let num_peers = net_status.ready_replicas;
@@ -153,27 +157,21 @@ async fn reconcile(simulation: Arc<Simulation>, cx: Arc<Context<impl RpcClient>>
         nonce: status.nonce,
     };
 
-    apply_manager(
-        cx.clone(),
-        &ns,
-        simulation.clone(),
-        manager_config,
-    )
-    .await?;
+    apply_manager(cx.clone(), &ns, simulation.clone(), manager_config).await?;
 
     let jobs: Api<Job> = Api::namespaced(cx.k_client.clone(), &ns);
     let manager_job = jobs.get_status(MANAGER_JOB_NAME).await?;
     let manager_ready = manager_job.status.unwrap().ready.unwrap();
 
     if manager_ready > 0 {
-        //for loop n peers 
+        //for loop n peers
         apply_n_workers(
             cx.clone(),
             &ns,
             num_peers as u32,
             status.nonce,
             simulation.clone(),
-          )
+        )
         .await?;
     }
 
@@ -209,9 +207,12 @@ async fn apply_manager(
     cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     simulation: Arc<Simulation>,
-    config: ManagerConfig
+    config: ManagerConfig,
 ) -> Result<(), kube::error::Error> {
-    let orefs = simulation.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs = simulation
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
     apply_service(
         cx.clone(),
@@ -222,12 +223,13 @@ async fn apply_manager(
     )
     .await?;
     apply_job(
-        cx.clone(), 
-        ns, 
+        cx.clone(),
+        ns,
         orefs.clone(),
-        MANAGER_JOB_NAME, 
-        manager::manager_job_spec(config)
-    ).await?;
+        MANAGER_JOB_NAME,
+        manager::manager_job_spec(config),
+    )
+    .await?;
 
     Ok(())
 }
@@ -249,7 +251,10 @@ async fn apply_n_workers(
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
     let spec = simulation.spec();
-    let orefs = simulation.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs = simulation
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
     for i in 0..peers {
         let config = WorkerConfig {
@@ -276,7 +281,10 @@ async fn apply_jaeger(
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
-    let orefs: Vec<_> = simulation.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs: Vec<_> = simulation
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
     apply_service(
         cx.clone(),
@@ -303,14 +311,17 @@ async fn apply_prometheus(
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
-    let orefs = simulation.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs = simulation
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
     apply_config_map(
         cx.clone(),
         ns,
         orefs.clone(),
         PROM_CONFIG_MAP_NAME,
-       prometheus::config_map_data(),
+        prometheus::config_map_data(),
     )
     .await?;
     apply_stateful_set(
@@ -324,35 +335,31 @@ async fn apply_prometheus(
     Ok(())
 }
 
-
 async fn apply_opentelemetry(
     cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
-    let orefs = simulation.controller_owner_ref(&()).map(|oref| vec![oref]).unwrap();
+    let orefs = simulation
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap();
 
-    apply_account(
-        cx.clone(), 
-        ns, 
-        orefs.clone(), 
-        OTEL_ACCOUNT
-    )
-    .await?;
+    apply_account(cx.clone(), ns, orefs.clone(), OTEL_ACCOUNT).await?;
     apply_cluster_role(
-        cx.clone(), 
-        ns, 
-        orefs.clone(), 
-        OTEL_CR, 
-        opentelemetry::cluster_role()
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        OTEL_CR,
+        opentelemetry::cluster_role(),
     )
     .await?;
     apply_cluster_role_binding(
-        cx.clone(), 
-        ns, 
-        orefs.clone(), 
-        OTEL_CR_BINDING, 
-        opentelemetry::cluster_role_binding()
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        OTEL_CR_BINDING,
+        opentelemetry::cluster_role_binding(),
     )
     .await?;
     apply_config_map(

@@ -1,142 +1,137 @@
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
 
 use k8s_openapi::{
     api::{
-        apps::v1::{ StatefulSetSpec },
+        apps::v1::StatefulSetSpec,
         core::v1::{
-            ConfigMapVolumeSource, Container, ContainerPort, PodTemplateSpec, 
-            PersistentVolumeClaim, PersistentVolumeClaimSpec,
-            PersistentVolumeClaimVolumeSource, PodSpec,
+            ConfigMapVolumeSource, Container, ContainerPort, PersistentVolumeClaim,
+            PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, PodSpec, PodTemplateSpec,
             ResourceRequirements, ServicePort, ServiceSpec, Volume, VolumeMount,
         },
-		rbac::v1::{
-			ClusterRole, PolicyRule, ClusterRoleBinding, RoleRef, Subject,
-		}
+        rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject},
     },
     apimachinery::pkg::{
-        api::resource::Quantity, apis::meta::v1::LabelSelector, 
-		util::intstr::IntOrString, apis::meta::v1::ObjectMeta 
+        api::resource::Quantity, apis::meta::v1::LabelSelector, apis::meta::v1::ObjectMeta,
+        util::intstr::IntOrString,
     },
 };
 
 use crate::utils::selector_labels;
 
-use crate::simulation::controller::{
-    OTEL_CR, OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME
-};
+use crate::simulation::controller::{OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME, OTEL_CR};
 
 pub const OTEL_APP: &str = "otel";
 
 pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
-      ports: Some(vec![
-        ServicePort {
-          name: Some("otlp-receiver".to_owned()),
-          port: 4317,
-          protocol: Some("TCP".to_owned()),
-          target_port: Some(IntOrString::Int(4317)),
-          ..Default::default()
-        },
-        ServicePort {
-          name: Some("prom-metrics".to_owned()),
-          port: 9090,
-          protocol: Some("TCP".to_owned()),
-          target_port: Some(IntOrString::Int(9090)),
-          ..Default::default()
-        },
-        ServicePort {
-          name: Some("self-metrics".to_owned()),
-          port: 8888,
-          protocol: Some("TCP".to_owned()),
-          target_port: Some(IntOrString::Int(8888)),
-          ..Default::default()
-        },
-    ]),
-      selector: selector_labels(OTEL_APP),
-      type_: Some("ClusterIP".to_owned()),
-      ..Default::default()
-  }
+        ports: Some(vec![
+            ServicePort {
+                name: Some("otlp-receiver".to_owned()),
+                port: 4317,
+                protocol: Some("TCP".to_owned()),
+                target_port: Some(IntOrString::Int(4317)),
+                ..Default::default()
+            },
+            ServicePort {
+                name: Some("prom-metrics".to_owned()),
+                port: 9090,
+                protocol: Some("TCP".to_owned()),
+                target_port: Some(IntOrString::Int(9090)),
+                ..Default::default()
+            },
+            ServicePort {
+                name: Some("self-metrics".to_owned()),
+                port: 8888,
+                protocol: Some("TCP".to_owned()),
+                target_port: Some(IntOrString::Int(8888)),
+                ..Default::default()
+            },
+        ]),
+        selector: selector_labels(OTEL_APP),
+        type_: Some("ClusterIP".to_owned()),
+        ..Default::default()
+    }
 }
 
 pub fn stateful_set_spec() -> StatefulSetSpec {
-	StatefulSetSpec {
-		replicas: Some(1),
-		service_name: OTEL_APP.to_owned(),
-		selector: LabelSelector {
-			match_labels: selector_labels(OTEL_APP),
-			..Default::default()
-		},
-		template: PodTemplateSpec {
-			metadata: Some(ObjectMeta {
-				labels: selector_labels(OTEL_APP),
-				..Default::default()
-			}),
-			spec: Some(PodSpec {
-				service_account_name: Some(OTEL_ACCOUNT.to_owned()), 
-				containers: vec![Container {
-					name: "opentelemetry".to_owned(),
-					image: Some("public.ecr.aws/r5b3e0r5/3box/otelcol".to_owned()),
-					command: Some(vec![
-						"/otelcol-custom".to_owned(),
-						"--config=/config/otel-config.yaml".to_owned(),
-					]),
-					ports: Some(vec![
-						ContainerPort {
-							container_port: 4317,
-							name: Some("otlp-receiver".to_owned()),
-							..Default::default()
-						},
-						ContainerPort {
-							container_port: 9090,
-							name: Some("prom-metrics".to_owned()),
-							..Default::default()
-						},
-						ContainerPort {
-							container_port: 8888,
-							name: Some("self-metrics".to_owned()),
-							..Default::default()
-						},
-					]), 
-					resources: Some(ResourceRequirements {
-						limits: Some(BTreeMap::from_iter(vec![
-							("cpu".to_owned(), Quantity("250m".to_owned())),
-							("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-							("memory".to_owned(), Quantity("1Gi".to_owned())),
-						])),
-						requests: Some(BTreeMap::from_iter(vec![
-							("cpu".to_owned(), Quantity("250m".to_owned())),
-							("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-							("memory".to_owned(), Quantity("1Gi".to_owned())),
-						])),
-						..Default::default()
-					}),
-					volume_mounts: Some(vec![
-						VolumeMount {
-							mount_path: "/config".to_owned(),
-							name: "config".to_owned(),
-							read_only: Some(true),
-							..Default::default()
-						},
-						VolumeMount {
-							mount_path: "/data".to_owned(),
-							name: "otel-data".to_owned(),
-							read_only: Some(false),
-							..Default::default()
-						},
-					]),
-					..Default::default()
-				}],
-				volumes: Some(vec![
-					Volume {
-						config_map: Some(ConfigMapVolumeSource {
-							default_mode: Some(0o755),
-							name: Some(OTEL_CONFIG_MAP_NAME.to_owned()),
-							..Default::default()
-						}),
-						name: "config".to_owned(),
-						..Default::default()
-					},
-					Volume {
+    StatefulSetSpec {
+        replicas: Some(1),
+        service_name: OTEL_APP.to_owned(),
+        selector: LabelSelector {
+            match_labels: selector_labels(OTEL_APP),
+            ..Default::default()
+        },
+        template: PodTemplateSpec {
+            metadata: Some(ObjectMeta {
+                labels: selector_labels(OTEL_APP),
+                ..Default::default()
+            }),
+            spec: Some(PodSpec {
+                service_account_name: Some(OTEL_ACCOUNT.to_owned()),
+                containers: vec![Container {
+                    name: "opentelemetry".to_owned(),
+                    image: Some("public.ecr.aws/r5b3e0r5/3box/otelcol".to_owned()),
+                    command: Some(vec![
+                        "/otelcol-custom".to_owned(),
+                        "--config=/config/otel-config.yaml".to_owned(),
+                    ]),
+                    ports: Some(vec![
+                        ContainerPort {
+                            container_port: 4317,
+                            name: Some("otlp-receiver".to_owned()),
+                            ..Default::default()
+                        },
+                        ContainerPort {
+                            container_port: 9090,
+                            name: Some("prom-metrics".to_owned()),
+                            ..Default::default()
+                        },
+                        ContainerPort {
+                            container_port: 8888,
+                            name: Some("self-metrics".to_owned()),
+                            ..Default::default()
+                        },
+                    ]),
+                    resources: Some(ResourceRequirements {
+                        limits: Some(BTreeMap::from_iter(vec![
+                            ("cpu".to_owned(), Quantity("250m".to_owned())),
+                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
+                        ])),
+                        requests: Some(BTreeMap::from_iter(vec![
+                            ("cpu".to_owned(), Quantity("250m".to_owned())),
+                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
+                        ])),
+                        ..Default::default()
+                    }),
+                    volume_mounts: Some(vec![
+                        VolumeMount {
+                            mount_path: "/config".to_owned(),
+                            name: "config".to_owned(),
+                            read_only: Some(true),
+                            ..Default::default()
+                        },
+                        VolumeMount {
+                            mount_path: "/data".to_owned(),
+                            name: "otel-data".to_owned(),
+                            read_only: Some(false),
+                            ..Default::default()
+                        },
+                    ]),
+                    ..Default::default()
+                }],
+                volumes: Some(vec![
+                    Volume {
+                        config_map: Some(ConfigMapVolumeSource {
+                            default_mode: Some(0o755),
+                            name: Some(OTEL_CONFIG_MAP_NAME.to_owned()),
+                            ..Default::default()
+                        }),
+                        name: "config".to_owned(),
+                        ..Default::default()
+                    },
+                    Volume {
                         name: "otel-data".to_owned(),
                         persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
                             claim_name: "otel-data".to_owned(),
@@ -144,73 +139,67 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         }),
                         ..Default::default()
                     },
-				]),
-				..Default::default()
-			}),
-			..Default::default()
-		},
-		volume_claim_templates: Some(vec![
-            PersistentVolumeClaim {
-                metadata: ObjectMeta {
-                    name: Some("otel-data".to_owned()),
-                    ..Default::default()
-                },
-                spec: Some(PersistentVolumeClaimSpec {
-                    access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                    resources: Some(ResourceRequirements {
-                        requests: Some(BTreeMap::from_iter(vec![(
-                            "storage".to_owned(),
-                            Quantity("10Gi".to_owned()),
-                        )])),
-                        ..Default::default()
-                    }),
+                ]),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        volume_claim_templates: Some(vec![PersistentVolumeClaim {
+            metadata: ObjectMeta {
+                name: Some("otel-data".to_owned()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeClaimSpec {
+                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
+                resources: Some(ResourceRequirements {
+                    requests: Some(BTreeMap::from_iter(vec![(
+                        "storage".to_owned(),
+                        Quantity("10Gi".to_owned()),
+                    )])),
                     ..Default::default()
                 }),
                 ..Default::default()
-            },
-		]),
-		..Default::default()
-	} 
+            }),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    }
 }
 
 pub fn cluster_role() -> ClusterRole {
-	ClusterRole {
-		rules: Some(vec![
-			PolicyRule {
-				api_groups: Some(vec!["".to_owned()]),
-				resources: Some(vec!["pods".to_owned()]),
-				verbs: vec!["get".to_owned(), "list".to_owned(), "watch".to_owned()],
-				..Default::default()
-			},
-		]),
-    	..Default::default()
-  	}
+    ClusterRole {
+        rules: Some(vec![PolicyRule {
+            api_groups: Some(vec!["".to_owned()]),
+            resources: Some(vec!["pods".to_owned()]),
+            verbs: vec!["get".to_owned(), "list".to_owned(), "watch".to_owned()],
+            ..Default::default()
+        }]),
+        ..Default::default()
+    }
 }
 
 pub fn cluster_role_binding() -> ClusterRoleBinding {
-	ClusterRoleBinding { 
-		role_ref: RoleRef {
-			kind: "ClusterRole".to_owned(),
-			name: OTEL_CR.to_owned(),
-			api_group: "rbac.authorization.k8s.io".to_owned(),
-		}, 
-		subjects: Some(vec![
-			Subject {
-				kind: "ServiceAccount".to_owned(),
-				name: OTEL_ACCOUNT.to_owned(),
-				// TODO 
-				namespace: Some("keramik-small".to_owned()),
-				..Default::default()
-			}
-		]),
-		..Default::default()
-	}
+    ClusterRoleBinding {
+        role_ref: RoleRef {
+            kind: "ClusterRole".to_owned(),
+            name: OTEL_CR.to_owned(),
+            api_group: "rbac.authorization.k8s.io".to_owned(),
+        },
+        subjects: Some(vec![Subject {
+            kind: "ServiceAccount".to_owned(),
+            name: OTEL_ACCOUNT.to_owned(),
+            // TODO
+            namespace: Some("keramik-small".to_owned()),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    }
 }
 
 pub fn config_map_data() -> BTreeMap<String, String> {
-    BTreeMap::from_iter(vec![
-		("otel-config.yaml".to_owned(),
-		r#"
+    BTreeMap::from_iter(vec![(
+        "otel-config.yaml".to_owned(),
+        r#"
     receivers:
       # Push based metrics
       otlp:
@@ -313,7 +302,7 @@ pub fn config_map_data() -> BTreeMap<String, String> {
           level: info
         metrics:
           level: detailed
-          address: 0.0.0.0:8888"#.to_owned()),
-		])
+          address: 0.0.0.0:8888"#
+            .to_owned(),
+    )])
 }
-				

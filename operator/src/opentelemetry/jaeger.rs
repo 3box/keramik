@@ -1,16 +1,16 @@
-use std::{collections::BTreeMap};
+use std::collections::BTreeMap;
 
 use k8s_openapi::{
     api::{
-        apps::v1::{ StatefulSetSpec },
+        apps::v1::StatefulSetSpec,
         core::v1::{
-            Container, ContainerPort, PodTemplateSpec, 
-            PodSpec,
-            ResourceRequirements, ServicePort, ServiceSpec, EnvVar
-        }
+            Container, ContainerPort, EnvVar, PodSpec, PodTemplateSpec, ResourceRequirements,
+            ServicePort, ServiceSpec,
+        },
     },
     apimachinery::pkg::{
-        api::resource::Quantity, apis::meta::v1::LabelSelector, util::intstr::IntOrString, apis::meta::v1::ObjectMeta 
+        api::resource::Quantity, apis::meta::v1::LabelSelector, apis::meta::v1::ObjectMeta,
+        util::intstr::IntOrString,
     },
 };
 
@@ -20,17 +20,17 @@ pub const JAEGER_APP: &str = "jaeger";
 
 pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
-      ports: Some(vec![ServicePort {
-        name: Some("otlp-receiver".to_owned()),
-        port: 4317,
-        protocol: Some("TCP".to_owned()),
-        target_port: Some(IntOrString::Int(4317)),
+        ports: Some(vec![ServicePort {
+            name: Some("otlp-receiver".to_owned()),
+            port: 4317,
+            protocol: Some("TCP".to_owned()),
+            target_port: Some(IntOrString::Int(4317)),
+            ..Default::default()
+        }]),
+        selector: selector_labels(JAEGER_APP),
+        type_: Some("ClusterIP".to_owned()),
         ..Default::default()
-    }]),
-      selector: selector_labels(JAEGER_APP),
-      type_: Some("ClusterIP".to_owned()),
-      ..Default::default()
-  }
+    }
 }
 
 pub fn stateful_set_spec() -> StatefulSetSpec {
@@ -60,15 +60,12 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                             name: Some("webui".to_owned()),
                             ..Default::default()
                         },
-                    ]), 
-                    env: Some(vec![
-                        EnvVar {
-                            name: "COLLECTOR_OTLP_ENABLED".to_owned(),
-                            value: Some(
-                                "true".to_owned(),
-                            ),
-                        ..Default::default()},
                     ]),
+                    env: Some(vec![EnvVar {
+                        name: "COLLECTOR_OTLP_ENABLED".to_owned(),
+                        value: Some("true".to_owned()),
+                        ..Default::default()
+                    }]),
                     resources: Some(ResourceRequirements {
                         limits: Some(BTreeMap::from_iter(vec![
                             ("cpu".to_owned(), Quantity("250m".to_owned())),
@@ -91,4 +88,3 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
         ..Default::default()
     }
 }
-

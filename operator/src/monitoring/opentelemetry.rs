@@ -142,7 +142,6 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                 ]),
                 ..Default::default()
             }),
-            ..Default::default()
         },
         volume_claim_templates: Some(vec![PersistentVolumeClaim {
             metadata: ObjectMeta {

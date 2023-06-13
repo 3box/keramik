@@ -83,7 +83,6 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                 }],
                 ..Default::default()
             }),
-            ..Default::default()
         },
         ..Default::default()
     }

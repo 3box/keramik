@@ -154,7 +154,6 @@ pub fn worker_job_spec(config: impl Into<WorkerConfig>) -> JobSpec {
                 restart_policy: Some("Never".to_owned()),
                 ..Default::default()
             }),
-            ..Default::default()
         },
         ..Default::default()
     }

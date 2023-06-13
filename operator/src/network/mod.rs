@@ -10,7 +10,7 @@ pub(crate) mod utils;
 pub mod stub;
 // Expose Context for testing
 #[cfg(test)]
-pub use controller::Context;
+pub use crate::utils::Context;
 
 pub use bootstrap::BootstrapSpec;
 pub use ceramic::CeramicSpec;

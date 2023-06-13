@@ -149,7 +149,7 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
                         },
                         EnvVar {
                             name: "SIMULATE_RUN_TIME".to_owned(),
-                            value: Some(format!("{}m", config.run_time.to_string())),
+                            value: Some(format!("{}m", config.run_time)),
                             ..Default::default()
                         },
                         EnvVar {
@@ -188,7 +188,6 @@ pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
                 restart_policy: Some("Never".to_owned()),
                 ..Default::default()
             }),
-            ..Default::default()
         },
         ..Default::default()
     }

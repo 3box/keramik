@@ -29,7 +29,7 @@ use crate::simulation::{
     manager, manager::ManagerConfig, worker, worker::WorkerConfig, Simulation, SimulationStatus,
 };
 
-use crate::opentelemetry::{jaeger, opentelemetry, prometheus};
+use crate::monitoring::{jaeger, opentelemetry, prometheus};
 
 use crate::network::{
     utils::{HttpRpcClient, RpcClient},
@@ -260,12 +260,12 @@ async fn apply_n_workers(
         let config = WorkerConfig {
             scenario: spec.scenario.to_owned(),
             target_peer: i,
-            nonce: nonce,
+            nonce,
         };
 
         apply_job(
             cx.clone(),
-            &ns,
+            ns,
             orefs.clone(),
             &(WORKER_JOB_NAME.to_owned() + "-" + &i.to_string()),
             worker::worker_job_spec(config),

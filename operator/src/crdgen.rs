@@ -5,6 +5,6 @@ use keramik_operator::simulation::Simulation;
 
 fn main() {
     print!("{}", serde_yaml::to_string(&Network::crd()).unwrap());
-    print!("---\n");
+    print!("---");
     print!("{}", serde_yaml::to_string(&Simulation::crd()).unwrap());
 }

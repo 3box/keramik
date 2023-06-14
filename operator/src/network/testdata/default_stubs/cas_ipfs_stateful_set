@@ -12,7 +12,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "cas-ipfs"
+        "name": "cas-ipfs",
+        "ownerReferences": []
       },
       "spec": {
         "replicas": 1,

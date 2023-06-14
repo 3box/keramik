@@ -16,7 +16,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "ceramic-init"
+        "name": "ceramic-init",
+        "ownerReferences": []
       }
     },
 }

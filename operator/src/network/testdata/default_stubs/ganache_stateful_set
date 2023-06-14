@@ -12,7 +12,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "ganache"
+        "name": "ganache",
+        "ownerReferences": []
       },
       "spec": {
         "replicas": 1,

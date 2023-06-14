@@ -259,7 +259,7 @@ async fn apply_cas(
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     apply_service(
         cx.clone(),
@@ -387,7 +387,7 @@ async fn apply_ceramic(
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     for (name, data) in config_maps {
         apply_config_map(cx.clone(), ns, orefs.clone(), &name, data).await?;
@@ -407,7 +407,7 @@ async fn apply_ceramic_service(
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     apply_service(cx, ns, orefs, CERAMIC_SERVICE_NAME, ceramic::service_spec()).await
 }
@@ -423,7 +423,7 @@ async fn apply_ceramic_stateful_set(
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
     apply_stateful_set(cx, ns, orefs, CERAMIC_STATEFUL_SET_NAME, spec).await
 }
 
@@ -464,7 +464,7 @@ async fn apply_bootstrap_job(
         let orefs: Vec<_> = network
             .controller_owner_ref(&())
             .map(|oref| vec![oref])
-            .unwrap();
+            .unwrap_or_default();
         apply_job(cx.clone(), ns, orefs, BOOTSTRAP_JOB_NAME, spec).await?;
     }
     Ok(())
@@ -495,7 +495,7 @@ async fn update_peer_info(
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     apply_config_map(
         cx,
@@ -632,7 +632,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -16,7 +16,7 @@
+            @@ -17,7 +17,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -742,7 +742,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -127,39 +127,13 @@
+            @@ -128,39 +128,13 @@
                              ]
                            },
                            {
@@ -785,7 +785,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -189,6 +163,11 @@
+            @@ -190,6 +164,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -797,7 +797,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -289,6 +268,13 @@
+            @@ -290,6 +269,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -861,7 +861,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -127,39 +127,13 @@
+            @@ -128,39 +128,13 @@
                              ]
                            },
                            {
@@ -904,7 +904,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -189,6 +163,11 @@
+            @@ -190,6 +164,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -916,7 +916,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -289,6 +268,13 @@
+            @@ -290,6 +269,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }

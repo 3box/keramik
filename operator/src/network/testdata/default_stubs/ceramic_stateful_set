@@ -12,7 +12,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "ceramic"
+        "name": "ceramic",
+        "ownerReferences": []
       },
       "spec": {
         "podManagementPolicy": "Parallel",
@@ -83,7 +84,7 @@ Request {
                     "path": "/api/v0/node/healthcheck",
                     "port": "api"
                   },
-                  "initialDelaySeconds": 30,
+                  "initialDelaySeconds": 400,
                   "periodSeconds": 15,
                   "timeoutSeconds": 30
                 },
@@ -99,7 +100,7 @@ Request {
                     "path": "/api/v0/node/healthcheck",
                     "port": "api"
                   },
-                  "initialDelaySeconds": 30,
+                  "initialDelaySeconds": 400,
                   "periodSeconds": 15,
                   "timeoutSeconds": 30
                 },

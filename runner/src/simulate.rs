@@ -62,6 +62,8 @@ pub enum Scenario {
     IpfsRpc,
     /// Simple Ceramic Scenario
     CeramicSimple,
+    /// WriteOnly Ceramic Scenario
+    CeramicWriteOnly,
 }
 
 impl Scenario {
@@ -69,13 +71,14 @@ impl Scenario {
         match self {
             Scenario::IpfsRpc => "ipfs_rpc",
             Scenario::CeramicSimple => "ceramic_simple",
+            Scenario::CeramicWriteOnly => "ceramic_write_only",
         }
     }
 
     fn target_addr(&self, peer_info: &PeerInfo) -> String {
         match self {
             Self::IpfsRpc => peer_info.ipfs_rpc_addr.clone(),
-            Self::CeramicSimple => peer_info.ceramic_addr.clone(),
+            Self::CeramicSimple | Self::CeramicWriteOnly => peer_info.ceramic_addr.clone(),
         }
     }
 }
@@ -100,6 +103,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
     let scenario = match opts.scenario {
         Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
         Scenario::CeramicSimple => ceramic::scenario()?,
+        Scenario::CeramicWriteOnly => ceramic::write_only::scenario()?,
     };
     let config = if opts.manager {
         manager_config(peers.len(), opts.users, opts.run_time)
@@ -157,6 +161,13 @@ struct MetricsInner {
     duration: ObservableGauge<u64>,
     maximum_users: ObservableGauge<u64>,
     users_total: ObservableGauge<u64>,
+
+    scenarios_total: ObservableGauge<u64>,
+    scenarios_duration_percentiles: ObservableGauge<f64>,
+
+    txs_total: ObservableGauge<u64>,
+    txs_duration_percentiles: ObservableGauge<f64>,
+
     requests_total: ObservableGauge<u64>,
     requests_status_codes_total: ObservableGauge<u64>,
     requests_duration_percentiles: ObservableGauge<f64>,
@@ -187,6 +198,26 @@ impl Metrics {
             .with_description("Total number of users simulated during this load test")
             .init();
 
+        // Scenario specific metrics
+        let scenarios_total = meter
+            .u64_observable_gauge("goose_scenarios_total")
+            .with_description("Total number of scenario runs")
+            .init();
+        let scenarios_duration_percentiles = meter
+            .f64_observable_gauge("goose_scenarios_duration_percentiles")
+            .with_description("Specific percentiles of scenario durations")
+            .init();
+
+        // Transaction specific metrics
+        let txs_total = meter
+            .u64_observable_gauge("goose_txs_total")
+            .with_description("Total number of transaction runs")
+            .init();
+        let txs_duration_percentiles = meter
+            .f64_observable_gauge("goose_txs_duration_percentiles")
+            .with_description("Specific percentiles of transaction durations")
+            .init();
+
         // Request specific metrics
         let requests_total = meter
             .u64_observable_gauge("goose_requests_total")
@@ -201,14 +232,16 @@ impl Metrics {
             .with_description("Specific percentiles of request durations")
             .init();
 
-        //TODO(nathanielc): capture per transaction and scenario metrics
-
         let inner = Arc::new(Mutex::new(MetricsInner {
             goose_metrics: None,
             attrs,
             duration,
             maximum_users,
             users_total,
+            scenarios_total,
+            scenarios_duration_percentiles,
+            txs_total,
+            txs_duration_percentiles,
             requests_total,
             requests_status_codes_total,
             requests_duration_percentiles,
@@ -241,6 +274,67 @@ impl MetricsInner {
             self.users_total
                 .observe(cx, metrics.total_users as u64, &self.attrs);
 
+            for scenario_metrics in &metrics.scenarios {
+                // Push and pop unique attributes for each new metric
+                self.attrs
+                    .push(KeyValue::new("name", scenario_metrics.name.clone()));
+
+                self.scenarios_total.observe(
+                    cx,
+                    scenario_metrics.times.count() as u64,
+                    &self.attrs,
+                );
+
+                for q in [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] {
+                    self.attrs.push(KeyValue::new("percentile", q.to_string()));
+                    self.scenarios_duration_percentiles.observe(
+                        cx,
+                        scenario_metrics.times.quantile(q),
+                        &self.attrs,
+                    );
+                    self.attrs.pop();
+                }
+
+                // Pop name
+                self.attrs.pop();
+            }
+
+            for tx_metrics in metrics.transactions.iter().flatten() {
+                // Push and pop unique attributes for each new metric
+                self.attrs.push(KeyValue::new(
+                    "scenario_name",
+                    tx_metrics.scenario_name.clone(),
+                ));
+                self.attrs.push(KeyValue::new(
+                    "tx_name",
+                    tx_metrics.transaction_name.clone(),
+                ));
+
+                self.attrs.push(KeyValue::new("result", "success"));
+                self.txs_total
+                    .observe(cx, tx_metrics.success_count as u64, &self.attrs);
+                self.attrs.pop();
+
+                self.attrs.push(KeyValue::new("result", "fail"));
+                self.txs_total
+                    .observe(cx, tx_metrics.fail_count as u64, &self.attrs);
+                self.attrs.pop();
+
+                for q in [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] {
+                    self.attrs.push(KeyValue::new("percentile", q.to_string()));
+                    self.txs_duration_percentiles.observe(
+                        cx,
+                        tx_metrics.times.quantile(q),
+                        &self.attrs,
+                    );
+                    self.attrs.pop();
+                }
+
+                // Pop scenario_name and tx_name
+                self.attrs.pop();
+                self.attrs.pop();
+            }
+
             for req_metrics in metrics.requests.values() {
                 // Push and pop unique attributes for each new metric
                 self.attrs
@@ -269,7 +363,7 @@ impl MetricsInner {
                     self.attrs.push(KeyValue::new("percentile", q.to_string()));
                     self.requests_duration_percentiles.observe(
                         cx,
-                        req_metrics.raw_data.histogram.estimate_quantile(q),
+                        req_metrics.raw_data.times.quantile(q),
                         &self.attrs,
                     );
                     self.attrs.pop();

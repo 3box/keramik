@@ -1980,7 +1980,7 @@ dependencies = [
 [[package]]
 name = "goose"
 version = "0.16.4"
-source = "git+https://github.com/3box/goose.git?branch=fixes-0.16.4#55d38316a1f4d839e374883b5ca5625e74ce76a7"
+source = "git+https://github.com/3box/goose.git?branch=feat/all-metrics-digest#353278e91b15c1b0a9bc09eca180ad22e4fb98f2"
 dependencies = [
  "async-trait",
  "chrono",

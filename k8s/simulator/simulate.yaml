@@ -38,7 +38,7 @@ spec:
           - name: RUST_LOG
             value: 'info,keramik_runner=trace'
           - name: SIMULATE_SCENARIO
-            value: 'ceramic-simple'
+            value: 'ceramic-write-only'
           - name: SIMULATE_MANAGER
             value: 'true'
           - name: SIMULATE_PEERS_PATH
@@ -46,9 +46,9 @@ spec:
           - name: SIMULATE_TARGET_PEER
             value: '0'
           - name: SIMULATE_NONCE
-            value: '8760'
+            value: '1516760'
           - name: SIMULATE_USERS
-            value: '100'
+            value: '1000'
           - name: SIMULATE_RUN_TIME
             value: '10m'
           - name: DID_KEY
@@ -89,7 +89,7 @@ spec:
           - name: RUST_BACKTRACE
             value: '1'
           - name: SIMULATE_SCENARIO
-            value: 'ceramic-simple'
+            value: 'ceramic-write-only'
           - name: SIMULATE_TARGET_PEER
             value: '0'
           - name: SIMULATE_PEERS_PATH
@@ -132,7 +132,7 @@ spec:
           - name: RUST_LOG
             value: 'info,keramik_runner=trace'
           - name: SIMULATE_SCENARIO
-            value: 'ceramic-simple'
+            value: 'ceramic-write-only'
           - name: SIMULATE_TARGET_PEER
             value: '1'
           - name: SIMULATE_PEERS_PATH
@@ -176,7 +176,7 @@ spec:
           - name: RUST_LOG
             value: 'info,keramik_runner=trace'
           - name: SIMULATE_SCENARIO
-            value: 'ceramic-simple'
+            value: 'ceramic-write-only'
           - name: SIMULATE_TARGET_PEER
             value: '2'
           - name: SIMULATE_PEERS_PATH
@@ -220,7 +220,7 @@ spec:
           - name: RUST_LOG
             value: 'info,keramik_runner=trace'
           - name: SIMULATE_SCENARIO
-            value: 'ceramic-simple'
+            value: 'ceramic-write-only'
           - name: SIMULATE_TARGET_PEER
             value: '3'
           - name: SIMULATE_PEERS_PATH
@@ -263,7 +263,7 @@ spec:
           - name: RUST_LOG
             value: 'info,keramik_runner=trace'
           - name: SIMULATE_SCENARIO
-            value: 'ceramic-simple'
+            value: 'ceramic-write-only'
           - name: SIMULATE_TARGET_PEER
             value: '4'
           - name: SIMULATE_PEERS_PATH

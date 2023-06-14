@@ -31,4 +31,5 @@ tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 tracing-log = "0.1.3"
 
 [patch.crates-io]
-goose = { git = "https://github.com/3box/goose.git", branch = "fixes-0.16.4" }
+goose = { git = "https://github.com/3box/goose.git", branch = "feat/all-metrics-digest" }
+#goose = { path = "../goose/" }

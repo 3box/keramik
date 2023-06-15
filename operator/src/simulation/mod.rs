@@ -19,12 +19,10 @@ use rand::random;
     kind = "Simulation",
     plural = "simulations",
     status = "SimulationStatus",
-    derive = "PartialEq"
+    derive = "PartialEq",
+    namespaced
 )]
 pub struct SimulationSpec {
-    /// Selector of the cluster to run against.
-    /// This selector must select a Network resource.
-    pub selector: String,
     /// Simulation runner scenario
     pub scenario: String,
     /// Number of users

@@ -2,8 +2,8 @@ apiVersion: "keramik.3box.io/v1alpha1"
 kind: Simulation
 metadata:
   name: basic
+  namespace: keramik-small
 spec:
-  selector: small
   scenario: ceramic-simple
   users: 10
   run_time: 4

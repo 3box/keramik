@@ -3,9 +3,9 @@ use std::{collections::BTreeMap, sync::Arc, time::Duration};
 use futures::stream::StreamExt;
 use k8s_openapi::{
     api::{
-        apps::v1::{StatefulSet, StatefulSetSpec, StatefulSetStatus},
-        batch::v1::{Job, JobSpec, JobStatus},
-        core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceSpec, ServiceStatus},
+        apps::v1::{StatefulSet, StatefulSetStatus},
+        batch::v1::Job,
+        core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceStatus},
     },
     apimachinery::pkg::util::intstr::IntOrString,
 };
@@ -34,23 +34,10 @@ use crate::network::{
     BootstrapSpec, CeramicSpec, Network, NetworkStatus,
 };
 
-//can add resource apis here
-pub struct Context<R> {
-    pub k_client: Client,
-    pub rpc_client: R,
-}
-
-impl<R> Context<R> {
-    pub fn new(k_client: Client, rpc_client: R) -> Self
-    where
-        R: RpcClient,
-    {
-        Context {
-            k_client,
-            rpc_client,
-        }
-    }
-}
+use crate::utils::{
+    apply_config_map, apply_job, apply_service, apply_stateful_set, managed_labels, Context,
+    MANAGED_BY_LABEL_SELECTOR,
+};
 
 /// Handle errors during reconciliation.
 fn on_error(
@@ -124,10 +111,10 @@ pub async fn run() {
         .for_each(|rec_res| async move {
             match rec_res {
                 Ok((network, _)) => {
-                    debug!(network.name, "reconile success");
+                    debug!(network.name, "reconcile success");
                 }
                 Err(err) => {
-                    error!(?err, "reconile error")
+                    error!(?err, "reconcile error")
                 }
             }
         })
@@ -165,24 +152,6 @@ pub const CAS_IPFS_APP: &str = "cas-ipfs";
 pub const GANACHE_APP: &str = "ganache";
 
 pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
-
-// Create lables that can be used as a unique selector for a given app name.
-pub fn selector_labels(app: &str) -> Option<BTreeMap<String, String>> {
-    Some(BTreeMap::from_iter(vec![(
-        "app".to_owned(),
-        app.to_owned(),
-    )]))
-}
-
-pub const MANAGED_BY_LABEL_SELECTOR: &str = "managed-by=keramik";
-
-// Labels that indicate the resource is managed by the keramik operator.
-pub fn managed_labels() -> Option<BTreeMap<String, String>> {
-    Some(BTreeMap::from_iter(vec![(
-        "managed-by".to_owned(),
-        "keramik".to_owned(),
-    )]))
-}
 
 /// Perform a reconile pass for the Network CRD
 async fn reconcile(
@@ -287,10 +256,15 @@ async fn apply_cas(
     if is_cas_postgres_secret_missing(cx.clone(), ns).await? {
         create_cas_postgres_secret(cx.clone(), ns, network.clone()).await?;
     }
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
+
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         CAS_SERVICE_NAME,
         cas::cas_service_spec(),
     )
@@ -298,7 +272,7 @@ async fn apply_cas(
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         CAS_IFPS_SERVICE_NAME,
         cas::cas_ipfs_service_spec(),
     )
@@ -306,7 +280,7 @@ async fn apply_cas(
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         GANACHE_SERVICE_NAME,
         cas::ganache_service_spec(),
     )
@@ -314,7 +288,7 @@ async fn apply_cas(
     apply_service(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         CAS_POSTGRES_SERVICE_NAME,
         cas::postgres_service_spec(),
     )
@@ -323,7 +297,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "cas",
         cas::cas_stateful_set_spec(),
     )
@@ -331,7 +305,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "cas-ipfs",
         cas::cas_ipfs_stateful_set_spec(),
     )
@@ -339,7 +313,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "ganache",
         cas::ganache_stateful_set_spec(),
     )
@@ -347,7 +321,7 @@ async fn apply_cas(
     apply_stateful_set(
         cx.clone(),
         ns,
-        network.clone(),
+        orefs.clone(),
         "cas-postgres",
         cas::postgres_stateful_set_spec(),
     )
@@ -410,9 +384,13 @@ async fn apply_ceramic(
     let config: CeramicConfig = spec.into();
 
     let config_maps = ceramic::config_maps(&config);
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
 
     for (name, data) in config_maps {
-        apply_config_map(cx.clone(), ns, network.clone(), &name, data).await?;
+        apply_config_map(cx.clone(), ns, orefs.clone(), &name, data).await?;
     }
 
     apply_ceramic_service(cx.clone(), ns, network.clone()).await?;
@@ -426,14 +404,12 @@ async fn apply_ceramic_service(
     ns: &str,
     network: Arc<Network>,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
-    apply_service(
-        cx,
-        ns,
-        network,
-        CERAMIC_SERVICE_NAME,
-        ceramic::service_spec(),
-    )
-    .await
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
+
+    apply_service(cx, ns, orefs, CERAMIC_SERVICE_NAME, ceramic::service_spec()).await
 }
 
 async fn apply_ceramic_stateful_set(
@@ -444,7 +420,11 @@ async fn apply_ceramic_stateful_set(
     config: CeramicConfig,
 ) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
     let spec = ceramic::stateful_set_spec(replicas, config);
-    apply_stateful_set(cx, ns, network, CERAMIC_STATEFUL_SET_NAME, spec).await
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
+    apply_stateful_set(cx, ns, orefs, CERAMIC_STATEFUL_SET_NAME, spec).await
 }
 
 async fn apply_bootstrap_job(
@@ -481,7 +461,11 @@ async fn apply_bootstrap_job(
         debug!("creating bootstrap job");
         // Create bootstrap jobs
         let spec = bootstrap::bootstrap_job_spec(spec);
-        apply_job(cx.clone(), ns, network.clone(), BOOTSTRAP_JOB_NAME, spec).await?;
+        let orefs: Vec<_> = network
+            .controller_owner_ref(&())
+            .map(|oref| vec![oref])
+            .unwrap_or_default();
+        apply_job(cx.clone(), ns, orefs, BOOTSTRAP_JOB_NAME, spec).await?;
     }
     Ok(())
 }
@@ -508,71 +492,20 @@ async fn update_peer_info(
         status.peers.push(info);
     }
     status.ready_replicas = status.peers.len() as i32;
+    let orefs: Vec<_> = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
+
     apply_config_map(
         cx,
         ns,
-        network,
+        orefs,
         PEERS_CONFIG_MAP_NAME,
         peers::peer_config_map_data(&status.peers),
     )
     .await?;
     Ok(())
-}
-
-async fn apply_service(
-    cx: Arc<Context<impl RpcClient>>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    spec: ServiceSpec,
-) -> Result<Option<ServiceStatus>, kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let services: Api<Service> = Api::namespaced(cx.k_client.clone(), ns);
-
-    // Server-side apply service
-    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
-    let service: Service = Service {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: oref,
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        spec: Some(spec.clone()),
-        ..Default::default()
-    };
-    let service = services
-        .patch(name, &serverside, &Patch::Apply(service))
-        .await?;
-    Ok(service.status)
-}
-
-async fn apply_stateful_set(
-    cx: Arc<Context<impl RpcClient>>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    spec: StatefulSetSpec,
-) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
-
-    // Server-side apply stateful_set
-    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
-    let stateful_set: StatefulSet = StatefulSet {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: oref,
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        spec: Some(spec),
-        ..Default::default()
-    };
-    let stateful_set = stateful_sets
-        .patch(name, &serverside, &Patch::Apply(stateful_set))
-        .await?;
-    Ok(stateful_set.status)
 }
 
 async fn is_secret_missing(
@@ -583,6 +516,7 @@ async fn is_secret_missing(
     let secrets: Api<Secret> = Api::namespaced(cx.k_client.clone(), ns);
     Ok(secrets.get_opt(name).await?.is_none())
 }
+
 async fn create_secret(
     cx: Arc<Context<impl RpcClient>>,
     ns: &str,
@@ -611,32 +545,6 @@ async fn create_secret(
     Ok(())
 }
 
-async fn apply_job(
-    cx: Arc<Context<impl RpcClient>>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    spec: JobSpec,
-) -> Result<Option<JobStatus>, kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let jobs: Api<Job> = Api::namespaced(cx.k_client.clone(), ns);
-
-    // Server-side apply stateful_set
-    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
-    let job: Job = Job {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: oref,
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        spec: Some(spec),
-        ..Default::default()
-    };
-    let job = jobs.patch(name, &serverside, &Patch::Apply(job)).await?;
-    Ok(job.status)
-}
-
 // Deletes a job. Does nothing if the job does not exist.
 async fn delete_job(
     cx: Arc<Context<impl RpcClient>>,
@@ -650,37 +558,12 @@ async fn delete_job(
     Ok(())
 }
 
-async fn apply_config_map(
-    cx: Arc<Context<impl RpcClient>>,
-    ns: &str,
-    network: Arc<Network>,
-    name: &str,
-    data: BTreeMap<String, String>,
-) -> Result<(), kube::error::Error> {
-    let serverside = PatchParams::apply(CONTROLLER_NAME);
-    let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
-    // Apply config map
-    let oref: Option<Vec<_>> = network.controller_owner_ref(&()).map(|oref| vec![oref]);
-    let map_data = ConfigMap {
-        metadata: ObjectMeta {
-            name: Some(name.to_owned()),
-            owner_references: oref,
-            labels: managed_labels(),
-            ..ObjectMeta::default()
-        },
-        data: Some(data),
-        ..Default::default()
-    };
-    config_maps
-        .patch(name, &serverside, &Patch::Apply(map_data))
-        .await?;
-    Ok(())
-}
-
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
 mod test {
-    use super::{reconcile, Context, Network};
+    use super::{reconcile, Network};
+
+    use crate::utils::Context;
 
     use crate::network::{
         ceramic::{IpfsKind, IpfsSpec},
@@ -749,7 +632,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -16,7 +16,7 @@
+            @@ -17,7 +17,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -859,7 +742,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -127,39 +127,13 @@
+            @@ -128,39 +128,13 @@
                              ]
                            },
                            {
@@ -902,7 +785,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -189,6 +163,11 @@
+            @@ -190,6 +164,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -914,7 +797,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -289,6 +268,13 @@
+            @@ -290,6 +269,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -978,7 +861,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -127,39 +127,13 @@
+            @@ -128,39 +128,13 @@
                              ]
                            },
                            {
@@ -1021,7 +904,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -189,6 +163,11 @@
+            @@ -190,6 +164,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1033,7 +916,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -289,6 +268,13 @@
+            @@ -290,6 +269,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }

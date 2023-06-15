@@ -19,9 +19,11 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::network::controller::{
-    managed_labels, selector_labels, CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT,
-    CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
+    CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
 };
+
+use crate::utils::{managed_labels, selector_labels};
 
 const IPFS_CONTAINER_NAME: &str = "ipfs";
 const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
@@ -575,7 +577,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                                 port: IntOrString::String("api".to_owned()),
                                 ..Default::default()
                             }),
-                            initial_delay_seconds: Some(30),
+                            initial_delay_seconds: Some(400),
                             period_seconds: Some(15),
                             timeout_seconds: Some(30),
                             ..Default::default()
@@ -586,7 +588,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                                 port: IntOrString::String("api".to_owned()),
                                 ..Default::default()
                             }),
-                            initial_delay_seconds: Some(30),
+                            initial_delay_seconds: Some(400),
                             period_seconds: Some(15),
                             timeout_seconds: Some(30),
                             ..Default::default()

@@ -10,7 +10,7 @@ pub(crate) mod utils;
 pub mod stub;
 // Expose Context for testing
 #[cfg(test)]
-pub use controller::Context;
+pub use crate::utils::Context;
 
 pub use bootstrap::BootstrapSpec;
 pub use ceramic::CeramicSpec;
@@ -44,9 +44,12 @@ pub struct NetworkSpec {
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct NetworkStatus {
-    replicas: i32,
-    ready_replicas: i32,
-    namespace: Option<String>,
-    // Information about each Ceramic peer
-    peers: Vec<PeerInfo>,
+    /// Number of Ceramic peers
+    pub replicas: i32,
+    ///  Describes how new peers in the network should be bootstrapped.
+    pub ready_replicas: i32,
+    /// K8s namespace this network is deployed in
+    pub namespace: Option<String>,
+    /// Information about each Ceramic peer
+    pub peers: Vec<PeerInfo>,
 }

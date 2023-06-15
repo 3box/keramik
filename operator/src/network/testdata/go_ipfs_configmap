@@ -15,7 +15,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "ipfs-container-init"
+        "name": "ipfs-container-init",
+        "ownerReferences": []
       }
     },
 }

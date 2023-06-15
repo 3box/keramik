@@ -15,7 +15,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "keramik-peers"
+        "name": "keramik-peers",
+        "ownerReferences": []
       }
     },
 }

@@ -12,7 +12,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "cas-postgres"
+        "name": "cas-postgres",
+        "ownerReferences": []
       },
       "spec": {
         "ports": [

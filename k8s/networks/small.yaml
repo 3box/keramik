@@ -1,4 +1,4 @@
-apiVersion: "keramik.3box.io/v1"
+apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
   name: small

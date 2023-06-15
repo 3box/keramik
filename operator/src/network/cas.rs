@@ -17,9 +17,11 @@ use k8s_openapi::{
 use kube::core::ObjectMeta;
 
 use crate::network::controller::{
-    selector_labels, CAS_APP, CAS_IFPS_SERVICE_NAME, CAS_IPFS_APP, CAS_POSTGRES_APP,
-    CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
+    CAS_APP, CAS_IFPS_SERVICE_NAME, CAS_IPFS_APP, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
+    CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
 };
+
+use crate::utils::selector_labels;
 
 // TODO make this a deployment
 pub fn cas_stateful_set_spec() -> StatefulSetSpec {
@@ -199,7 +201,7 @@ pub fn cas_stateful_set_spec() -> StatefulSetSpec {
                                             "1Gi".to_owned(),
                                         )),
                                         ("memory".to_owned(), Quantity(
-                                            "512Mi".to_owned(),
+                                            "1Gi".to_owned(),
                                         )),
                                     ])),
                                 requests: Some(BTreeMap::from_iter(vec![
@@ -210,7 +212,7 @@ pub fn cas_stateful_set_spec() -> StatefulSetSpec {
                                             "1Gi".to_owned(),
                                         )),
                                         ("memory".to_owned(), Quantity(
-                                            "512Mi".to_owned(),
+                                            "1Gi".to_owned(),
                                         )),
                                     ])),
                             ..Default::default()},

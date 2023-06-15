@@ -9,7 +9,9 @@ use reqwest::header::HeaderMap;
 use serde::Serialize;
 use std::sync::Arc;
 
-use crate::network::{utils::RpcClient, Context, Network, NetworkSpec, NetworkStatus};
+use crate::network::{utils::RpcClient, Network, NetworkSpec, NetworkStatus};
+
+use crate::utils::{managed_labels, Context};
 
 // We wrap tower_test::mock::Handle
 type ApiServerHandle = tower_test::mock::Handle<http::Request<Body>, http::Response<Body>>;
@@ -100,7 +102,7 @@ impl Default for Stub {
                 k8s_openapi::api::core::v1::Secret {
                     metadata: kube::core::ObjectMeta {
                         name: Some("postgres-auth".to_owned()),
-                        labels: super::controller::managed_labels(),
+                        labels: managed_labels(),
                         ..kube::core::ObjectMeta::default()
                     },
                     ..Default::default()
@@ -111,7 +113,7 @@ impl Default for Stub {
                 k8s_openapi::api::core::v1::Secret {
                     metadata: kube::core::ObjectMeta {
                         name: Some("ceramic-admin".to_owned()),
-                        labels: super::controller::managed_labels(),
+                        labels: managed_labels(),
                         ..kube::core::ObjectMeta::default()
                     },
                     ..Default::default()

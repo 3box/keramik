@@ -12,7 +12,8 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "ceramic"
+        "name": "ceramic",
+        "ownerReferences": []
       },
       "spec": {
         "ports": [

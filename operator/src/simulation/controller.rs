@@ -1,5 +1,3 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
 use std::{sync::Arc, time::Duration};
 
 use futures::stream::StreamExt;
@@ -32,9 +30,13 @@ use crate::simulation::{
 use crate::monitoring::{jaeger, opentelemetry, prometheus};
 
 use crate::network::{
+    controller::PEERS_CONFIG_MAP_NAME,
+    peers::PEERS_MAP_KEY,
     utils::{HttpRpcClient, RpcClient},
-    Network, NetworkStatus,
+    Network,
 };
+
+use keramik_common::peer_info::PeerInfo;
 
 use crate::utils::{
     apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map, apply_job,
@@ -132,19 +134,8 @@ async fn reconcile(
         SimulationStatus::default()
     };
 
-    let sim_name = &spec.selector;
-    let net_status = get_network_status(cx.clone(), sim_name).await?;
-    //TODO handle err not found, no matching network
-
-    let net_ready = net_status.ready_replicas == net_status.replicas;
-
-    if !net_ready {
-        debug!("simulation waiting, network not ready");
-        return Ok(Action::requeue(Duration::from_secs(10)));
-    }
-
-    let num_peers = net_status.ready_replicas;
-    let ns = "keramik-".to_owned() + sim_name;
+    let ns = simulation.namespace().unwrap();
+    let num_peers = get_num_peers(cx.clone(), &ns).await?;
 
     apply_jaeger(cx.clone(), &ns, simulation.clone()).await?;
     apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
@@ -165,14 +156,7 @@ async fn reconcile(
 
     if manager_ready > 0 {
         //for loop n peers
-        apply_n_workers(
-            cx.clone(),
-            &ns,
-            num_peers as u32,
-            status.nonce,
-            simulation.clone(),
-        )
-        .await?;
+        apply_n_workers(cx.clone(), &ns, num_peers, status.nonce, simulation.clone()).await?;
     }
 
     let simulations: Api<Simulation> = Api::all(cx.k_client.clone());
@@ -234,13 +218,16 @@ async fn apply_manager(
     Ok(())
 }
 
-async fn get_network_status(
+async fn get_num_peers(
     cx: Arc<Context<impl RpcClient>>,
-    name: &str,
-) -> Result<NetworkStatus, kube::error::Error> {
-    let network: Api<Network> = Api::all(cx.k_client.clone());
-    let net = network.get_status(name).await?;
-    Ok(net.status.unwrap())
+    ns: &str,
+) -> Result<u32, kube::error::Error> {
+    let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
+    let map = config_maps.get(PEERS_CONFIG_MAP_NAME).await?;
+    let data = map.data.unwrap();
+    let value = data.get(PEERS_MAP_KEY).unwrap();
+    let peers: Vec<PeerInfo> = serde_json::from_str(value).unwrap();
+    Ok(peers.len() as u32)
 }
 
 async fn apply_n_workers(

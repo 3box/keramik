@@ -154,7 +154,6 @@ pub async fn apply_account(
 ) -> Result<ServiceAccount, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
     let accounts: Api<ServiceAccount> = Api::namespaced(cx.k_client.clone(), ns);
-    // let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply account
     let account: ServiceAccount = ServiceAccount {
@@ -181,7 +180,6 @@ pub async fn apply_cluster_role(
     cr: ClusterRole,
 ) -> Result<ClusterRole, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
-    // let roles: Api<ClusterRole> = Api::namespaced(cx.k_client.clone(), ns);
     let roles: Api<ClusterRole> = Api::all(cx.k_client.clone());
 
     // Server-side apply cluster role
@@ -209,7 +207,6 @@ pub async fn apply_cluster_role_binding(
 ) -> Result<ClusterRoleBinding, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
     let role_bindings: Api<ClusterRoleBinding> = Api::all(cx.k_client.clone());
-    // let role_bindings: Api<ClusterRoleBinding> = Api::namespaced(cx.k_client.clone(), ns);
 
     // Server-side apply cluster role binding
     let role_binding: ClusterRoleBinding = ClusterRoleBinding {

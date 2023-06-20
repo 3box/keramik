@@ -64,6 +64,8 @@ pub enum Scenario {
     CeramicSimple,
     /// WriteOnly Ceramic Scenario
     CeramicWriteOnly,
+    /// New Streams Ceramic Scenario
+    CeramicNewStreams,
 }
 
 impl Scenario {
@@ -72,13 +74,14 @@ impl Scenario {
             Scenario::IpfsRpc => "ipfs_rpc",
             Scenario::CeramicSimple => "ceramic_simple",
             Scenario::CeramicWriteOnly => "ceramic_write_only",
+            Scenario::CeramicNewStreams => "ceramic_new_streams",
         }
     }
 
     fn target_addr(&self, peer_info: &PeerInfo) -> String {
         match self {
             Self::IpfsRpc => peer_info.ipfs_rpc_addr.clone(),
-            Self::CeramicSimple | Self::CeramicWriteOnly => peer_info.ceramic_addr.clone(),
+            Self::CeramicSimple | Self::CeramicWriteOnly | Self::CeramicNewStreams => peer_info.ceramic_addr.clone(),
         }
     }
 }
@@ -104,6 +107,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
         Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
         Scenario::CeramicSimple => ceramic::scenario()?,
         Scenario::CeramicWriteOnly => ceramic::write_only::scenario()?,
+        Scenario::CeramicNewStreams => ceramic::new_streams::scenario()?,
     };
     let config = if opts.manager {
         manager_config(peers.len(), opts.users, opts.run_time)

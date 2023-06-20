@@ -177,7 +177,7 @@ pub fn cluster_role() -> ClusterRole {
     }
 }
 
-pub fn cluster_role_binding() -> ClusterRoleBinding {
+pub fn cluster_role_binding(ns: &str) -> ClusterRoleBinding {
     ClusterRoleBinding {
         role_ref: RoleRef {
             kind: "ClusterRole".to_owned(),
@@ -187,8 +187,7 @@ pub fn cluster_role_binding() -> ClusterRoleBinding {
         subjects: Some(vec![Subject {
             kind: "ServiceAccount".to_owned(),
             name: OTEL_ACCOUNT.to_owned(),
-            // TODO
-            namespace: Some("keramik-small".to_owned()),
+            namespace: Some(ns.to_owned()),
             ..Default::default()
         }]),
         ..Default::default()

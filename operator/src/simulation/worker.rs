@@ -9,19 +9,7 @@ use k8s_openapi::api::{
 
 use kube::core::ObjectMeta;
 
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use crate::network::controller::PEERS_CONFIG_MAP_NAME;
-
-/// WorkerSpec defines a goose worker
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct WorkerSpec {
-    pub scenario: Option<String>,
-    pub target_peer: Option<u32>,
-    pub nonce: Option<u32>,
-}
 
 // WorkerConfig defines which properties of the JobSpec can be customized.
 pub struct WorkerConfig {
@@ -30,39 +18,7 @@ pub struct WorkerConfig {
     pub nonce: u32,
 }
 
-// Define clear defaults for this config
-impl Default for WorkerConfig {
-    fn default() -> Self {
-        Self {
-            scenario: "ceramic-simple".to_owned(),
-            target_peer: 0,
-            nonce: 1,
-        }
-    }
-}
-
-impl From<Option<WorkerSpec>> for WorkerConfig {
-    fn from(value: Option<WorkerSpec>) -> Self {
-        match value {
-            Some(spec) => spec.into(),
-            None => WorkerConfig::default(),
-        }
-    }
-}
-
-impl From<WorkerSpec> for WorkerConfig {
-    fn from(value: WorkerSpec) -> Self {
-        let default = Self::default();
-        Self {
-            scenario: value.scenario.unwrap_or(default.scenario),
-            target_peer: value.target_peer.unwrap_or(default.target_peer),
-            nonce: value.nonce.unwrap_or(default.nonce),
-        }
-    }
-}
-
-pub fn worker_job_spec(config: impl Into<WorkerConfig>) -> JobSpec {
-    let config = config.into();
+pub fn worker_job_spec(config: WorkerConfig) -> JobSpec {
     JobSpec {
         backoff_limit: Some(4),
         template: PodTemplateSpec {

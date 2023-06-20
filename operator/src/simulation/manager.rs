@@ -9,12 +9,7 @@ use k8s_openapi::api::{
 };
 use kube::core::ObjectMeta;
 
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
 use crate::network::controller::PEERS_CONFIG_MAP_NAME;
-
-use rand::random;
 
 pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
@@ -32,16 +27,6 @@ pub fn service_spec() -> ServiceSpec {
     }
 }
 
-/// ManagerSpec defines a goose manager
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ManagerSpec {
-    pub scenario: Option<String>,
-    pub users: Option<u32>,
-    pub run_time: Option<u32>,
-    pub nonce: Option<u32>,
-}
-
 // ManagerConfig defines which properties of the JobSpec can be customized.
 pub struct ManagerConfig {
     pub scenario: String,
@@ -50,41 +35,7 @@ pub struct ManagerConfig {
     pub nonce: u32,
 }
 
-// Define clear defaults for this config
-impl Default for ManagerConfig {
-    fn default() -> Self {
-        Self {
-            scenario: "ceramic-simple".to_owned(),
-            users: 100,
-            run_time: 10,
-            nonce: random::<u32>(),
-        }
-    }
-}
-
-impl From<Option<ManagerSpec>> for ManagerConfig {
-    fn from(value: Option<ManagerSpec>) -> Self {
-        match value {
-            Some(spec) => spec.into(),
-            None => ManagerConfig::default(),
-        }
-    }
-}
-
-impl From<ManagerSpec> for ManagerConfig {
-    fn from(value: ManagerSpec) -> Self {
-        let default = Self::default();
-        Self {
-            scenario: value.scenario.unwrap_or(default.scenario),
-            users: value.users.unwrap_or(default.users),
-            run_time: value.run_time.unwrap_or(default.run_time),
-            nonce: value.nonce.unwrap_or(default.nonce),
-        }
-    }
-}
-
-pub fn manager_job_spec(config: impl Into<ManagerConfig>) -> JobSpec {
-    let config = config.into();
+pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
     JobSpec {
         backoff_limit: Some(4),
         template: PodTemplateSpec {

@@ -1,4 +1,5 @@
 mod models;
+pub mod write_only;
 
 use ceramic_http_client::api::StreamsResponseOrError;
 use ceramic_http_client::ceramic_event::{DidDocument, StreamId};
@@ -54,9 +55,8 @@ pub fn scenario() -> Result<Scenario, GooseError> {
         .register_transaction(instantiate_large_model))
 }
 
-#[instrument(skip_all, fields(user.index = user.weighted_users_index, result))]
+#[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
 async fn setup(user: &mut GooseUser, cli: CeramicHttpClient) -> TransactionResult {
-    debug!(user.index = user.weighted_users_index, "setup");
     let small_model = ModelDefinition::new::<models::SmallModel>(
         "load_test_small_model",
         ModelAccountRelation::List,
@@ -75,11 +75,7 @@ async fn setup(user: &mut GooseUser, cli: CeramicHttpClient) -> TransactionResul
         small_model_id,
         large_model_id,
     };
-    debug!(
-        user.index = user.weighted_users_index,
-        ?user_data,
-        "user data"
-    );
+    debug!(?user_data, "user data");
 
     user.set_session_data(user_data);
 

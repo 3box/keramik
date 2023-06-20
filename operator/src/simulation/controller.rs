@@ -356,10 +356,9 @@ async fn apply_opentelemetry(
     .await?;
     apply_cluster_role_binding(
         cx.clone(),
-        ns,
         orefs.clone(),
         OTEL_CR_BINDING,
-        opentelemetry::cluster_role_binding(),
+        opentelemetry::cluster_role_binding(ns),
     )
     .await?;
     apply_config_map(

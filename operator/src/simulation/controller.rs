@@ -2,6 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use futures::stream::StreamExt;
 use k8s_openapi::api::{
+    apps::v1::StatefulSet,
     batch::v1::Job,
     core::v1::{ConfigMap, Namespace, Pod, Service},
 };
@@ -141,6 +142,12 @@ async fn reconcile(
     apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
     apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
 
+    let ready = monitoring_ready(cx.clone(), &ns).await?;
+
+    if !ready {
+        return Ok(Action::requeue(Duration::from_secs(10)));
+    }
+
     let manager_config = ManagerConfig {
         scenario: spec.scenario.to_owned(),
         users: spec.users.to_owned(),
@@ -228,6 +235,22 @@ async fn get_num_peers(
     let value = data.get(PEERS_MAP_KEY).unwrap();
     let peers: Vec<PeerInfo> = serde_json::from_str(value).unwrap();
     Ok(peers.len() as u32)
+}
+
+async fn monitoring_ready(
+    cx: Arc<Context<impl RpcClient>>,
+    ns: &str,
+) -> Result<bool, kube::error::Error> {
+    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
+    let jaeger = stateful_sets.get_status("jaeger").await?;
+    let prom = stateful_sets.get_status("prometheus").await?;
+    let otel = stateful_sets.get_status("opentelemetry").await?;
+
+    let jaeger_ready = jaeger.status.unwrap().ready_replicas.unwrap();
+    let prom_ready = prom.status.unwrap().ready_replicas.unwrap();
+    let otel_ready = otel.status.unwrap().ready_replicas.unwrap();
+
+    Ok(jaeger_ready > 0 && prom_ready > 0 && otel_ready > 0)
 }
 
 async fn apply_n_workers(

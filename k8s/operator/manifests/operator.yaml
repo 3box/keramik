@@ -21,7 +21,7 @@ rules:
     resources: ["namespaces","services","configmaps","secrets","pods", "serviceaccounts"]
     verbs: ["create", "get", "list", "watch", "patch"]
   - apiGroups: ["apps"]
-    resources: ["statefulsets"]
+    resources: ["statefulsets", "statefulsets/status"]
     verbs: ["create", "get", "list", "watch", "patch"]
   - apiGroups: ["batch"]
     resources: ["jobs", "jobs/status"]

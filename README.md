@@ -81,6 +81,32 @@ Inspect the pods within the network using:
 
 >HINT: Use tools like [kubectx](https://github.com/ahmetb/kubectx) or [kubie](https://github.com/sbstp/kubie) to work with multiple namespaces and contexts.
 
+## Simulation
+
+To run a simulation, first define a simulation.
+```yaml
+# basic.yaml
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Simulation
+metadata:
+  name: basic
+  namespace: keramik-small
+spec:
+  scenario: ceramic-simple
+  users: 10
+  run_time: 4
+```
+If you want to run it against a defined network, set the namespace to the same as the network. in this example the namespace is set to the same network applied above "keramik-small".
+Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run. 
+
+Once ready, apply this simulation defintion to the k8s cluster: 
+
+    kubectl apply -f basic.yaml
+
+Keramik will first start all the metrics and tracing resources, once ready it will start the simulation by first starting the simulation manager and then all the workers. 
+The manager and workers will stop once the simulation is complete. 
+
 ## Contributing
 
 Contributions are welcome! Opening an issue to disucss your idea is a good first step.
@@ -211,28 +237,12 @@ spec:
 
 ## Opentelemetry
 
-Add opentelemetry collector to a specific newtork.
-First edit `./k8s/opentelemetry/kustomization.yaml` and change the namespace to be the namespace of your network (i.e. `keramik-small`).
-Then run the following command to add opentelemetry to that network.
-
-    kubectl apply -k ./k8s/opentelemetry/
-
 To view the metrics and traces port-forward the services:
 
     kubectl port-forward prometheus-0 9090
     kubectl port-forward jaeger-0 16686
 
 Then navigate to http://localhost:9090 for metrics and http://localhost:16686 for traces.
-
-## Simulation
-
-To run a simulation delete the old jobs and re-apply the simulation job definitions:
-
-    kubectl delete jobs.batch simulate-manager simulate-worker-{0..9}
-    kubectl apply -k k8s/simulator/
-
-> NOTE: We will need the k8s operator to make job configuration dynamic.
-> This is a manual method in the meantime.
 
 ## Analysis
 

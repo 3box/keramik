@@ -152,14 +152,14 @@ async fn reconcile(
 
     let jobs: Api<Job> = Api::namespaced(cx.k_client.clone(), &ns);
     let manager_job = jobs.get_status(MANAGER_JOB_NAME).await?;
-    let manager_ready = manager_job.status.unwrap().ready.unwrap();
+    let manager_ready = manager_job.status.unwrap().ready.unwrap_or_default();
 
     if manager_ready > 0 {
         //for loop n peers
         apply_n_workers(cx.clone(), &ns, num_peers, status.nonce, simulation.clone()).await?;
     }
 
-    let simulations: Api<Simulation> = Api::all(cx.k_client.clone());
+    let simulations: Api<Simulation> = Api::namespaced(cx.k_client.clone(), &ns);
     let _patched = simulations
         .patch_status(
             &simulation.name_any(),

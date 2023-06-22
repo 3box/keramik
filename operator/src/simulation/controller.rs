@@ -246,11 +246,20 @@ async fn monitoring_ready(
     let prom = stateful_sets.get_status("prometheus").await?;
     let otel = stateful_sets.get_status("opentelemetry").await?;
 
-    let jaeger_ready = jaeger.status.unwrap().ready_replicas.unwrap();
-    let prom_ready = prom.status.unwrap().ready_replicas.unwrap();
-    let otel_ready = otel.status.unwrap().ready_replicas.unwrap();
+    let jaeger_ready = jaeger
+        .status
+        .map(|status| status.ready_replicas.unwrap_or_default() > 0)
+        .unwrap_or_default();
+    let prom_ready = prom
+        .status
+        .map(|status| status.ready_replicas.unwrap_or_default() > 0)
+        .unwrap_or_default();
+    let otel_ready = otel
+        .status
+        .map(|status| status.ready_replicas.unwrap_or_default() > 0)
+        .unwrap_or_default();
 
-    Ok(jaeger_ready > 0 && prom_ready > 0 && otel_ready > 0)
+    Ok(jaeger_ready && prom_ready && otel_ready)
 }
 
 async fn apply_n_workers(

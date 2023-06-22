@@ -18,9 +18,12 @@ use kube::core::ObjectMeta;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::network::controller::{
-    CAS_APP, CAS_IFPS_SERVICE_NAME, CAS_IPFS_APP, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
-    CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
+use crate::network::{
+    controller::{
+        CAS_APP, CAS_IFPS_SERVICE_NAME, CAS_IPFS_APP, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
+        CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
+    },
+    utils::{ResourceLimitsConfig, ResourceLimitsSpec},
 };
 
 use crate::utils::selector_labels;
@@ -33,11 +36,23 @@ pub struct CasSpec {
     pub image: Option<String>,
     /// Image pull policy for the bootstrap job.
     pub image_pull_policy: Option<String>,
+    /// Resource limits for the CAS pod, applies to both requests and limits.
+    pub cas_resource_limits: Option<ResourceLimitsSpec>,
+    /// Resource limits for the CAS IPFS pod, applies to both requests and limits.
+    pub ipfs_resource_limits: Option<ResourceLimitsSpec>,
+    /// Resource limits for the Ganache pod, applies to both requests and limits.
+    pub ganache_resource_limits: Option<ResourceLimitsSpec>,
+    /// Resource limits for the CAS Postgres pod, applies to both requests and limits.
+    pub postgres_resource_limits: Option<ResourceLimitsSpec>,
 }
 
 pub struct CasConfig {
     pub image: String,
     pub image_pull_policy: String,
+    pub cas_resource_limits: ResourceLimitsConfig,
+    pub ipfs_resource_limits: ResourceLimitsConfig,
+    pub ganache_resource_limits: ResourceLimitsConfig,
+    pub postgres_resource_limits: ResourceLimitsConfig,
 }
 
 // Define clear defaults for this config
@@ -46,6 +61,26 @@ impl Default for CasConfig {
         Self {
             image: "ceramicnetwork/ceramic-anchor-service:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
+            cas_resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("1Gi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
+            ipfs_resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("512Mi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
+            ganache_resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("1Gi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
+            postgres_resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("512Mi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
         }
     }
 }
@@ -65,6 +100,22 @@ impl From<CasSpec> for CasConfig {
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
+            cas_resource_limits: ResourceLimitsConfig::from_spec(
+                value.cas_resource_limits,
+                default.cas_resource_limits,
+            ),
+            ipfs_resource_limits: ResourceLimitsConfig::from_spec(
+                value.ipfs_resource_limits,
+                default.ipfs_resource_limits,
+            ),
+            ganache_resource_limits: ResourceLimitsConfig::from_spec(
+                value.ganache_resource_limits,
+                default.ganache_resource_limits,
+            ),
+            postgres_resource_limits: ResourceLimitsConfig::from_spec(
+                value.postgres_resource_limits,
+                default.postgres_resource_limits,
+            ),
         }
     }
 }
@@ -236,28 +287,8 @@ pub fn cas_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
                         ),
                         resources: Some(
                             ResourceRequirements {
-                                limits: Some(BTreeMap::from_iter(vec![
-                                                ("cpu".to_owned(), Quantity(
-                                            "250m".to_owned(),
-                                        )),
-                                        ("ephemeral-storage".to_owned(), Quantity(
-                                            "1Gi".to_owned(),
-                                        )),
-                                        ("memory".to_owned(), Quantity(
-                                            "1Gi".to_owned(),
-                                        )),
-                                    ])),
-                                requests: Some(BTreeMap::from_iter(vec![
-                                        ("cpu".to_owned(), Quantity(
-                                            "250m".to_owned(),
-                                        )),
-                                        ("ephemeral-storage".to_owned(), Quantity(
-                                            "1Gi".to_owned(),
-                                        )),
-                                        ("memory".to_owned(), Quantity(
-                                            "1Gi".to_owned(),
-                                        )),
-                                    ])),
+                                limits: Some(config.cas_resource_limits.clone().into()),
+                                requests: Some(config.cas_resource_limits.into()),
                             ..Default::default()},
                         ),
                         volume_mounts: Some(
@@ -330,7 +361,9 @@ pub fn cas_service_spec() -> ServiceSpec {
         ..Default::default()
     }
 }
-pub fn cas_ipfs_stateful_set_spec() -> StatefulSetSpec {
+
+pub fn cas_ipfs_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+    let config = config.into();
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {
@@ -379,16 +412,8 @@ pub fn cas_ipfs_stateful_set_spec() -> StatefulSetSpec {
                         },
                     ]),
                     resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                        ])),
+                        limits: Some(config.ipfs_resource_limits.clone().into()),
+                        requests: Some(config.ipfs_resource_limits.into()),
                         ..Default::default()
                     }),
                     volume_mounts: Some(vec![VolumeMount {
@@ -444,7 +469,8 @@ pub fn cas_ipfs_service_spec() -> ServiceSpec {
         ..Default::default()
     }
 }
-pub fn ganache_stateful_set_spec() -> StatefulSetSpec {
+pub fn ganache_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+    let config = config.into();
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {
@@ -483,16 +509,8 @@ pub fn ganache_stateful_set_spec() -> StatefulSetSpec {
                         ..Default::default()
                     }]),
                     resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
+                        limits: Some(config.ganache_resource_limits.clone().into()),
+                        requests: Some(config.ganache_resource_limits.into()),
                         ..Default::default()
                     }),
                     volume_mounts: Some(vec![VolumeMount {
@@ -548,7 +566,8 @@ pub fn ganache_service_spec() -> ServiceSpec {
         ..Default::default()
     }
 }
-pub fn postgres_stateful_set_spec() -> StatefulSetSpec {
+pub fn postgres_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+    let config = config.into();
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {
@@ -603,16 +622,8 @@ pub fn postgres_stateful_set_spec() -> StatefulSetSpec {
                         ..Default::default()
                     }]),
                     resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                        ])),
+                        limits: Some(config.postgres_resource_limits.clone().into()),
+                        requests: Some(config.postgres_resource_limits.into()),
                         ..Default::default()
                     }),
                     volume_mounts: Some(vec![VolumeMount {

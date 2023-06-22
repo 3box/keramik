@@ -301,7 +301,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas",
-        cas::cas_stateful_set_spec(cas_spec),
+        cas::cas_stateful_set_spec(cas_spec.clone()),
     )
     .await?;
     apply_stateful_set(
@@ -309,7 +309,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas-ipfs",
-        cas::cas_ipfs_stateful_set_spec(),
+        cas::cas_ipfs_stateful_set_spec(cas_spec.clone()),
     )
     .await?;
     apply_stateful_set(
@@ -317,7 +317,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "ganache",
-        cas::ganache_stateful_set_spec(),
+        cas::ganache_stateful_set_spec(cas_spec.clone()),
     )
     .await?;
     apply_stateful_set(
@@ -325,7 +325,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas-postgres",
-        cas::postgres_stateful_set_spec(),
+        cas::postgres_stateful_set_spec(cas_spec.clone()),
     )
     .await?;
 
@@ -565,7 +565,10 @@ async fn delete_job(
 mod test {
     use super::{reconcile, Network};
 
-    use crate::{network::cas::CasSpec, utils::Context};
+    use crate::{
+        network::{cas::CasSpec, utils::ResourceLimitsSpec},
+        utils::Context,
+    };
 
     use crate::network::{
         ceramic::{IpfsKind, IpfsSpec},
@@ -575,6 +578,7 @@ mod test {
     };
 
     use expect_test::{expect, expect_file};
+    use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
     use keramik_common::peer_info::PeerInfo;
 
     use std::sync::Arc;
@@ -830,6 +834,11 @@ mod test {
                     ipfs: Some(IpfsSpec {
                         kind: IpfsKind::Go,
                         image: Some("ipfs/ipfs:go".to_owned()),
+                        resource_limits: Some(ResourceLimitsSpec {
+                            cpu: Some(Quantity("4".to_owned())),
+                            memory: Some(Quantity("4Gi".to_owned())),
+                            storage: Some(Quantity("4Gi".to_owned())),
+                        }),
                         ..Default::default()
                     }),
                     ..Default::default()
@@ -906,6 +915,27 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
+            @@ -176,14 +150,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               }
+                             },
+                             "volumeMounts": [
             @@ -190,6 +164,11 @@
                                {
                                  "mountPath": "/data/ipfs",
@@ -941,6 +971,89 @@ mod test {
         timeout_after_1s(mocksrv).await;
     }
     #[tokio::test]
+    async fn rust_ipfs_image() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                ceramic: Some(CeramicSpec {
+                    ipfs: Some(IpfsSpec {
+                        kind: IpfsKind::Rust,
+                        image: Some("ipfs/ipfs:rust".to_owned()),
+                        resource_limits: Some(ResourceLimitsSpec {
+                            cpu: Some(Quantity("4".to_owned())),
+                            memory: Some(Quantity("4Gi".to_owned())),
+                            storage: Some(Quantity("4Gi".to_owned())),
+                        }),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "status": {
+                     "replicas": 0,
+                     "readyReplicas": 0,
+            -        "namespace": null,
+            +        "namespace": "keramik-test",
+                     "peers": []
+                   }
+                 },
+        "#]]);
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -154,7 +154,7 @@
+                                 "value": "/data/ipfs"
+                               }
+                             ],
+            -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
+            +                "image": "ipfs/ipfs:rust",
+                             "imagePullPolicy": "Always",
+                             "name": "ipfs",
+                             "ports": [
+            @@ -176,14 +176,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               }
+                             },
+                             "volumeMounts": [
+        "#]]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
     async fn cas_image() {
         // Setup network spec and status
         let network = Network::test()
@@ -948,6 +1061,7 @@ mod test {
                 cas: Some(CasSpec {
                     image: Some("cas/cas:dev".to_owned()),
                     image_pull_policy: Some("Never".to_owned()),
+                    ..Default::default()
                 }),
                 ..Default::default()
             })
@@ -987,6 +1101,249 @@ mod test {
                              "name": "cas",
                              "ports": [
                                {
+        "#]]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn cas_resource_limits() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                cas: Some(CasSpec {
+                    cas_resource_limits: Some(ResourceLimitsSpec {
+                        cpu: Some(Quantity("1".to_owned())),
+                        memory: Some(Quantity("1Gi".to_owned())),
+                        storage: Some(Quantity("1Gi".to_owned())),
+                    }),
+                    ipfs_resource_limits: Some(ResourceLimitsSpec {
+                        cpu: Some(Quantity("2".to_owned())),
+                        memory: Some(Quantity("2Gi".to_owned())),
+                        storage: Some(Quantity("2Gi".to_owned())),
+                    }),
+                    ganache_resource_limits: Some(ResourceLimitsSpec {
+                        cpu: Some(Quantity("3".to_owned())),
+                        memory: Some(Quantity("3Gi".to_owned())),
+                        storage: Some(Quantity("3Gi".to_owned())),
+                    }),
+                    postgres_resource_limits: Some(ResourceLimitsSpec {
+                        cpu: Some(Quantity("4".to_owned())),
+                        memory: Some(Quantity("4Gi".to_owned())),
+                        storage: Some(Quantity("4Gi".to_owned())),
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "status": {
+                     "replicas": 0,
+                     "readyReplicas": 0,
+            -        "namespace": null,
+            +        "namespace": "keramik-test",
+                     "peers": []
+                   }
+                 },
+        "#]]);
+        stub.cas_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -130,12 +130,12 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            +                    "cpu": "1",
+                                 "ephemeral-storage": "1Gi",
+                                 "memory": "1Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            +                    "cpu": "1",
+                                 "ephemeral-storage": "1Gi",
+                                 "memory": "1Gi"
+                               }
+        "#]]);
+        stub.cas_ipfs_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -63,14 +63,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "2",
+            +                    "ephemeral-storage": "2Gi",
+            +                    "memory": "2Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "2",
+            +                    "ephemeral-storage": "2Gi",
+            +                    "memory": "2Gi"
+                               }
+                             },
+                             "volumeMounts": [
+        "#]]);
+        stub.ganache_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -57,14 +57,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "3",
+            +                    "ephemeral-storage": "3Gi",
+            +                    "memory": "3Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "3",
+            +                    "ephemeral-storage": "3Gi",
+            +                    "memory": "3Gi"
+                               }
+                             },
+                             "volumeMounts": [
+        "#]]);
+        stub.cas_postgres_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -67,14 +67,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "512Mi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               }
+                             },
+                             "volumeMounts": [
+        "#]]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn ceramic_resource_limits() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                ceramic: Some(CeramicSpec {
+                    resource_limits: Some(ResourceLimitsSpec {
+                        cpu: Some(Quantity("4".to_owned())),
+                        memory: Some(Quantity("4Gi".to_owned())),
+                        storage: Some(Quantity("4Gi".to_owned())),
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "status": {
+                     "replicas": 0,
+                     "readyReplicas": 0,
+            -        "namespace": null,
+            +        "namespace": "keramik-test",
+                     "peers": []
+                   }
+                 },
+        "#]]);
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -106,14 +106,14 @@
+                             },
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               }
+                             },
+                             "volumeMounts": [
+            @@ -245,14 +245,14 @@
+                             "name": "init-ceramic-config",
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "4",
+            +                    "ephemeral-storage": "4Gi",
+            +                    "memory": "4Gi"
+                               }
+                             },
+                             "volumeMounts": [
         "#]]);
         let (testctx, fakeserver) = Context::test(mock_rpc_client);
         let mocksrv = fakeserver.run(stub);

@@ -1,5 +1,5 @@
 ---
-namespace: keramik-small
+namespace: keramik-keyresult
 
 resources:
   - ./opentelemetry.yaml

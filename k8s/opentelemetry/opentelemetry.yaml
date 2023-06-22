@@ -18,9 +18,13 @@ spec:
         app: otel
     spec:
       serviceAccountName: monitoring-service-account
+      securityContext:
+        # Explicitly set a filesystem group to allow writing to mounts
+        fsGroup: 2000
       containers:
         - name: opentelemetry
-          image: public.ecr.aws/r5b3e0r5/3box/otelcol
+          image: public.ecr.aws/r5b3e0r5/3box/otelcol:latest
+          imagePullPolicy: Always
           command:
             - /otelcol-custom
             - --config=/config/otel-config.yaml
@@ -33,11 +37,11 @@ spec:
               name: self-metrics
           resources:
             limits:
-              cpu: 250m
+              cpu: 1
               memory: 1Gi
               ephemeral-storage: 1Gi
             requests:
-              cpu: 250m
+              cpu: 500m
               memory: 1Gi
               ephemeral-storage: 1Gi
           volumeMounts:

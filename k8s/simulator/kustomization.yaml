@@ -1,9 +1,11 @@
 ---
-namespace: keramik-small
+namespace: keramik-keyresult
 
 resources:
   - ./simulate.yaml
+  - ./simulate-workers.yaml
 
 images:
   - name: keramik/runner
-    newTag: dev
+    newName: public.ecr.aws/r5b3e0r5/3box/keramik-runner
+    newTag: keyresults

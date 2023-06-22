@@ -1,32 +1,19 @@
-# Define a set of jobs that run a simulations against the network.
----
-# Create a service so that the workers can find the manager via DNS
-apiVersion: v1
-kind: Service
-metadata:
-  name: goose
-spec:
-  selector:
-    name: goose
-  clusterIP: None
-  ports:
-  - name: manager
-    port: 5115
+#!/bin/bash
+
+rm simulate-workers.yaml
+for i in {0..19}
+do
+cat >> simulate-workers.yaml << EOF
 ---
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: simulate-manager
+  name: simulate-worker-$i
 spec:
   template:
-    metadata:
-      labels:
-        name: goose
     spec:
-      hostname: manager
-      subdomain: goose
       containers:
-      - name: manager
+      - name: worker
         image: keramik/runner
         imagePullPolicy: IfNotPresent
         command:
@@ -37,20 +24,16 @@ spec:
             value: 'http://otel:4317'
           - name: RUST_LOG
             value: 'info,keramik_runner=trace'
+          - name: RUST_BACKTRACE
+            value: '1'
           - name: SIMULATE_SCENARIO
             value: 'ceramic-write-only'
-          - name: SIMULATE_MANAGER
-            value: 'true'
+          - name: SIMULATE_TARGET_PEER
+            value: '$i'
           - name: SIMULATE_PEERS_PATH
             value: '/keramik-peers/peers.json'
-          - name: SIMULATE_TARGET_PEER
-            value: '0'
           - name: SIMULATE_NONCE
             value: '61261'
-          - name: SIMULATE_USERS
-            value: '1000'
-          - name: SIMULATE_RUN_TIME
-            value: '10m'
           - name: DID_KEY
             value: 'did:key:z6Mkqn5jbycThHcBtakJZ8fHBQ2oVRQhXQEdQk5ZK2NDtNZA'
           - name: DID_PRIVATE_KEY
@@ -65,3 +48,8 @@ spec:
             defaultMode: 0755
       restartPolicy: Never
   backoffLimit: 4
+EOF
+
+done
+
+

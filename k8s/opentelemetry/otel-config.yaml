@@ -5,41 +5,41 @@ receivers:
       grpc:
         endpoint: 0.0.0.0:4317
   # Pull based metrics
-  prometheus:
-    config:
-      scrape_configs:
-        - job_name: 'kubernetes-service-endpoints'
-          scrape_interval: 10s
-          scrape_timeout: 1s
+  #prometheus:
+  #  config:
+  #    scrape_configs:
+  #      - job_name: 'kubernetes-service-endpoints'
+  #        scrape_interval: 10s
+  #        scrape_timeout: 1s
 
-          kubernetes_sd_configs:
-          - role: pod
+  #        kubernetes_sd_configs:
+  #        - role: pod
 
-          # Only container ports named `metrics` will be considered valid targets.
-          #
-          # Setup relabel rules to give meaning to the following k8s annotations:
-          #   prometheus/path - URL path of the metrics endpoint
-          #
-          # Example:
-          #   annotations:
-          #      prometheus/path: "/api/v0/metrics"
-          relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_container_port_name]
-            action: keep
-            regex: "metrics"
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: kubernetes_namespace
-          - source_labels: [__meta_kubernetes_pod_name]
-            action: replace
-            target_label: kubernetes_pod
-          - source_labels: [__meta_kubernetes_pod_container_name]
-            action: replace
-            target_label: kubernetes_container
+  #        # Only container ports named `metrics` will be considered valid targets.
+  #        #
+  #        # Setup relabel rules to give meaning to the following k8s annotations:
+  #        #   prometheus/path - URL path of the metrics endpoint
+  #        #
+  #        # Example:
+  #        #   annotations:
+  #        #      prometheus/path: "/api/v0/metrics"
+  #        relabel_configs:
+  #        - source_labels: [__meta_kubernetes_pod_container_port_name]
+  #          action: keep
+  #          regex: "metrics"
+  #        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
+  #          action: replace
+  #          target_label: __metrics_path__
+  #          regex: (.+)
+  #        - source_labels: [__meta_kubernetes_namespace]
+  #          action: replace
+  #          target_label: kubernetes_namespace
+  #        - source_labels: [__meta_kubernetes_pod_name]
+  #          action: replace
+  #          target_label: kubernetes_pod
+  #        - source_labels: [__meta_kubernetes_pod_container_name]
+  #          action: replace
+  #          target_label: kubernetes_container
 
 processors:
   batch:
@@ -91,7 +91,7 @@ service:
       processors: [batch]
       exporters: [otlp/jaeger]
     metrics:
-      receivers: [otlp,prometheus]
+      receivers: [otlp]
       processors: [batch]
       exporters: [parquet, prometheus]
   # Enable telemetry on the collector itself

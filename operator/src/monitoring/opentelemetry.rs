@@ -5,8 +5,9 @@ use k8s_openapi::{
         apps::v1::StatefulSetSpec,
         core::v1::{
             ConfigMapVolumeSource, Container, ContainerPort, PersistentVolumeClaim,
-            PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, PodSpec, PodTemplateSpec,
-            ResourceRequirements, ServicePort, ServiceSpec, Volume, VolumeMount,
+            PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, PodSecurityContext,
+            PodSpec, PodTemplateSpec, ResourceRequirements, ServicePort, ServiceSpec, Volume,
+            VolumeMount,
         },
         rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject},
     },
@@ -68,6 +69,11 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
             }),
             spec: Some(PodSpec {
                 service_account_name: Some(OTEL_ACCOUNT.to_owned()),
+                security_context: Some(PodSecurityContext {
+                    // Explicitly set a filesystem group to allow writing to mounts
+                    fs_group: Some(2000),
+                    ..Default::default()
+                }),
                 containers: vec![Container {
                     name: "opentelemetry".to_owned(),
                     image: Some("public.ecr.aws/r5b3e0r5/3box/otelcol".to_owned()),

@@ -84,7 +84,7 @@ Request {
                     "path": "/api/v0/node/healthcheck",
                     "port": "api"
                   },
-                  "initialDelaySeconds": 400,
+                  "initialDelaySeconds": 60,
                   "periodSeconds": 15,
                   "timeoutSeconds": 30
                 },
@@ -100,7 +100,7 @@ Request {
                     "path": "/api/v0/node/healthcheck",
                     "port": "api"
                   },
-                  "initialDelaySeconds": 400,
+                  "initialDelaySeconds": 60,
                   "periodSeconds": 15,
                   "timeoutSeconds": 30
                 },

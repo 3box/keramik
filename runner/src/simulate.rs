@@ -81,7 +81,9 @@ impl Scenario {
     fn target_addr(&self, peer_info: &PeerInfo) -> String {
         match self {
             Self::IpfsRpc => peer_info.ipfs_rpc_addr.clone(),
-            Self::CeramicSimple | Self::CeramicWriteOnly | Self::CeramicNewStreams => peer_info.ceramic_addr.clone(),
+            Self::CeramicSimple | Self::CeramicWriteOnly | Self::CeramicNewStreams => {
+                peer_info.ceramic_addr.clone()
+            }
         }
     }
 }

@@ -577,7 +577,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                                 port: IntOrString::String("api".to_owned()),
                                 ..Default::default()
                             }),
-                            initial_delay_seconds: Some(400),
+                            initial_delay_seconds: Some(60),
                             period_seconds: Some(15),
                             timeout_seconds: Some(30),
                             ..Default::default()
@@ -588,7 +588,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                                 port: IntOrString::String("api".to_owned()),
                                 ..Default::default()
                             }),
-                            initial_delay_seconds: Some(400),
+                            initial_delay_seconds: Some(60),
                             period_seconds: Some(15),
                             timeout_seconds: Some(30),
                             ..Default::default()

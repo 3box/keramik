@@ -32,8 +32,8 @@ pub fn worker_job_spec(config: WorkerConfig) -> JobSpec {
             spec: Some(PodSpec {
                 containers: vec![Container {
                     name: "worker".to_owned(),
-                    image: Some("keramik/runner:dev".to_owned()),
-                    image_pull_policy: Some("IfNotPresent".to_owned()),
+                    image: Some("public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest".to_owned()),
+                    image_pull_policy: Some("Always".to_owned()),
                     command: Some(vec![
                         "/usr/bin/keramik-runner".to_owned(),
                         "simulate".to_owned(),

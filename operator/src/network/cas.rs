@@ -15,6 +15,8 @@ use k8s_openapi::{
     },
 };
 use kube::core::ObjectMeta;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 
 use crate::network::controller::{
     CAS_APP, CAS_IFPS_SERVICE_NAME, CAS_IPFS_APP, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
@@ -23,8 +25,53 @@ use crate::network::controller::{
 
 use crate::utils::selector_labels;
 
+/// Defines details about how CAS is deployed
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CasSpec {
+    /// Image of the runner for the bootstrap job.
+    pub image: Option<String>,
+    /// Image pull policy for the bootstrap job.
+    pub image_pull_policy: Option<String>,
+}
+
+pub struct CasConfig {
+    pub image: String,
+    pub image_pull_policy: String,
+}
+
+// Define clear defaults for this config
+impl Default for CasConfig {
+    fn default() -> Self {
+        Self {
+            image: "ceramicnetwork/ceramic-anchor-service:latest".to_owned(),
+            image_pull_policy: "Always".to_owned(),
+        }
+    }
+}
+
+impl From<Option<CasSpec>> for CasConfig {
+    fn from(value: Option<CasSpec>) -> Self {
+        match value {
+            Some(spec) => spec.into(),
+            None => Default::default(),
+        }
+    }
+}
+
+impl From<CasSpec> for CasConfig {
+    fn from(value: CasSpec) -> Self {
+        let default = Self::default();
+        Self {
+            image: value.image.unwrap_or(default.image),
+            image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
+        }
+    }
+}
+
 // TODO make this a deployment
-pub fn cas_stateful_set_spec() -> StatefulSetSpec {
+pub fn cas_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+    let config = config.into();
     StatefulSetSpec {
     replicas: Some( 1,),
     selector: LabelSelector {
@@ -177,12 +224,8 @@ pub fn cas_stateful_set_spec() -> StatefulSetSpec {
                                 ..Default::default()},
                             ],
                         ),
-                        image: Some(
-                            "ceramicnetwork/ceramic-anchor-service".to_owned(),
-                        ),
-                        image_pull_policy: Some(
-                            "Always".to_owned(),
-                        ),
+                        image: Some(config.image),
+                        image_pull_policy: Some( config.image_pull_policy,),
                         name: "cas".to_owned(),
                         ports: Some(
                             vec![

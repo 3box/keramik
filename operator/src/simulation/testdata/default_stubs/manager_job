@@ -1,0 +1,106 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/batch/v1/namespaces/test/jobs/simulate-manager?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "batch/v1",
+      "kind": "Job",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "simulate-manager",
+        "ownerReferences": []
+      },
+      "spec": {
+        "backoffLimit": 4,
+        "template": {
+          "metadata": {
+            "labels": {
+              "name": "goose"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "command": [
+                  "/usr/bin/keramik-runner",
+                  "simulate"
+                ],
+                "env": [
+                  {
+                    "name": "RUNNER_OTLP_ENDPOINT",
+                    "value": "http://otel:4317"
+                  },
+                  {
+                    "name": "RUST_LOG",
+                    "value": "info,keramik_runner=trace"
+                  },
+                  {
+                    "name": "SIMULATE_SCENARIO",
+                    "value": ""
+                  },
+                  {
+                    "name": "SIMULATE_MANAGER",
+                    "value": "true"
+                  },
+                  {
+                    "name": "SIMULATE_PEERS_PATH",
+                    "value": "/keramik-peers/peers.json"
+                  },
+                  {
+                    "name": "SIMULATE_TARGET_PEER",
+                    "value": "0"
+                  },
+                  {
+                    "name": "SIMULATE_NONCE",
+                    "value": "42"
+                  },
+                  {
+                    "name": "SIMULATE_USERS",
+                    "value": "0"
+                  },
+                  {
+                    "name": "SIMULATE_RUN_TIME",
+                    "value": "0m"
+                  },
+                  {
+                    "name": "DID_KEY",
+                    "value": "did:key:z6Mkqn5jbycThHcBtakJZ8fHBQ2oVRQhXQEdQk5ZK2NDtNZA"
+                  },
+                  {
+                    "name": "DID_PRIVATE_KEY",
+                    "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+                  }
+                ],
+                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+                "imagePullPolicy": "Always",
+                "name": "manager",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/keramik-peers",
+                    "name": "keramik-peers"
+                  }
+                ]
+              }
+            ],
+            "hostname": "manager",
+            "restartPolicy": "Never",
+            "subdomain": "goose",
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 493,
+                  "name": "keramik-peers"
+                },
+                "name": "keramik-peers"
+              }
+            ]
+          }
+        }
+      }
+    },
+}

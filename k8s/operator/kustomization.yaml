@@ -9,3 +9,11 @@ images:
     # newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
     # newTag: latest
     newTag: dev
+
+secretGenerator:
+- name: small-private-key
+  envs:
+  - .env.small
+- name: big-private-key
+  envs:
+  - .env.big

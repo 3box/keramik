@@ -1,5 +1,9 @@
 //! Utils is shared functions and constants for the controller
 use std::sync::Mutex;
+
+#[cfg(test)]
+pub mod test;
+
 use std::{collections::BTreeMap, sync::Arc};
 
 use k8s_openapi::{

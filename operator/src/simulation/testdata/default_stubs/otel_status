@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/apis/apps/v1/namespaces/test/statefulsets/opentelemetry/status",
+    headers: {},
+    body: ,
+}

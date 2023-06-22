@@ -1,10 +1,11 @@
 [workspace]
-members = ["operator", "runner", "common"]
+members = ["operator", "runner", "common", "expect-patch"]
 
 [workspace.dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
 env_logger = "0.10.0"
+expect-patch = {path = "./expect-patch/"}
 keramik-common = { path = "./common/" }
 multiaddr = "0.17"
 multibase = "0.9.1"

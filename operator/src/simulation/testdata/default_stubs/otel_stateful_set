@@ -1,0 +1,123 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/apps/v1/namespaces/test/statefulsets/opentelemetry?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "opentelemetry",
+        "ownerReferences": []
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "otel"
+          }
+        },
+        "serviceName": "otel",
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "otel"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "command": [
+                  "/otelcol-custom",
+                  "--config=/config/otel-config.yaml"
+                ],
+                "image": "public.ecr.aws/r5b3e0r5/3box/otelcol",
+                "name": "opentelemetry",
+                "ports": [
+                  {
+                    "containerPort": 4317,
+                    "name": "otlp-receiver"
+                  },
+                  {
+                    "containerPort": 9090,
+                    "name": "prom-metrics"
+                  },
+                  {
+                    "containerPort": 8888,
+                    "name": "self-metrics"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/config",
+                    "name": "config",
+                    "readOnly": true
+                  },
+                  {
+                    "mountPath": "/data",
+                    "name": "otel-data",
+                    "readOnly": false
+                  }
+                ]
+              }
+            ],
+            "securityContext": {
+              "fsGroup": 2000
+            },
+            "serviceAccountName": "monitoring-service-account",
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 493,
+                  "name": "otel-config"
+                },
+                "name": "config"
+              },
+              {
+                "name": "otel-data",
+                "persistentVolumeClaim": {
+                  "claimName": "otel-data"
+                }
+              }
+            ]
+          }
+        },
+        "volumeClaimTemplates": [
+          {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+              "name": "otel-data"
+            },
+            "spec": {
+              "accessModes": [
+                "ReadWriteOnce"
+              ],
+              "resources": {
+                "requests": {
+                  "storage": "10Gi"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+}

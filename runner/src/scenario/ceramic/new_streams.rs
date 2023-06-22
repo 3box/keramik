@@ -2,7 +2,9 @@ use ceramic_http_client::CeramicHttpClient;
 use goose::prelude::*;
 use std::{sync::Arc, time::Duration};
 
-use crate::scenario::ceramic::{setup, Credentials, LoadTestUserData, StreamsResponseOrError, models, RandomModelInstance};
+use crate::scenario::ceramic::{
+    models, setup, Credentials, LoadTestUserData, RandomModelInstance, StreamsResponseOrError,
+};
 
 pub fn scenario() -> Result<Scenario, GooseError> {
     let creds = Credentials::new();
@@ -12,11 +14,13 @@ pub fn scenario() -> Result<Scenario, GooseError> {
     let test_start = Transaction::new(Arc::new(move |user| {
         Box::pin(setup(user, setup_cli.clone()))
     }))
-        .set_name("setup")
-        .set_on_start();
+    .set_name("setup")
+    .set_on_start();
 
-    let instantiate_small_model = transaction!(instantiate_small_model).set_name("instantiate_small_model");
-    let instantiate_large_model = transaction!(instantiate_large_model).set_name("instantiate_large_model");
+    let instantiate_small_model =
+        transaction!(instantiate_small_model).set_name("instantiate_small_model");
+    let instantiate_large_model =
+        transaction!(instantiate_large_model).set_name("instantiate_large_model");
 
     Ok(scenario!("CeramicNewStreams")
         .set_wait_time(Duration::from_millis(10), Duration::from_millis(100))?
@@ -30,7 +34,10 @@ async fn instantiate_small_model(user: &mut GooseUser) -> TransactionResult {
     let model = user_data.small_model_id.clone();
     let cli = &user_data.cli;
     let url = user.build_url(cli.streams_endpoint())?;
-    let req = cli.create_list_instance_request(&model, &models::SmallModel::random()).await.unwrap();
+    let req = cli
+        .create_list_instance_request(&model, &models::SmallModel::random())
+        .await
+        .unwrap();
     let req = user.client.post(url).json(&req);
     let req = GooseRequest::builder()
         .method(GooseMethod::Post)
@@ -48,7 +55,10 @@ async fn instantiate_large_model(user: &mut GooseUser) -> TransactionResult {
     let model = user_data.large_model_id.clone();
     let cli = &user_data.cli;
     let url = user.build_url(cli.streams_endpoint())?;
-    let req = cli.create_list_instance_request(&model, &models::LargeModel::random()).await.unwrap();
+    let req = cli
+        .create_list_instance_request(&model, &models::LargeModel::random())
+        .await
+        .unwrap();
     let req = user.client.post(url).json(&req);
     let req = GooseRequest::builder()
         .method(GooseMethod::Post)

@@ -1,6 +1,6 @@
 mod models;
-pub mod write_only;
 pub mod new_streams;
+pub mod write_only;
 
 use ceramic_http_client::api::StreamsResponseOrError;
 use ceramic_http_client::ceramic_event::{DidDocument, StreamId};

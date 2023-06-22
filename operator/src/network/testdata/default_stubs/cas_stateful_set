@@ -120,7 +120,7 @@ Request {
                     }
                   }
                 ],
-                "image": "ceramicnetwork/ceramic-anchor-service",
+                "image": "ceramicnetwork/ceramic-anchor-service:latest",
                 "imagePullPolicy": "Always",
                 "name": "cas",
                 "ports": [

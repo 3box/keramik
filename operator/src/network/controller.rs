@@ -27,7 +27,8 @@ use rand::RngCore;
 use tracing::{debug, error, trace};
 
 use crate::network::{
-    bootstrap, cas,
+    bootstrap,
+    cas::{self, CasSpec},
     ceramic::{self, CeramicConfig},
     peers,
     utils::{HttpRpcClient, RpcClient},
@@ -169,7 +170,7 @@ async fn reconcile(
 
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
-    apply_cas(cx.clone(), &ns, network.clone()).await?;
+    apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone()).await?;
 
     if is_admin_secret_missing(cx.clone(), &ns).await? {
         create_admin_secret(cx.clone(), &ns, network.clone()).await?;
@@ -252,6 +253,7 @@ async fn apply_cas(
     cx: Arc<Context<impl RpcClient>>,
     ns: &str,
     network: Arc<Network>,
+    cas_spec: Option<CasSpec>,
 ) -> Result<(), kube::error::Error> {
     if is_cas_postgres_secret_missing(cx.clone(), ns).await? {
         create_cas_postgres_secret(cx.clone(), ns, network.clone()).await?;
@@ -299,7 +301,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas",
-        cas::cas_stateful_set_spec(),
+        cas::cas_stateful_set_spec(cas_spec),
     )
     .await?;
     apply_stateful_set(
@@ -563,7 +565,7 @@ async fn delete_job(
 mod test {
     use super::{reconcile, Network};
 
-    use crate::utils::Context;
+    use crate::{network::cas::CasSpec, utils::Context};
 
     use crate::network::{
         ceramic::{IpfsKind, IpfsSpec},
@@ -930,6 +932,61 @@ mod test {
                            }
                          ]
                        }
+        "#]]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn cas_image() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                cas: Some(CasSpec {
+                    image: Some("cas/cas:dev".to_owned()),
+                    image_pull_policy: Some("Never".to_owned()),
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "status": {
+                     "replicas": 0,
+                     "readyReplicas": 0,
+            -        "namespace": null,
+            +        "namespace": "keramik-test",
+                     "peers": []
+                   }
+                 },
+        "#]]);
+        stub.cas_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -120,8 +120,8 @@
+                                 }
+                               }
+                             ],
+            -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "cas/cas:dev",
+            +                "imagePullPolicy": "Never",
+                             "name": "cas",
+                             "ports": [
+                               {
         "#]]);
         let (testctx, fakeserver) = Context::test(mock_rpc_client);
         let mocksrv = fakeserver.run(stub);

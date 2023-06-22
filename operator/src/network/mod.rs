@@ -8,6 +8,7 @@ pub(crate) mod utils;
 
 #[cfg(test)]
 pub mod stub;
+use crate::network::cas::CasSpec;
 // Expose Context for testing
 #[cfg(test)]
 pub use crate::utils::Context;
@@ -38,6 +39,8 @@ pub struct NetworkSpec {
     pub bootstrap: Option<BootstrapSpec>,
     /// Describes how each peer should behave.
     pub ceramic: Option<CeramicSpec>,
+    /// Describes how CAS should be deployed.
+    pub cas: Option<CasSpec>,
 }
 
 /// Current status of the network.

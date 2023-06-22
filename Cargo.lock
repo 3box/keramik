@@ -1700,6 +1700,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "expect-patch"
+version = "0.1.0"
+dependencies = [
+ "diffy",
+ "expect-test",
+ "once_cell",
+]
+
+[[package]]
 name = "expect-test"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2692,7 +2701,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "clap",
- "diffy",
+ "expect-patch",
  "expect-test",
  "futures",
  "hex",
@@ -2704,7 +2713,6 @@ dependencies = [
  "multiaddr",
  "multibase 0.9.1",
  "multihash 0.17.0",
- "once_cell",
  "opentelemetry",
  "opentelemetry-otlp",
  "rand 0.8.5",
@@ -2721,6 +2729,7 @@ dependencies = [
  "tracing-log",
  "tracing-opentelemetry",
  "tracing-subscriber",
+ "tracing-test",
  "unimock",
 ]
 
@@ -5819,6 +5828,29 @@ dependencies = [
  "tracing-core",
  "tracing-log",
  "tracing-serde",
+]
+
+[[package]]
+name = "tracing-test"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3a2c0ff408fe918a94c428a3f2ad04e4afd5c95bbc08fcf868eff750c15728a4"
+dependencies = [
+ "lazy_static",
+ "tracing-core",
+ "tracing-subscriber",
+ "tracing-test-macro",
+]
+
+[[package]]
+name = "tracing-test-macro"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "258bc1c4f8e2e73a977812ab339d503e6feeb92700f6d07a6de4d321522d5c08"
+dependencies = [
+ "lazy_static",
+ "quote",
+ "syn 1.0.109",
 ]
 
 [[package]]

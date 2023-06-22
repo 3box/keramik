@@ -1,24 +1,18 @@
 //! Helper methods only available for tests
 
-use anyhow::{anyhow, Result};
-use expect_test::{expect_file, Expect, ExpectFile};
-use hyper::{body::to_bytes, Body};
+use anyhow::Result;
+use expect_patch::{ExpectPatch, Expectation};
+use expect_test::{expect_file, ExpectFile};
+use hyper::Body;
 use k8s_openapi::api::core::v1::Secret;
 use keramik_common::peer_info::IpfsPeerInfo;
 use kube::error::ErrorResponse;
-use kube::Client;
-use rand::rngs::mock::StepRng;
-use reqwest::header::HeaderMap;
 use serde::Serialize;
-use std::sync::{Arc, Mutex};
-use unimock::{matching, Clause, MockFn, Unimock};
+use unimock::{matching, Clause, Unimock};
 
-use crate::network::{
-    utils::{IpfsRpcClient, RpcClientMock},
-    Network, NetworkSpec, NetworkStatus,
-};
+use crate::network::{utils::RpcClientMock, Network, NetworkSpec, NetworkStatus};
 
-use crate::utils::{managed_labels, Context};
+use crate::utils::{managed_labels, test::Request};
 
 // We wrap tower_test::mock::Handle
 type ApiServerHandle = tower_test::mock::Handle<http::Request<Body>, http::Response<Body>>;
@@ -42,30 +36,12 @@ impl Network {
         }
     }
 }
-// Add test specific implementation to the Context
-impl<R> Context<R, StepRng>
-where
-    R: IpfsRpcClient,
-{
-    // Create a test context with a mocked kube and rpc clients
-    pub fn test(mock_rpc_client: R) -> (Arc<Self>, ApiServerVerifier) {
-        let (mock_service, handle) =
-            tower_test::mock::pair::<http::Request<Body>, http::Response<Body>>();
-        let mock_k_client = Client::new(mock_service, "default");
-        let ctx = Self {
-            k_client: mock_k_client,
-            rpc_client: mock_rpc_client,
-            rng: Mutex::new(StepRng::new(29, 7)),
-        };
-        (Arc::new(ctx), ApiServerVerifier(handle))
-    }
-}
 
 // Mock for cas peer info call that is NOT ready
 pub fn mock_cas_peer_info_not_ready() -> impl Clause {
     RpcClientMock::peer_info
         .next_call(matching!(_))
-        .returns(Err(anyhow!("cas-ipfs not ready")))
+        .returns(Err(anyhow::anyhow!("cas-ipfs not ready")))
 }
 // Mock for cas peer info call that is ready
 pub fn mock_cas_peer_info_ready() -> impl Clause {
@@ -185,14 +161,11 @@ impl Default for Stub {
     }
 }
 
-pub async fn timeout_after_1s(handle: tokio::task::JoinHandle<()>) {
-    tokio::time::timeout(std::time::Duration::from_secs(1), handle)
-        .await
-        .expect("timeout on mock apiserver")
-        .expect("stub succeeded")
-}
-
 impl ApiServerVerifier {
+    /// Create an ApiServerVerifier from a handle
+    pub fn new(handle: ApiServerHandle) -> Self {
+        Self(handle)
+    }
     /// Run a test with the given stub.
     ///
     /// NB: If the controller is making more calls than we are handling in the stub,
@@ -353,196 +326,5 @@ impl ApiServerVerifier {
         };
         send.send_response(response);
         Ok(())
-    }
-}
-
-// Helper struct to assert the contents of a mock Request.
-// The only purpose of this struct is its debug implementation
-// to be used in expect![[]] calls.
-struct Request {
-    pub method: String,
-    pub uri: String,
-    pub headers: HeaderMap,
-    pub body: Raw,
-}
-
-// Explicit Debug implementation so the fields are not marked as dead code.
-impl std::fmt::Debug for Request {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Request")
-            .field("method", &self.method)
-            .field("uri", &self.uri)
-            .field("headers", &self.headers)
-            .field("body", &self.body)
-            .finish()
-    }
-}
-
-impl Request {
-    async fn from_request(request: http::Request<Body>) -> Result<Self> {
-        let method = request.method().to_string();
-        let uri = request.uri().to_string();
-        let headers = request.headers().clone();
-        let body_bytes = to_bytes(request.into_body()).await?;
-        let body = if !body_bytes.is_empty() {
-            let json: serde_json::Value =
-                serde_json::from_slice(&body_bytes).expect("body should be JSON");
-            Raw(serde_json::to_string_pretty(&json)?)
-        } else {
-            Raw("".to_string())
-        };
-        Ok(Self {
-            method,
-            uri,
-            headers,
-            body,
-        })
-    }
-}
-
-// Raw String the does not escape its value for debugging
-struct Raw(String);
-impl std::fmt::Debug for Raw {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-/// Defines a common interface for asserting an expectation.
-///
-/// The types expect_test::Expect, expect_test::ExpectFile and ExpectPatch all implement this trait.
-trait Expectation {
-    /// Make an assertion about the actual value compared to the expectation.
-    fn assert_debug_eq(&self, actual: &impl std::fmt::Debug);
-}
-
-/// Defines a common interface exposing the expected data for an Expectation.
-///
-/// This allows ExpectPatch to be composed of either Expect or ExpectFile.
-trait ExpectData {
-    /// The data that is expected.
-    fn data(&self) -> String;
-}
-
-/// Wraps an expectation with the ability to patch that expectation.
-///
-/// ```
-/// let mut expect: ExpectPatch<ExpectFile> = expect_file![["path/to/large/test/fixture"]].into();
-/// expect.patch(expect![[r#"
-/// --- original
-/// +++ modified
-/// @@ -1,2 +1,3 @@
-///  Small patch
-///  to the larger
-/// +expectation data
-/// "]];
-/// ```
-///
-/// If you find yourself manually writing the patch text,
-/// instead use `UPDATE_EXPECT=1 cargo test` to update the patch text itself.
-#[derive(Debug)]
-pub struct ExpectPatch<E> {
-    original: E,
-    patch: Option<Expect>,
-}
-
-impl<E> ExpectPatch<E> {
-    pub fn patch(&mut self, patch: Expect) {
-        self.patch = Some(patch)
-    }
-}
-
-impl From<ExpectFile> for ExpectPatch<ExpectFile> {
-    fn from(value: ExpectFile) -> Self {
-        Self {
-            original: value,
-            patch: None,
-        }
-    }
-}
-
-impl From<Expect> for ExpectPatch<Expect> {
-    fn from(value: Expect) -> Self {
-        Self {
-            original: value,
-            patch: None,
-        }
-    }
-}
-
-impl<E> Expectation for ExpectPatch<E>
-where
-    E: ExpectData + Expectation,
-{
-    fn assert_debug_eq(&self, actual: &impl std::fmt::Debug) {
-        if let Some(patch) = &self.patch {
-            let actual = &format!("{:#?}", actual);
-            let original = self.original.data();
-            // Ensure both end in a new line to avoid noisy patch data
-            let original = original.trim().to_owned() + "\n";
-            let actual = actual.trim().to_owned() + "\n";
-            let actual_patch = diffy::create_patch(&original, &actual);
-            patch.assert_eq(&format!("{actual_patch}"));
-        } else {
-            self.original.assert_debug_eq(actual)
-        }
-    }
-}
-
-impl Expectation for Expect {
-    fn assert_debug_eq(&self, actual: &impl std::fmt::Debug) {
-        self.assert_debug_eq(actual)
-    }
-}
-impl ExpectData for Expect {
-    fn data(&self) -> String {
-        self.data().to_owned()
-    }
-}
-
-impl Expectation for ExpectFile {
-    fn assert_debug_eq(&self, actual: &impl std::fmt::Debug) {
-        self.assert_debug_eq(actual)
-    }
-}
-impl ExpectData for ExpectFile {
-    fn data(&self) -> String {
-        // This is taken from the internals of expect_file, maybe we can submit a change to expose
-        // the file contents directly?
-        let path_of_test_file = std::path::Path::new(self.position).parent().unwrap();
-        static WORKSPACE_ROOT: once_cell::sync::OnceCell<std::path::PathBuf> =
-            once_cell::sync::OnceCell::new();
-        let abs_path = WORKSPACE_ROOT
-            .get_or_try_init(|| {
-                // Until https://github.com/rust-lang/cargo/issues/3946 is resolved, this
-                // is set with a hack like https://github.com/rust-lang/cargo/issues/3946#issuecomment-973132993
-                if let Ok(workspace_root) = std::env::var("CARGO_WORKSPACE_DIR") {
-                    return Ok(workspace_root.into());
-                }
-
-                // If a hack isn't used, we use a heuristic to find the "top-level" workspace.
-                // This fails in some cases, see https://github.com/rust-analyzer/expect-test/issues/33
-                let my_manifest = std::env::var("CARGO_MANIFEST_DIR")?;
-                let workspace_root = std::path::Path::new(&my_manifest)
-                    .ancestors()
-                    .filter(|it| it.join("Cargo.toml").exists())
-                    .last()
-                    .unwrap()
-                    .to_path_buf();
-
-                Ok(workspace_root)
-            })
-            .unwrap_or_else(|_: std::env::VarError| {
-                panic!(
-                    "No CARGO_MANIFEST_DIR env var and the path is relative: {}",
-                    path_of_test_file.display()
-                )
-            })
-            .join(path_of_test_file)
-            .join(&self.path);
-
-        std::fs::read_to_string(abs_path)
-            .unwrap_or_default()
-            .replace("\r\n", "\n")
     }
 }

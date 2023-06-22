@@ -633,7 +633,7 @@ mod test {
             cas::CasSpec,
             ceramic::{IpfsKind, IpfsSpec},
             stub::{default_ipfs_rpc_mock, mock_cas_peer_info_not_ready, mock_cas_peer_info_ready},
-            stub::{timeout_after_1s, Stub},
+            stub::{timeout_after_1s, ApiServerVerifier, Stub},
             utils::{ResourceLimitsSpec, RpcClientMock},
             CeramicSpec, NetworkSpec, NetworkStatus,
         },
@@ -655,8 +655,9 @@ mod test {
     // that occur when reconiling a default spec and status.
     #[tokio::test]
     async fn reconcile_from_empty() {
-        let mock_rpc_client = default_ipfs_rpc_mock();
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let network = Network::test();
         let mocksrv = fakeserver.run(Stub::default());
         reconcile(Arc::new(network), testctx)
@@ -768,7 +769,8 @@ mod test {
              }
         "#]]);
         stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -935,7 +937,8 @@ mod test {
                          ]
                        }
         "#]]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -1079,7 +1082,8 @@ mod test {
                          ]
                        }
         "#]]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -1161,7 +1165,8 @@ mod test {
                              },
                              "volumeMounts": [
         "#]]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -1216,7 +1221,8 @@ mod test {
                              "ports": [
                                {
         "#]]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -1368,7 +1374,8 @@ mod test {
                              },
                              "volumeMounts": [
         "#]]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -1457,7 +1464,8 @@ mod test {
                              },
                              "volumeMounts": [
         "#]]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -1512,7 +1520,8 @@ mod test {
                 ..Default::default()
             }),
         ));
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -1541,7 +1550,8 @@ mod test {
             None,
             true, // skip the remainder of processing since an error will be returned
         ));
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         assert!(reconcile(Arc::new(network), testctx).await.is_err());
         timeout_after_1s(mocksrv).await;
@@ -1567,7 +1577,8 @@ mod test {
             }),
             false,
         ));
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await

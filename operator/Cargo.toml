@@ -17,7 +17,6 @@ description = "K8s operator binary for automating Ceramic networks"
 async-trait = "0.1.68"
 futures = "0.3"
 hex = "0.4.3"
-once_cell = "1.17.1"
 rand = "0.8.5"
 serde_yaml = "0.9.21"
 thiserror = "1"
@@ -51,8 +50,9 @@ unimock = "0.4"
 
 
 [dev-dependencies]
-diffy = "0.3.0"
-expect-test = "1.4.1"
+expect-patch.workspace = true
+expect-test = "1"
 http = "0.2.9"
 hyper = "0.14.26"
 tower-test = "0.4.0"
+tracing-test = "0.2"

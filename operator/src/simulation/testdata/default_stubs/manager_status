@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/apis/batch/v1/namespaces/test/jobs/simulate-manager/status",
+    headers: {},
+    body: ,
+}

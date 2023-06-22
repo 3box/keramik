@@ -1,0 +1,71 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/apps/v1/namespaces/test/statefulsets/jaeger?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "jaeger",
+        "ownerReferences": []
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "jaeger"
+          }
+        },
+        "serviceName": "",
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "jaeger"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "env": [
+                  {
+                    "name": "COLLECTOR_OTLP_ENABLED",
+                    "value": "true"
+                  }
+                ],
+                "image": "jaegertracing/all-in-one:latest",
+                "name": "jaeger",
+                "ports": [
+                  {
+                    "containerPort": 4317,
+                    "name": "otlp-receiver"
+                  },
+                  {
+                    "containerPort": 16686,
+                    "name": "webui"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+}

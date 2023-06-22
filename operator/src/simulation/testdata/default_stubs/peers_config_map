@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/api/v1/namespaces/test/configmaps/keramik-peers",
+    headers: {},
+    body: ,
+}

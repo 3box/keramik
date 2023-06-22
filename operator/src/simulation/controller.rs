@@ -206,7 +206,7 @@ async fn apply_manager(
     let orefs = simulation
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     apply_service(
         cx.clone(),
@@ -276,7 +276,7 @@ async fn apply_n_workers(
     let orefs = simulation
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     for i in 0..peers {
         let config = WorkerConfig {
@@ -306,7 +306,7 @@ async fn apply_jaeger(
     let orefs: Vec<_> = simulation
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     apply_service(
         cx.clone(),
@@ -336,7 +336,7 @@ async fn apply_prometheus(
     let orefs = simulation
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     apply_config_map(
         cx.clone(),
@@ -365,7 +365,7 @@ async fn apply_opentelemetry(
     let orefs = simulation
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
-        .unwrap();
+        .unwrap_or_default();
 
     apply_account(cx.clone(), ns, orefs.clone(), OTEL_ACCOUNT).await?;
     apply_cluster_role(
@@ -409,4 +409,158 @@ async fn apply_opentelemetry(
     .await?;
 
     Ok(())
+}
+// Stub tests relying on stub.rs and its apiserver stubs
+#[cfg(test)]
+mod test {
+    use super::{reconcile, Simulation};
+
+    use crate::{
+        simulation::{
+            stub::{ApiServerVerifier, Stub},
+            SimulationSpec,
+        },
+        utils::Context,
+    };
+
+    use crate::utils::test::timeout_after_1s;
+
+    use expect_test::expect;
+    use std::sync::Arc;
+    use tracing_test::traced_test;
+    use unimock::Unimock;
+
+    // This tests defines the default stubs,
+    // meaning the default stubs are the request response pairs
+    // that occur when reconiling a default spec and status.
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_from_empty() {
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test();
+        let mocksrv = fakeserver.run(Stub::default());
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_scenario() {
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            scenario: "test-scenario".to_owned(),
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -41,7 +41,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_SCENARIO",
+            -                    "value": ""
+            +                    "value": "test-scenario"
+                               },
+                               {
+                                 "name": "SIMULATE_MANAGER",
+        "#]]);
+        stub.worker_jobs[0].patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -45,7 +45,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_SCENARIO",
+            -                    "value": ""
+            +                    "value": "test-scenario"
+                               },
+                               {
+                                 "name": "SIMULATE_TARGET_PEER",
+        "#]]);
+        stub.worker_jobs[1].patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -45,7 +45,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_SCENARIO",
+            -                    "value": ""
+            +                    "value": "test-scenario"
+                               },
+                               {
+                                 "name": "SIMULATE_TARGET_PEER",
+        "#]]);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_user_count() {
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            users: 10,
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -61,7 +61,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_USERS",
+            -                    "value": "0"
+            +                    "value": "10"
+                               },
+                               {
+                                 "name": "SIMULATE_RUN_TIME",
+        "#]]);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_run_time() {
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            run_time: 10,
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -65,7 +65,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_RUN_TIME",
+            -                    "value": "0m"
+            +                    "value": "10m"
+                               },
+                               {
+                                 "name": "DID_KEY",
+        "#]]);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
 }

@@ -1,0 +1,45 @@
+Request {
+    method: "PATCH",
+    uri: "/api/v1/namespaces/test/services/otel?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "otel",
+        "ownerReferences": []
+      },
+      "spec": {
+        "ports": [
+          {
+            "name": "otlp-receiver",
+            "port": 4317,
+            "protocol": "TCP",
+            "targetPort": 4317
+          },
+          {
+            "name": "prom-metrics",
+            "port": 9090,
+            "protocol": "TCP",
+            "targetPort": 9090
+          },
+          {
+            "name": "self-metrics",
+            "port": 8888,
+            "protocol": "TCP",
+            "targetPort": 8888
+          }
+        ],
+        "selector": {
+          "app": "otel"
+        },
+        "type": "ClusterIP"
+      }
+    },
+}

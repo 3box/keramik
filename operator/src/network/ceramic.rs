@@ -18,9 +18,12 @@ use kube::core::ObjectMeta;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::network::controller::{
-    CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
-    CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+use crate::network::{
+    controller::{
+        CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
+        CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+    },
+    utils::{ResourceLimitsConfig, ResourceLimitsSpec},
 };
 
 use crate::utils::{managed_labels, selector_labels};
@@ -123,6 +126,8 @@ pub struct CeramicSpec {
     pub init_config_map: Option<String>,
     /// Configuration of the IPFS container
     pub ipfs: Option<IpfsSpec>,
+    /// Resource limits for ceramic nodes, applies to both requests and limits.
+    pub resource_limits: Option<ResourceLimitsSpec>,
 }
 
 /// Describes how the IPFS node for a peer should behave.
@@ -136,6 +141,8 @@ pub struct IpfsSpec {
     pub kind: IpfsKind,
     pub image: Option<String>,
     pub image_pull_policy: Option<String>,
+    // Resource limits for ipfs nodes, applies to both requests and limits.
+    pub resource_limits: Option<ResourceLimitsSpec>,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
@@ -149,6 +156,7 @@ pub enum IpfsKind {
 pub struct CeramicConfig {
     pub init_config_map: String,
     pub ipfs: IpfsConfig,
+    pub resource_limits: ResourceLimitsConfig,
 }
 
 pub enum IpfsConfig {
@@ -185,6 +193,7 @@ impl IpfsConfig {
 pub struct RustIpfsConfig {
     image: String,
     image_pull_policy: String,
+    resource_limits: ResourceLimitsConfig,
 }
 
 impl Default for RustIpfsConfig {
@@ -192,6 +201,11 @@ impl Default for RustIpfsConfig {
         Self {
             image: "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
+            resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("512Mi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
         }
     }
 }
@@ -201,6 +215,10 @@ impl From<IpfsSpec> for RustIpfsConfig {
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
+            resource_limits: ResourceLimitsConfig::from_spec(
+                value.resource_limits,
+                default.resource_limits,
+            ),
         }
     }
 }
@@ -208,12 +226,18 @@ impl From<IpfsSpec> for RustIpfsConfig {
 pub struct GoIpfsConfig {
     image: String,
     image_pull_policy: String,
+    resource_limits: ResourceLimitsConfig,
 }
 impl Default for GoIpfsConfig {
     fn default() -> Self {
         Self {
             image: "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d". to_owned(),
             image_pull_policy: "IfNotPresent".to_owned(),
+            resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("512Mi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
         }
     }
 }
@@ -223,6 +247,10 @@ impl From<IpfsSpec> for GoIpfsConfig {
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
+            resource_limits: ResourceLimitsConfig::from_spec(
+                value.resource_limits,
+                default.resource_limits,
+            ),
         }
     }
 }
@@ -232,6 +260,11 @@ impl Default for CeramicConfig {
         Self {
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
             ipfs: IpfsConfig::default(),
+            resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("1Gi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
         }
     }
 }
@@ -250,6 +283,10 @@ impl From<CeramicSpec> for CeramicConfig {
         Self {
             init_config_map: value.init_config_map.unwrap_or(default.init_config_map),
             ipfs: value.ipfs.map(Into::into).unwrap_or(default.ipfs),
+            resource_limits: ResourceLimitsConfig::from_spec(
+                value.resource_limits,
+                default.resource_limits,
+            ),
         }
     }
 }
@@ -322,16 +359,8 @@ impl RustIpfsConfig {
                 },
             ]),
             resources: Some(ResourceRequirements {
-                limits: Some(BTreeMap::from_iter(vec![
-                    ("cpu".to_owned(), Quantity("250m".to_owned())),
-                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                ])),
-                requests: Some(BTreeMap::from_iter(vec![
-                    ("cpu".to_owned(), Quantity("250m".to_owned())),
-                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                ])),
+                limits: Some(self.resource_limits.clone().into()),
+                requests: Some(self.resource_limits.into()),
                 ..Default::default()
             }),
             volume_mounts: Some(vec![VolumeMount {
@@ -398,16 +427,8 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
                 },
             ]),
             resources: Some(ResourceRequirements {
-                limits: Some(BTreeMap::from_iter(vec![
-                    ("cpu".to_owned(), Quantity("250m".to_owned())),
-                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                ])),
-                requests: Some(BTreeMap::from_iter(vec![
-                    ("cpu".to_owned(), Quantity("250m".to_owned())),
-                    ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                    ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                ])),
+                limits: Some(self.resource_limits.clone().into()),
+                requests: Some(self.resource_limits.into()),
                 ..Default::default()
             }),
             volume_mounts: Some(vec![
@@ -595,16 +616,8 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                         }),
 
                         resources: Some(ResourceRequirements {
-                            limits: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("250m".to_owned())),
-                                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                            ])),
-                            requests: Some(BTreeMap::from_iter(vec![
-                                ("cpu".to_owned(), Quantity("250m".to_owned())),
-                                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                                ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                            ])),
+                            limits: Some(config.resource_limits.clone().into()),
+                            requests: Some(config.resource_limits.clone().into()),
                             ..Default::default()
                         }),
                         volume_mounts: Some(vec![
@@ -634,16 +647,8 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                     image_pull_policy: Some("Always".to_owned()),
                     name: "init-ceramic-config".to_owned(),
                     resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("512Mi".to_owned())),
-                        ])),
+                        limits: Some(config.resource_limits.clone().into()),
+                        requests: Some(config.resource_limits.into()),
                         ..Default::default()
                     }),
                     volume_mounts: Some(vec![

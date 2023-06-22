@@ -1,8 +1,13 @@
+use std::collections::BTreeMap;
+
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
+use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use keramik_common::peer_info::{PeerIdx, PeerInfo};
 use multiaddr::{Multiaddr, Protocol};
 use multihash::Multihash;
+use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
 use unimock::unimock;
 
 use crate::network::controller::{
@@ -92,5 +97,50 @@ impl RpcClient for HttpRpcClient {
                 index
             ))
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct ResourceLimitsSpec {
+    /// Cpu resource limit
+    pub cpu: Option<Quantity>,
+    /// Memory resource limit
+    pub memory: Option<Quantity>,
+    // Ephemeral storage resource limit
+    pub storage: Option<Quantity>,
+}
+
+#[derive(Clone)]
+pub struct ResourceLimitsConfig {
+    /// Cpu resource limit
+    pub cpu: Quantity,
+    /// Memory resource limit
+    pub memory: Quantity,
+    // Ephemeral storage resource limit
+    pub storage: Quantity,
+}
+
+impl ResourceLimitsConfig {
+    pub fn from_spec(spec: Option<ResourceLimitsSpec>, defaults: Self) -> Self {
+        if let Some(spec) = spec {
+            Self {
+                cpu: spec.cpu.unwrap_or(defaults.cpu),
+                memory: spec.memory.unwrap_or(defaults.memory),
+                storage: spec.storage.unwrap_or(defaults.storage),
+            }
+        } else {
+            defaults
+        }
+    }
+}
+
+impl From<ResourceLimitsConfig> for BTreeMap<String, Quantity> {
+    fn from(value: ResourceLimitsConfig) -> Self {
+        BTreeMap::from_iter([
+            ("cpu".to_owned(), value.cpu),
+            ("ephemeral-storage".to_owned(), value.storage),
+            ("memory".to_owned(), value.memory),
+        ])
     }
 }

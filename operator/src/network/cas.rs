@@ -20,7 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::network::{
     controller::{
-        CAS_APP, CAS_IFPS_SERVICE_NAME, CAS_IPFS_APP, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
+        CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
         CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
     },
     utils::{ResourceLimitsConfig, ResourceLimitsSpec},
@@ -204,7 +204,7 @@ pub fn cas_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
                                 EnvVar {
                                     name: "IPFS_API_URL".to_owned(),
                                     value: Some(
-                                        format!("http://{CAS_IFPS_SERVICE_NAME}:5001"),
+                                        format!("http://{CAS_IPFS_SERVICE_NAME}:5001"),
                                     ),
                                 ..Default::default()},
                                 EnvVar {
@@ -370,7 +370,7 @@ pub fn cas_ipfs_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
             match_labels: selector_labels(CAS_IPFS_APP),
             ..Default::default()
         },
-        service_name: CAS_IFPS_SERVICE_NAME.to_owned(),
+        service_name: CAS_IPFS_SERVICE_NAME.to_owned(),
         template: PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 labels: selector_labels(CAS_IPFS_APP),

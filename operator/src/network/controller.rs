@@ -397,7 +397,7 @@ async fn apply_ceramic(
     if is_admin_secret_missing(cx.clone(), ns).await? {
         create_admin_secret(
             cx.clone(),
-            &ns,
+            ns,
             network.clone(),
             spec.clone().unwrap_or_default().private_key_secret.as_ref(),
         )

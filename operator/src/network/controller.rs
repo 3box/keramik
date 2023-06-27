@@ -24,6 +24,7 @@ use kube::{
     },
     Resource,
 };
+use rand::{thread_rng, RngCore, SeedableRng};
 use tracing::{debug, error, trace};
 
 use crate::network::{
@@ -44,7 +45,7 @@ use crate::utils::{
 fn on_error(
     _network: Arc<Network>,
     _error: &Error,
-    _context: Arc<Context<impl IpfsRpcClient>>,
+    _context: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
 ) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
@@ -67,7 +68,9 @@ enum Error {
 /// Start a controller for the Network CRD.
 pub async fn run() {
     let k_client = Client::try_default().await.unwrap();
-    let context = Arc::new(Context::new(k_client.clone(), HttpRpcClient));
+    let context = Arc::new(
+        Context::new(k_client.clone(), HttpRpcClient).expect("should be able to create context"),
+    );
 
     // Add api for other resources, ie ceramic nodes
     let networks: Api<Network> = Api::all(k_client.clone());
@@ -158,7 +161,7 @@ pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 /// Perform a reconcile pass for the Network CRD
 async fn reconcile(
     network: Arc<Network>,
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
 ) -> Result<Action, Error> {
     let spec = network.spec();
     debug!(?spec, "reconcile");
@@ -223,7 +226,7 @@ async fn reconcile(
 
 // Applies the namespace
 async fn apply_network_namespace(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     network: Arc<Network>,
 ) -> Result<String, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
@@ -248,7 +251,7 @@ async fn apply_network_namespace(
 }
 
 async fn apply_cas(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
     cas_spec: Option<CasSpec>,
@@ -331,13 +334,13 @@ async fn apply_cas(
 }
 
 async fn is_cas_postgres_secret_missing(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, CAS_POSTGRES_SECRET_NAME).await
 }
 async fn create_cas_postgres_secret(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
@@ -346,7 +349,7 @@ async fn create_cas_postgres_secret(
         ("username".to_owned(), "ceramic".to_owned()),
         (
             "password".to_owned(),
-            hex::encode(generate_random_secret(20)),
+            generate_random_secret(cx.clone(), 20),
         ),
     ]);
     create_secret(cx, ns, network, CAS_POSTGRES_SECRET_NAME, string_data).await?;
@@ -354,13 +357,13 @@ async fn create_cas_postgres_secret(
 }
 
 async fn is_admin_secret_missing(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, ADMIN_SECRET_NAME).await
 }
 async fn create_admin_secret(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
     secret: String,
@@ -370,7 +373,7 @@ async fn create_admin_secret(
     Ok(())
 }
 async fn apply_ceramic(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
     replicas: i32,
@@ -384,7 +387,7 @@ async fn apply_ceramic(
             spec.clone()
                 .unwrap_or_default()
                 .private_key
-                .unwrap_or(generate_random_secret(32)),
+                .unwrap_or_else(|| generate_random_secret(cx.clone(), 32)),
         )
         .await?;
     }
@@ -408,7 +411,7 @@ async fn apply_ceramic(
 }
 
 async fn apply_ceramic_service(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
@@ -421,7 +424,7 @@ async fn apply_ceramic_service(
 }
 
 async fn apply_ceramic_stateful_set(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
     replicas: i32,
@@ -436,7 +439,7 @@ async fn apply_ceramic_stateful_set(
 }
 
 async fn apply_bootstrap_job(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
     status: &NetworkStatus,
@@ -479,7 +482,7 @@ async fn apply_bootstrap_job(
 }
 
 async fn update_peer_info(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
     status: &mut NetworkStatus,
@@ -542,7 +545,7 @@ async fn update_peer_info(
 }
 
 async fn is_secret_missing(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     name: &str,
 ) -> Result<bool, kube::error::Error> {
@@ -551,7 +554,7 @@ async fn is_secret_missing(
 }
 
 async fn create_secret(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
@@ -580,7 +583,7 @@ async fn create_secret(
 
 // Deletes a job. Does nothing if the job does not exist.
 async fn delete_job(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     name: &str,
 ) -> Result<(), kube::error::Error> {
@@ -616,7 +619,8 @@ mod test {
     use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
     use keramik_common::peer_info::IpfsPeerInfo;
 
-    use crate::utils::generate_random_secret;
+    use crate::utils::{generate_random_secret, managed_labels};
+    use k8s_openapi::api::core::v1::Secret;
     use std::sync::Arc;
     use unimock::{matching, MockFn, Unimock};
 
@@ -1437,28 +1441,60 @@ mod test {
     #[tokio::test]
     async fn ceramic_admin_secret() {
         // Setup network spec and status
-        let network = Network::test()
-            .with_spec(NetworkSpec {
-                ceramic: Some(CeramicSpec {
-                    resource_limits: Some(ResourceLimitsSpec {
-                        cpu: Some(Quantity("250m".to_owned())),
-                        memory: Some(Quantity("1Gi".to_owned())),
-                        storage: Some(Quantity("1Gi".to_owned())),
-                    }),
-                    // private_key: Some(generate_random_secret(32)),
-                    ..Default::default()
-                }),
+        let network = Network::test().with_spec(NetworkSpec {
+            ceramic: Some(CeramicSpec {
+                private_key: Some(
+                    "0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b".to_owned(),
+                ),
                 ..Default::default()
-            })
-            .with_status(NetworkStatus {
-                ready_replicas: 0,
-                namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
-                ..Default::default()
-            });
-        // Setup peer info
+            }),
+            ..Default::default()
+        });
         let mock_rpc_client = Unimock::new(());
         let mut stub = Stub::default().with_network(network.clone());
+        // Tell the stub that the secret does not exist. This will make the controller attempt to
+        // create it.
+        stub.ceramic_admin_secret[0].1 = None;
+        // Tell the stub to expect another call to create the secret
+        stub.ceramic_admin_secret.push((
+            expect_file!["./testdata/ceramic_admin_secret"].into(),
+            Some(k8s_openapi::api::core::v1::Secret {
+                metadata: kube::core::ObjectMeta {
+                    name: Some("ceramic-admin".to_owned()),
+                    labels: managed_labels(),
+                    ..kube::core::ObjectMeta::default()
+                },
+                ..Default::default()
+            }),
+        ));
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn ceramic_default_admin_secret() {
+        // Setup network spec and status
+        let network = Network::test();
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        // Tell the stub that the secret does not exist. This will make the controller attempt to
+        // create it.
+        stub.ceramic_admin_secret[0].1 = None;
+        // Tell the stub to expect another call to create the secret
+        stub.ceramic_admin_secret.push((
+            expect_file!["./testdata/ceramic_default_admin_secret"].into(),
+            Some(k8s_openapi::api::core::v1::Secret {
+                metadata: kube::core::ObjectMeta {
+                    name: Some("ceramic-admin".to_owned()),
+                    labels: managed_labels(),
+                    ..kube::core::ObjectMeta::default()
+                },
+                ..Default::default()
+            }),
+        ));
         let (testctx, fakeserver) = Context::test(mock_rpc_client);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)

@@ -159,7 +159,6 @@ pub struct CeramicConfig {
     pub init_config_map: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
-    pub private_key: Option<String>,
 }
 
 pub enum IpfsConfig {
@@ -268,7 +267,6 @@ impl Default for CeramicConfig {
                 memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
-            private_key: None,
         }
     }
 }
@@ -291,7 +289,6 @@ impl From<CeramicSpec> for CeramicConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
-            private_key: value.private_key,
         }
     }
 }

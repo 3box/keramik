@@ -2,3 +2,5 @@ target/
 *.parquet
 .vscode
 /analyze
+*.yaml
+*.yml

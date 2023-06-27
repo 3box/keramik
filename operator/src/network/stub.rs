@@ -5,10 +5,13 @@ use expect_test::{expect_file, Expect, ExpectFile};
 use hyper::{body::to_bytes, Body};
 use k8s_openapi::api::core::v1::Secret;
 use keramik_common::peer_info::IpfsPeerInfo;
+use kube::error::ErrorResponse;
 use kube::Client;
+use rand::rngs::mock::StepRng;
+use rand::RngCore;
 use reqwest::header::HeaderMap;
 use serde::Serialize;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use unimock::{matching, Clause, MockFn, Unimock};
 
 use crate::network::{
@@ -41,7 +44,7 @@ impl Network {
     }
 }
 // Add test specific implementation to the Context
-impl<R> Context<R>
+impl<R> Context<R, StepRng>
 where
     R: IpfsRpcClient,
 {
@@ -53,6 +56,7 @@ where
         let ctx = Self {
             k_client: mock_k_client,
             rpc_client: mock_rpc_client,
+            rng: Mutex::new(StepRng::new(29, 7)),
         };
         (Arc::new(ctx), ApiServerVerifier(handle))
     }
@@ -97,7 +101,7 @@ pub struct Stub {
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
     pub postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret),
-    pub ceramic_admin_secret: (ExpectPatch<ExpectFile>, Secret),
+    pub ceramic_admin_secret: Vec<(ExpectPatch<ExpectFile>, Option<Secret>)>,
     pub ceramic_stateful_set: ExpectPatch<ExpectFile>,
     pub keramik_peers_configmap: ExpectPatch<ExpectFile>,
     pub cas_service: ExpectPatch<ExpectFile>,
@@ -136,17 +140,17 @@ impl Default for Stub {
                     ..Default::default()
                 },
             ),
-            ceramic_admin_secret: (
+            ceramic_admin_secret: vec![(
                 expect_file!["./testdata/default_stubs/ceramic_admin_secret"].into(),
-                k8s_openapi::api::core::v1::Secret {
+                Some(k8s_openapi::api::core::v1::Secret {
                     metadata: kube::core::ObjectMeta {
                         name: Some("ceramic-admin".to_owned()),
                         labels: managed_labels(),
                         ..kube::core::ObjectMeta::default()
                     },
                     ..Default::default()
-                },
-            ),
+                }),
+            )],
             ceramic_stateful_set: expect_file!["./testdata/default_stubs/ceramic_stateful_set"]
                 .into(),
             keramik_peers_configmap: expect_file![
@@ -199,9 +203,12 @@ impl ApiServerVerifier {
             self.handle_apply(stub.namespace)
                 .await
                 .expect("namespace should apply");
-            self.handle_request_response(stub.postgres_auth_secret.0, &stub.postgres_auth_secret.1)
-                .await
-                .expect("postgres-auth secret should exist");
+            self.handle_request_response(
+                stub.postgres_auth_secret.0,
+                Some(&stub.postgres_auth_secret.1),
+            )
+            .await
+            .expect("postgres-auth secret should exist");
             self.handle_apply(stub.cas_service)
                 .await
                 .expect("cas service should apply");
@@ -226,9 +233,11 @@ impl ApiServerVerifier {
             self.handle_apply(stub.cas_postgres_stateful_set)
                 .await
                 .expect("cas-postgres stateful set should apply");
-            self.handle_request_response(stub.ceramic_admin_secret.0, &stub.ceramic_admin_secret.1)
-                .await
-                .expect("ceramic-admin secret should exist");
+            for step in stub.ceramic_admin_secret {
+                self.handle_request_response(step.0, step.1.as_ref())
+                    .await
+                    .expect("ceramic-admin secret step should pass");
+            }
             for cm in stub.ceramic_configmaps {
                 self.handle_apply(cm)
                     .await
@@ -295,7 +304,7 @@ impl ApiServerVerifier {
     async fn handle_request_response<T>(
         &mut self,
         expected_request: impl Expectation,
-        response: &T,
+        response: Option<&T>,
     ) -> Result<()>
     where
         T: ?Sized + Serialize,
@@ -304,12 +313,23 @@ impl ApiServerVerifier {
         let request = Request::from_request(request).await?;
         expected_request.assert_debug_eq(&request);
 
-        let response = serde_json::to_vec(response).unwrap();
-        send.send_response(
+        let response = if let Some(response) = response {
             http::Response::builder()
-                .body(Body::from(response))
-                .unwrap(),
-        );
+                .body(Body::from(serde_json::to_vec(response).unwrap()))
+                .unwrap()
+        } else {
+            let error = ErrorResponse {
+                status: "stub status".to_owned(),
+                code: 0,
+                message: "stub message".to_owned(),
+                reason: "NotFound".to_owned(),
+            };
+            http::Response::builder()
+                .status(404)
+                .body(Body::from(serde_json::to_vec(&error).unwrap()))
+                .unwrap()
+        };
+        send.send_response(response);
         Ok(())
     }
 }

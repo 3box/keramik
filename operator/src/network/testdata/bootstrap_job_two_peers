@@ -36,7 +36,7 @@ Request {
                   },
                   {
                     "name": "BOOTSTRAP_METHOD",
-                    "value": "ring"
+                    "value": "sentinel"
                   },
                   {
                     "name": "BOOTSTRAP_N",

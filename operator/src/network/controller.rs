@@ -366,9 +366,24 @@ async fn create_admin_secret(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     network: Arc<Network>,
-    secret: String,
+    source_secret_name: Option<&String>,
 ) -> Result<(), kube::error::Error> {
-    let string_data = BTreeMap::from_iter(vec![("private-key".to_owned(), secret)]);
+    // If the name of a source secret was specified, look up that secret and use it to create the
+    // new admin secret. At this point, we can assume that the secret actually exists and that it is
+    // OK to panic otherwise since it is a misconfiguration.
+    let string_data = if let Some(secret_name) = source_secret_name {
+        get_secret(cx.clone(), ns, secret_name)
+            .await?
+            .expect("should have been able to find source secret")
+            .string_data
+            .expect("should have found data in source secret")
+    } else {
+        // If no source secret was specified create the new secret using a randomly generated value
+        BTreeMap::from_iter(vec![(
+            "private-key".to_owned(),
+            generate_random_secret(cx.clone(), 32),
+        )])
+    };
     create_secret(cx, ns, network, ADMIN_SECRET_NAME, string_data).await?;
     Ok(())
 }
@@ -384,10 +399,7 @@ async fn apply_ceramic(
             cx.clone(),
             &ns,
             network.clone(),
-            spec.clone()
-                .unwrap_or_default()
-                .private_key
-                .unwrap_or_else(|| generate_random_secret(cx.clone(), 32)),
+            spec.clone().unwrap_or_default().private_key_secret.as_ref(),
         )
         .await?;
     }
@@ -549,8 +561,16 @@ async fn is_secret_missing(
     ns: &str,
     name: &str,
 ) -> Result<bool, kube::error::Error> {
+    Ok(get_secret(cx, ns, name).await?.is_none())
+}
+
+async fn get_secret(
+    cx: Arc<Context<impl RpcClient, impl RngCore>>,
+    ns: &str,
+    name: &str,
+) -> Result<Option<Secret>, kube::error::Error> {
     let secrets: Api<Secret> = Api::namespaced(cx.k_client.clone(), ns);
-    Ok(secrets.get_opt(name).await?.is_none())
+    secrets.get_opt(name).await
 }
 
 async fn create_secret(
@@ -598,6 +618,7 @@ async fn delete_job(
 #[cfg(test)]
 mod test {
     use super::{reconcile, Network};
+    use std::collections::BTreeMap;
 
     use crate::{
         network::{
@@ -1443,9 +1464,7 @@ mod test {
         // Setup network spec and status
         let network = Network::test().with_spec(NetworkSpec {
             ceramic: Some(CeramicSpec {
-                private_key: Some(
-                    "0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b".to_owned(),
-                ),
+                private_key_secret: Some("private-key".to_owned()),
                 ..Default::default()
             }),
             ..Default::default()
@@ -1455,10 +1474,26 @@ mod test {
         // Tell the stub that the secret does not exist. This will make the controller attempt to
         // create it.
         stub.ceramic_admin_secret[0].1 = None;
+        // Tell the stub to expect another call to lookup the source secret
+        stub.ceramic_admin_secret.push((
+            expect_file!["./testdata/ceramic_admin_secret_source"].into(),
+            Some(Secret {
+                metadata: kube::core::ObjectMeta {
+                    name: Some("private-key".to_owned()),
+                    labels: managed_labels(),
+                    ..kube::core::ObjectMeta::default()
+                },
+                string_data: Some(BTreeMap::from_iter(vec![(
+                    "private-key".to_owned(),
+                    "0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b".to_owned(),
+                )])),
+                ..Default::default()
+            }),
+        ));
         // Tell the stub to expect another call to create the secret
         stub.ceramic_admin_secret.push((
             expect_file!["./testdata/ceramic_admin_secret"].into(),
-            Some(k8s_openapi::api::core::v1::Secret {
+            Some(Secret {
                 metadata: kube::core::ObjectMeta {
                     name: Some("ceramic-admin".to_owned()),
                     labels: managed_labels(),
@@ -1486,7 +1521,7 @@ mod test {
         // Tell the stub to expect another call to create the secret
         stub.ceramic_admin_secret.push((
             expect_file!["./testdata/ceramic_default_admin_secret"].into(),
-            Some(k8s_openapi::api::core::v1::Secret {
+            Some(Secret {
                 metadata: kube::core::ObjectMeta {
                     name: Some("ceramic-admin".to_owned()),
                     labels: managed_labels(),

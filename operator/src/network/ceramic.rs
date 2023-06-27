@@ -44,11 +44,14 @@ set -eo pipefail
 export CERAMIC_ADMIN_DID=$(composedb did:from-private-key ${CERAMIC_ADMIN_PRIVATE_KEY})
 
 CERAMIC_ADMIN_DID=$CERAMIC_ADMIN_DID envsubst < /ceramic-init/daemon-config.json > /config/daemon-config.json
+CERAMIC_ADMIN_PRIVATE_KEY=$CERAMIC_ADMIN_PRIVATE_KEY envsubst < /ceramic-init/daemon-config.json > /config/daemon-config.json
 "#.to_owned()),
 
 ("daemon-config.json".to_owned(),
 r#"{
-    "anchor": {},
+    "anchor": {
+        "auth-method": "did"
+    },
     "http-api": {
         "cors-allowed-origins": [
             "${CERAMIC_CORS_ALLOWED_ORIGINS}"
@@ -72,7 +75,9 @@ r#"{
         "name": "${CERAMIC_NETWORK}",
         "pubsub-topic": "${CERAMIC_NETWORK_TOPIC}"
     },
-    "node": {},
+    "node": {
+        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}"
+    },
     "state-store": {
         "mode": "fs",
         "local-directory": "${CERAMIC_STATE_STORE_PATH}"

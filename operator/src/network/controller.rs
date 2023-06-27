@@ -24,7 +24,6 @@ use kube::{
     },
     Resource,
 };
-use rand::RngCore;
 use tracing::{debug, error, trace};
 
 use crate::network::{
@@ -37,8 +36,8 @@ use crate::network::{
 };
 
 use crate::utils::{
-    apply_config_map, apply_job, apply_service, apply_stateful_set, managed_labels, Context,
-    MANAGED_BY_LABEL_SELECTOR,
+    apply_config_map, apply_job, apply_service, apply_stateful_set, generate_random_secret,
+    managed_labels, Context, MANAGED_BY_LABEL_SELECTOR,
 };
 
 /// Handle errors during reconciliation.
@@ -156,7 +155,7 @@ pub const GANACHE_APP: &str = "ganache";
 
 pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 
-/// Perform a reconile pass for the Network CRD
+/// Perform a reconcile pass for the Network CRD
 async fn reconcile(
     network: Arc<Network>,
     cx: Arc<Context<impl IpfsRpcClient>>,
@@ -173,10 +172,6 @@ async fn reconcile(
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
     apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone()).await?;
-
-    if is_admin_secret_missing(cx.clone(), &ns).await? {
-        create_admin_secret(cx.clone(), &ns, network.clone()).await?;
-    }
 
     apply_ceramic(
         cx.clone(),
@@ -347,13 +342,12 @@ async fn create_cas_postgres_secret(
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
     // Create postgres_secret
-    let mut secret_bytes: Vec<u8> = Vec::new();
-    secret_bytes.resize(20, 0);
-    rand::thread_rng().fill_bytes(&mut secret_bytes);
-
     let string_data = BTreeMap::from_iter(vec![
         ("username".to_owned(), "ceramic".to_owned()),
-        ("password".to_owned(), hex::encode(secret_bytes)),
+        (
+            "password".to_owned(),
+            hex::encode(generate_random_secret(20)),
+        ),
     ]);
     create_secret(cx, ns, network, CAS_POSTGRES_SECRET_NAME, string_data).await?;
     Ok(())
@@ -369,13 +363,9 @@ async fn create_admin_secret(
     cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
+    secret: String,
 ) -> Result<(), kube::error::Error> {
-    let mut secret_bytes: Vec<u8> = Vec::new();
-    secret_bytes.resize(32, 0);
-    rand::thread_rng().fill_bytes(&mut secret_bytes);
-
-    let string_data =
-        BTreeMap::from_iter(vec![("private-key".to_owned(), hex::encode(secret_bytes))]);
+    let string_data = BTreeMap::from_iter(vec![("private-key".to_owned(), secret)]);
     create_secret(cx, ns, network, ADMIN_SECRET_NAME, string_data).await?;
     Ok(())
 }
@@ -386,6 +376,19 @@ async fn apply_ceramic(
     replicas: i32,
     spec: Option<CeramicSpec>,
 ) -> Result<(), kube::error::Error> {
+    if is_admin_secret_missing(cx.clone(), &ns).await? {
+        create_admin_secret(
+            cx.clone(),
+            &ns,
+            network.clone(),
+            spec.clone()
+                .unwrap_or_default()
+                .private_key
+                .unwrap_or(generate_random_secret(32)),
+        )
+        .await?;
+    }
+
     let config: CeramicConfig = spec.into();
 
     let config_maps = ceramic::config_maps(&config);
@@ -613,6 +616,7 @@ mod test {
     use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
     use keramik_common::peer_info::IpfsPeerInfo;
 
+    use crate::utils::generate_random_secret;
     use std::sync::Arc;
     use unimock::{matching, MockFn, Unimock};
 
@@ -1423,6 +1427,38 @@ mod test {
                              },
                              "volumeMounts": [
         "#]]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn ceramic_admin_secret() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                ceramic: Some(CeramicSpec {
+                    resource_limits: Some(ResourceLimitsSpec {
+                        cpu: Some(Quantity("250m".to_owned())),
+                        memory: Some(Quantity("1Gi".to_owned())),
+                        storage: Some(Quantity("1Gi".to_owned())),
+                    }),
+                    // private_key: Some(generate_random_secret(32)),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
         let (testctx, fakeserver) = Context::test(mock_rpc_client);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)

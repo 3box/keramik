@@ -1,4 +1,5 @@
 //! Utils is shared functions and constants for the controller
+use std::sync::Mutex;
 use std::{collections::BTreeMap, sync::Arc};
 
 use k8s_openapi::{
@@ -20,26 +21,31 @@ use kube::{
     Api,
 };
 
-use rand::RngCore;
+use rand::{rngs::StdRng, thread_rng, RngCore, SeedableRng};
+
+use anyhow::Result;
 
 /// Operator Context
-pub struct Context<R> {
+pub struct Context<R, Rng> {
     /// Kube client
     pub k_client: Client,
     /// IPFS client
     pub rpc_client: R,
+    /// Random number generator
+    pub rng: Mutex<Rng>,
 }
 
-impl<R> Context<R> {
+impl<R> Context<R, StdRng> {
     /// Create new context
-    pub fn new(k_client: Client, rpc_client: R) -> Self
+    pub fn new(k_client: Client, rpc_client: R) -> Result<Self>
     where
         R: IpfsRpcClient,
     {
-        Context {
+        Ok(Context {
             k_client,
             rpc_client,
-        }
+            rng: Mutex::new(StdRng::from_rng(thread_rng())?),
+        })
     }
 }
 
@@ -67,7 +73,7 @@ pub fn managed_labels() -> Option<BTreeMap<String, String>> {
 
 /// Apply a Service
 pub async fn apply_service(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -95,7 +101,7 @@ pub async fn apply_service(
 
 /// Apply a Job
 pub async fn apply_job(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -121,7 +127,7 @@ pub async fn apply_job(
 
 /// Apply a stateful set in namespace
 pub async fn apply_stateful_set(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -149,7 +155,7 @@ pub async fn apply_stateful_set(
 
 /// Apply account in namespace
 pub async fn apply_account(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -175,7 +181,7 @@ pub async fn apply_account(
 
 /// Apply cluster role
 pub async fn apply_cluster_role(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     _ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -200,7 +206,7 @@ pub async fn apply_cluster_role(
 
 /// Apply cluster role binding
 pub async fn apply_cluster_role_binding(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     orefs: Vec<OwnerReference>,
     name: &str,
     crb: ClusterRoleBinding,
@@ -226,7 +232,7 @@ pub async fn apply_cluster_role_binding(
 
 /// Apply a config map
 pub async fn apply_config_map(
-    cx: Arc<Context<impl IpfsRpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -252,9 +258,13 @@ pub async fn apply_config_map(
 }
 
 /// Generate a random, hex-encoded secret
-pub fn generate_random_secret(len: usize) -> String {
+pub fn generate_random_secret(
+    cx: Arc<Context<impl RpcClient, impl RngCore>>,
+    len: usize,
+) -> String {
     let mut secret_bytes: Vec<u8> = Vec::new();
     secret_bytes.resize(len, 0);
-    rand::thread_rng().fill_bytes(&mut secret_bytes);
+    let mut rng = cx.rng.lock().expect("should be able to acquire lock");
+    rng.fill_bytes(&mut secret_bytes);
     hex::encode(secret_bytes)
 }

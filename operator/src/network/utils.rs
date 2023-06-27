@@ -3,7 +3,7 @@ use std::collections::BTreeMap;
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
-use keramik_common::peer_info::{PeerIdx, PeerInfo};
+use keramik_common::peer_info::{IpfsPeerInfo, PeerIdx};
 use multiaddr::{Multiaddr, Protocol};
 use multihash::Multihash;
 use schemars::JsonSchema;
@@ -24,23 +24,24 @@ struct ErrorResponse {
 /// Define the behavior we consume from the IPFS RPC API.
 #[unimock(api=RpcClientMock)]
 #[async_trait]
-pub trait RpcClient {
-    async fn peer_info(&self, ns: &str, peer: PeerIdx) -> Result<PeerInfo>;
+pub trait IpfsRpcClient {
+    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: String) -> Result<IpfsPeerInfo>;
 }
 
 pub struct HttpRpcClient;
 
-fn peer_rpc_addr(ns: &str, peer: PeerIdx) -> String {
+/// Determine the IPFS RPC address of a Ceramic peer
+pub fn ceramic_peer_ipfs_rpc_addr(ns: &str, peer: PeerIdx) -> String {
     format!("http://{CERAMIC_STATEFUL_SET_NAME}-{peer}.{CERAMIC_SERVICE_NAME}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_IPFS_PORT}")
 }
-fn ceramic_addr(ns: &str, peer: PeerIdx) -> String {
+// Determine the Ceramic addres of a Ceramic peer
+pub fn ceramic_addr(ns: &str, peer: PeerIdx) -> String {
     format!("http://{CERAMIC_STATEFUL_SET_NAME}-{peer}.{CERAMIC_SERVICE_NAME}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_API_PORT}")
 }
 
 #[async_trait]
-impl RpcClient for HttpRpcClient {
-    async fn peer_info(&self, ns: &str, index: PeerIdx) -> Result<PeerInfo> {
-        let ipfs_rpc_addr = peer_rpc_addr(ns, index);
+impl IpfsRpcClient for HttpRpcClient {
+    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: String) -> Result<IpfsPeerInfo> {
         let client = reqwest::Client::new();
         let resp = client
             .post(format!("{}/api/v0/id", ipfs_rpc_addr))
@@ -82,13 +83,11 @@ impl RpcClient for HttpRpcClient {
             })
             .collect::<Vec<String>>();
 
-        let ceramic_addr = ceramic_addr(ns, index);
         if !p2p_addrs.is_empty() {
-            Ok(PeerInfo {
+            Ok(IpfsPeerInfo {
                 index,
                 peer_id: data.id,
                 ipfs_rpc_addr,
-                ceramic_addr,
                 p2p_addrs,
             })
         } else {

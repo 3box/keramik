@@ -11,7 +11,7 @@ use k8s_openapi::{
     apimachinery::pkg::apis::meta::v1::OwnerReference,
 };
 
-use crate::network::utils::RpcClient;
+use crate::network::utils::IpfsRpcClient;
 
 use kube::{
     api::{Patch, PatchParams},
@@ -32,7 +32,7 @@ impl<R> Context<R> {
     /// Create new context
     pub fn new(k_client: Client, rpc_client: R) -> Self
     where
-        R: RpcClient,
+        R: IpfsRpcClient,
     {
         Context {
             k_client,
@@ -65,7 +65,7 @@ pub fn managed_labels() -> Option<BTreeMap<String, String>> {
 
 /// Apply a Service
 pub async fn apply_service(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -93,7 +93,7 @@ pub async fn apply_service(
 
 /// Apply a Job
 pub async fn apply_job(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -119,7 +119,7 @@ pub async fn apply_job(
 
 /// Apply a stateful set in namespace
 pub async fn apply_stateful_set(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -147,7 +147,7 @@ pub async fn apply_stateful_set(
 
 /// Apply account in namespace
 pub async fn apply_account(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -173,7 +173,7 @@ pub async fn apply_account(
 
 /// Apply cluster role
 pub async fn apply_cluster_role(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     _ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -198,7 +198,7 @@ pub async fn apply_cluster_role(
 
 /// Apply cluster role binding
 pub async fn apply_cluster_role_binding(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     orefs: Vec<OwnerReference>,
     name: &str,
     crb: ClusterRoleBinding,
@@ -224,7 +224,7 @@ pub async fn apply_cluster_role_binding(
 
 /// Apply a config map
 pub async fn apply_config_map(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,

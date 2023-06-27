@@ -2,7 +2,7 @@ use std::{cmp::min, collections::BTreeMap, path::PathBuf};
 
 use anyhow::Result;
 use clap::{Args, ValueEnum};
-use keramik_common::peer_info::PeerInfo;
+use keramik_common::peer_info::{Peer, PeerIdx};
 use rand::seq::IteratorRandom;
 use tracing::{debug, error};
 
@@ -43,6 +43,8 @@ impl Default for Method {
 #[tracing::instrument]
 pub async fn bootstrap(opts: Opts) -> Result<()> {
     let peers = parse_peers_info(opts.peers).await?;
+    // Bootstrap peers according to the given method.
+    // Methods should not assume that peer indexes are consecutive nor that they start at zero.
     match opts.method {
         Method::Ring => ring(opts.n, &peers).await?,
         Method::Random => random(opts.n, &peers).await?,
@@ -52,30 +54,34 @@ pub async fn bootstrap(opts: Opts) -> Result<()> {
 }
 
 #[tracing::instrument(skip(peers), fields(peers.len = peers.len()))]
-async fn ring(n: usize, peers: &BTreeMap<usize, PeerInfo>) -> Result<()> {
-    for peer_info in peers.values() {
+async fn ring(n: usize, peers: &BTreeMap<PeerIdx, Peer>) -> Result<()> {
+    for peer in peers.values() {
         // Connect to each peer in a ring.
-        // Do not attempt to connect to more peers than exist.
-        for i in 0..min(n, peers.len() - 1) {
-            let idx = peer_info.index as usize;
-            let other = (idx + i + 1) % peers.len();
-            debug!(%idx, %other, "ring peer connection");
-            if let Some(other_info) = peers.get(&other) {
-                if let Err(err) = connect_peers(peer_info, other_info).await {
-                    error!(
-                        ?peer_info.index,
-                        ?other_info.index,
-                        ?err,
-                        "failed to bootstrap ring peer"
-                    );
-                }
+        for (_, other) in peers
+            .iter()
+            .cycle()
+            .skip_while(|(idx, _)| **idx <= peer.index())
+            .take(n)
+        {
+            debug!(
+                peer = peer.index(),
+                other = other.index(),
+                "ring peer connection"
+            );
+            if let Err(err) = connect_peers(peer, other).await {
+                error!(
+                    peer = peer.index(),
+                    other = other.index(),
+                    ?err,
+                    "failed to bootstrap ring peer"
+                );
             }
         }
     }
     Ok(())
 }
 #[tracing::instrument(skip(peers), fields(peers.len = peers.len()))]
-async fn random(n: usize, peers: &BTreeMap<usize, PeerInfo>) -> Result<()> {
+async fn random(n: usize, peers: &BTreeMap<PeerIdx, Peer>) -> Result<()> {
     let mut rng = rand::thread_rng();
     // Reuse a peers buffer for each loop
     let mut other_peers = vec![0; min(n, peers.len() - 1)];
@@ -85,10 +91,10 @@ async fn random(n: usize, peers: &BTreeMap<usize, PeerInfo>) -> Result<()> {
         peers
             .keys()
             .copied()
-            .filter(|other_idx| *other_idx != peer.index as usize)
+            .filter(|other_idx| *other_idx != peer.index())
             .choose_multiple_fill(&mut rng, &mut other_peers);
-        for other in &other_peers {
-            let other = peers.get(other).unwrap();
+        for other_idx in &other_peers {
+            let other = peers.get(other_idx).expect("other_idx should always exist");
             debug!(?peer, ?other, "random peer connection");
             if let Err(err) = connect_peers(peer, other).await {
                 error!(?peer, ?other, ?err, "failed to bootstrap random peer");
@@ -99,21 +105,27 @@ async fn random(n: usize, peers: &BTreeMap<usize, PeerInfo>) -> Result<()> {
 }
 
 #[tracing::instrument(skip(peers), fields(peers.len = peers.len()))]
-async fn sentinel(n: usize, peers: &BTreeMap<usize, PeerInfo>) -> Result<()> {
-    for peer_info in peers.values() {
-        // Connect to each peer to the first n peers
-        // Do not attempt to connect to more peers than exist.
-        for sentinel in 0..min(n, peers.len() - 1) {
-            debug!(%peer_info.index, %sentinel, "sentinel peer connection");
-            if let Some(sentinel_info) = peers.get(&sentinel) {
-                if let Err(err) = connect_peers(peer_info, sentinel_info).await {
-                    error!(
-                        ?peer_info.index,
-                        ?sentinel_info.index,
-                        ?err,
-                        "failed to bootstrap sentinel peer"
-                    );
-                }
+async fn sentinel(n: usize, peers: &BTreeMap<PeerIdx, Peer>) -> Result<()> {
+    for peer in peers.values() {
+        // Connect to each peer to the first n peers.
+        for (_, sentinel) in peers
+            .iter()
+            .take(n)
+            // Skip connecting to self if we are a sentinel peer
+            .filter(|(idx, _)| **idx != peer.index())
+        {
+            debug!(
+                peer = peer.index(),
+                sentinel = sentinel.index(),
+                "sentinel peer connection"
+            );
+            if let Err(err) = connect_peers(peer, sentinel).await {
+                error!(
+                    peer = peer.index(),
+                    sentinel = sentinel.index(),
+                    ?err,
+                    "failed to bootstrap sentinel peer"
+                );
             }
         }
     }

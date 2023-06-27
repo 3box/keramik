@@ -144,7 +144,7 @@ pub const PEERS_CONFIG_MAP_NAME: &str = "keramik-peers";
 pub const ADMIN_SECRET_NAME: &str = "ceramic-admin";
 
 pub const CAS_SERVICE_NAME: &str = "cas";
-pub const CAS_IFPS_SERVICE_NAME: &str = "cas-ipfs";
+pub const CAS_IPFS_SERVICE_NAME: &str = "cas-ipfs";
 pub const CAS_SERVICE_IPFS_PORT: i32 = 5001;
 pub const CAS_POSTGRES_SERVICE_NAME: &str = "cas-postgres";
 pub const CAS_POSTGRES_SECRET_NAME: &str = "postgres-auth";
@@ -276,7 +276,7 @@ async fn apply_cas(
         cx.clone(),
         ns,
         orefs.clone(),
-        CAS_IFPS_SERVICE_NAME,
+        CAS_IPFS_SERVICE_NAME,
         cas::cas_ipfs_service_spec(),
     )
     .await?;
@@ -394,7 +394,7 @@ async fn apply_ceramic(
     replicas: i32,
     spec: Option<CeramicSpec>,
 ) -> Result<(), kube::error::Error> {
-    if is_admin_secret_missing(cx.clone(), &ns).await? {
+    if is_admin_secret_missing(cx.clone(), ns).await? {
         create_admin_secret(
             cx.clone(),
             &ns,

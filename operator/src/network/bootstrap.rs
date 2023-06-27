@@ -43,7 +43,7 @@ impl Default for BootstrapConfig {
         Self {
             image: "public.ecr.aws/r5b3e0r5/3box/keramik-runner".to_owned(),
             image_pull_policy: "Always".to_owned(),
-            method: "ring".to_owned(),
+            method: "sentinel".to_owned(),
             n: 3,
         }
     }

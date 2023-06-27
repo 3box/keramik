@@ -31,6 +31,8 @@ enum Method {
     Ring,
     /// Connects to N peers at random.
     Random,
+    /// Connects each peer to the first N peers.
+    Sentinel,
 }
 impl Default for Method {
     fn default() -> Self {
@@ -44,6 +46,7 @@ pub async fn bootstrap(opts: Opts) -> Result<()> {
     match opts.method {
         Method::Ring => ring(opts.n, &peers).await?,
         Method::Random => random(opts.n, &peers).await?,
+        Method::Sentinel => sentinel(opts.n, &peers).await?,
     }
     Ok(())
 }
@@ -89,6 +92,28 @@ async fn random(n: usize, peers: &BTreeMap<usize, PeerInfo>) -> Result<()> {
             debug!(?peer, ?other, "random peer connection");
             if let Err(err) = connect_peers(peer, other).await {
                 error!(?peer, ?other, ?err, "failed to bootstrap random peer");
+            }
+        }
+    }
+    Ok(())
+}
+
+#[tracing::instrument(skip(peers), fields(peers.len = peers.len()))]
+async fn sentinel(n: usize, peers: &BTreeMap<usize, PeerInfo>) -> Result<()> {
+    for peer_info in peers.values() {
+        // Connect to each peer to the first n peers
+        // Do not attempt to connect to more peers than exist.
+        for sentinel in 0..min(n, peers.len() - 1) {
+            debug!(%peer_info.index, %sentinel, "sentinel peer connection");
+            if let Some(sentinel_info) = peers.get(&sentinel) {
+                if let Err(err) = connect_peers(peer_info, sentinel_info).await {
+                    error!(
+                        ?peer_info.index,
+                        ?sentinel_info.index,
+                        ?err,
+                        "failed to bootstrap sentinel peer"
+                    );
+                }
             }
         }
     }

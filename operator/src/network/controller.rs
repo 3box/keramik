@@ -374,7 +374,7 @@ async fn create_admin_secret(
     let string_data = if let Some(secret_name) = source_secret_name {
         get_secret(cx.clone(), ns, secret_name)
             .await?
-            .expect("should have been able to find source secret")
+            .expect("should have found source secret")
             .string_data
             .expect("should have found data in source secret")
     } else {
@@ -1461,7 +1461,7 @@ mod test {
     }
     #[tokio::test]
     async fn ceramic_admin_secret() {
-        // Setup network spec and status
+        // Setup network spec with source secret name
         let network = Network::test().with_spec(NetworkSpec {
             ceramic: Some(CeramicSpec {
                 private_key_secret: Some("private-key".to_owned()),
@@ -1471,12 +1471,12 @@ mod test {
         });
         let mock_rpc_client = Unimock::new(());
         let mut stub = Stub::default().with_network(network.clone());
-        // Tell the stub that the secret does not exist. This will make the controller attempt to
-        // create it.
+        // Tell the stub that the admin secret does not exist. This will make the controller attempt
+        // to create it using the source secret.
         stub.ceramic_admin_secret[0].1 = None;
         // Tell the stub to expect another call to lookup the source secret
         stub.ceramic_admin_secret.push((
-            expect_file!["./testdata/ceramic_admin_secret_source"].into(),
+            expect_file!["./testdata/ceramic_source_admin_secret"].into(),
             Some(Secret {
                 metadata: kube::core::ObjectMeta {
                     name: Some("private-key".to_owned()),
@@ -1490,7 +1490,7 @@ mod test {
                 ..Default::default()
             }),
         ));
-        // Tell the stub to expect another call to create the secret
+        // Tell the stub to expect another call to create the admin secret
         stub.ceramic_admin_secret.push((
             expect_file!["./testdata/ceramic_admin_secret"].into(),
             Some(Secret {
@@ -1510,8 +1510,38 @@ mod test {
         timeout_after_1s(mocksrv).await;
     }
     #[tokio::test]
+    #[should_panic]
+    async fn ceramic_missing_admin_secret() {
+        // Setup network spec with source secret name
+        let network = Network::test().with_spec(NetworkSpec {
+            ceramic: Some(CeramicSpec {
+                private_key_secret: Some("private-key".to_owned()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = Unimock::new(());
+        let mut stub = Stub::default().with_network(network.clone());
+        // Tell the stub that the admin secret does not exist. This will make the controller attempt
+        // to create it using the source secret.
+        stub.ceramic_admin_secret[0].1 = None;
+        // Tell the stub to expect another call to lookup the source secret, which will result in a
+        // panic because the secret is expected to be there if the name of the source secret was
+        // configured.
+        stub.ceramic_admin_secret.push((
+            expect_file!["./testdata/ceramic_source_admin_secret"].into(),
+            None,
+        ));
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
     async fn ceramic_default_admin_secret() {
-        // Setup network spec and status
+        // Setup default network spec
         let network = Network::test();
         let mock_rpc_client = Unimock::new(());
         let mut stub = Stub::default().with_network(network.clone());

@@ -24,7 +24,7 @@ use kube::{
     },
     Resource,
 };
-use rand::{thread_rng, RngCore, SeedableRng};
+use rand::RngCore;
 use tracing::{debug, error, trace};
 
 use crate::network::{
@@ -640,7 +640,7 @@ mod test {
     use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
     use keramik_common::peer_info::IpfsPeerInfo;
 
-    use crate::utils::{generate_random_secret, managed_labels};
+    use crate::utils::managed_labels;
     use k8s_openapi::api::core::v1::Secret;
     use std::sync::Arc;
     use unimock::{matching, MockFn, Unimock};

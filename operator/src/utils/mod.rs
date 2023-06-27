@@ -1,4 +1,4 @@
-//! Utils is shared functions and contants for the controller
+//! Utils is shared functions and constants for the controller
 use std::{collections::BTreeMap, sync::Arc};
 
 use k8s_openapi::{
@@ -19,6 +19,8 @@ use kube::{
     core::ObjectMeta,
     Api,
 };
+
+use rand::RngCore;
 
 /// Operator Context
 pub struct Context<R> {
@@ -247,4 +249,12 @@ pub async fn apply_config_map(
         .patch(name, &serverside, &Patch::Apply(map_data))
         .await?;
     Ok(())
+}
+
+/// Generate a random, hex-encoded secret
+pub fn generate_random_secret(len: usize) -> String {
+    let mut secret_bytes: Vec<u8> = Vec::new();
+    secret_bytes.resize(len, 0);
+    rand::thread_rng().fill_bytes(&mut secret_bytes);
+    hex::encode(secret_bytes)
 }

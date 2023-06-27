@@ -128,6 +128,8 @@ pub struct CeramicSpec {
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for ceramic nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Private key for signing anchor requests and generating the Admin DID.
+    pub private_key: Option<String>,
 }
 
 /// Describes how the IPFS node for a peer should behave.
@@ -157,6 +159,7 @@ pub struct CeramicConfig {
     pub init_config_map: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
+    pub private_key: Option<String>,
 }
 
 pub enum IpfsConfig {
@@ -265,6 +268,7 @@ impl Default for CeramicConfig {
                 memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
+            private_key: None,
         }
     }
 }
@@ -287,6 +291,7 @@ impl From<CeramicSpec> for CeramicConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            private_key: value.private_key,
         }
     }
 }

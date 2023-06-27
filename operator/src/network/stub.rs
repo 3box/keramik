@@ -8,7 +8,6 @@ use keramik_common::peer_info::IpfsPeerInfo;
 use kube::error::ErrorResponse;
 use kube::Client;
 use rand::rngs::mock::StepRng;
-use rand::RngCore;
 use reqwest::header::HeaderMap;
 use serde::Serialize;
 use std::sync::{Arc, Mutex};

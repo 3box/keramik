@@ -33,11 +33,11 @@ use crate::monitoring::{jaeger, opentelemetry, prometheus};
 use crate::network::{
     controller::PEERS_CONFIG_MAP_NAME,
     peers::PEERS_MAP_KEY,
-    utils::{HttpRpcClient, RpcClient},
+    utils::{HttpRpcClient, IpfsRpcClient},
     Network,
 };
 
-use keramik_common::peer_info::PeerInfo;
+use keramik_common::peer_info::CeramicPeerInfo;
 
 use crate::utils::{
     apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map, apply_job,
@@ -48,7 +48,7 @@ use crate::utils::{
 fn on_error(
     _network: Arc<Simulation>,
     _error: &Error,
-    _context: Arc<Context<impl RpcClient>>,
+    _context: Arc<Context<impl IpfsRpcClient>>,
 ) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
@@ -124,7 +124,7 @@ pub async fn run() {
 /// Perform a reconile pass for the Simulation CRD
 async fn reconcile(
     simulation: Arc<Simulation>,
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
 ) -> Result<Action, Error> {
     let spec = simulation.spec();
     debug!(?spec, "reconcile");
@@ -195,7 +195,7 @@ pub const OTEL_CONFIG_MAP_NAME: &str = "otel-config";
 pub const PROM_CONFIG_MAP_NAME: &str = "prom-config";
 
 async fn apply_manager(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     simulation: Arc<Simulation>,
     config: ManagerConfig,
@@ -226,19 +226,19 @@ async fn apply_manager(
 }
 
 async fn get_num_peers(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
 ) -> Result<u32, kube::error::Error> {
     let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
     let map = config_maps.get(PEERS_CONFIG_MAP_NAME).await?;
     let data = map.data.unwrap();
     let value = data.get(PEERS_MAP_KEY).unwrap();
-    let peers: Vec<PeerInfo> = serde_json::from_str(value).unwrap();
+    let peers: Vec<CeramicPeerInfo> = serde_json::from_str(value).unwrap();
     Ok(peers.len() as u32)
 }
 
 async fn monitoring_ready(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
@@ -263,7 +263,7 @@ async fn monitoring_ready(
 }
 
 async fn apply_n_workers(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     peers: u32,
     nonce: u32,
@@ -296,7 +296,7 @@ async fn apply_n_workers(
 }
 
 async fn apply_jaeger(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
@@ -326,7 +326,7 @@ async fn apply_jaeger(
 }
 
 async fn apply_prometheus(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
@@ -355,7 +355,7 @@ async fn apply_prometheus(
 }
 
 async fn apply_opentelemetry(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {

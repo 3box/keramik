@@ -17,7 +17,7 @@ pub use bootstrap::BootstrapSpec;
 pub use ceramic::CeramicSpec;
 pub use controller::run;
 
-use keramik_common::peer_info::PeerInfo;
+use keramik_common::peer_info::Peer;
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -54,5 +54,5 @@ pub struct NetworkStatus {
     /// K8s namespace this network is deployed in
     pub namespace: Option<String>,
     /// Information about each Ceramic peer
-    pub peers: Vec<PeerInfo>,
+    pub peers: Vec<Peer>,
 }

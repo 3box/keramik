@@ -1,15 +1,20 @@
 //! Helper methods only available for tests
 
-use anyhow::Result;
+use anyhow::{anyhow, Result};
 use expect_test::{expect_file, Expect, ExpectFile};
 use hyper::{body::to_bytes, Body};
 use k8s_openapi::api::core::v1::Secret;
+use keramik_common::peer_info::IpfsPeerInfo;
 use kube::Client;
 use reqwest::header::HeaderMap;
 use serde::Serialize;
 use std::sync::Arc;
+use unimock::{matching, Clause, MockFn, Unimock};
 
-use crate::network::{utils::RpcClient, Network, NetworkSpec, NetworkStatus};
+use crate::network::{
+    utils::{IpfsRpcClient, RpcClientMock},
+    Network, NetworkSpec, NetworkStatus,
+};
 
 use crate::utils::{managed_labels, Context};
 
@@ -38,7 +43,7 @@ impl Network {
 // Add test specific implementation to the Context
 impl<R> Context<R>
 where
-    R: RpcClient,
+    R: IpfsRpcClient,
 {
     // Create a test context with a mocked kube and rpc clients
     pub fn test(mock_rpc_client: R) -> (Arc<Self>, ApiServerVerifier) {
@@ -51,6 +56,29 @@ where
         };
         (Arc::new(ctx), ApiServerVerifier(handle))
     }
+}
+
+// Mock for cas peer info call that is NOT ready
+pub fn mock_cas_peer_info_not_ready() -> impl Clause {
+    RpcClientMock::peer_info
+        .next_call(matching!(_))
+        .returns(Err(anyhow!("cas-ipfs not ready")))
+}
+// Mock for cas peer info call that is ready
+pub fn mock_cas_peer_info_ready() -> impl Clause {
+    RpcClientMock::peer_info
+        .next_call(matching!(_))
+        .returns(Ok(IpfsPeerInfo {
+            index: -1,
+            peer_id: "peer_id_0".to_owned(),
+            ipfs_rpc_addr: "http://cas-ipfs:5001".to_owned(),
+            p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
+        }))
+}
+
+// Construct default mock for IpfsRpc trait
+pub fn default_ipfs_rpc_mock() -> Unimock {
+    Unimock::new(mock_cas_peer_info_not_ready())
 }
 
 /// Stub of expected requests during reconciliation.

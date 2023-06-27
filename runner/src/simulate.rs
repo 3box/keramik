@@ -3,10 +3,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
-use keramik_common::peer_info::PeerInfo;
+use keramik_common::peer_info::{Peer, PeerIdx};
 use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
 use tracing::error;
 
@@ -78,12 +78,16 @@ impl Scenario {
         }
     }
 
-    fn target_addr(&self, peer_info: &PeerInfo) -> String {
+    fn target_addr(&self, peer: &Peer) -> Result<String> {
         match self {
-            Self::IpfsRpc => peer_info.ipfs_rpc_addr.clone(),
-            Self::CeramicSimple | Self::CeramicWriteOnly | Self::CeramicNewStreams => {
-                peer_info.ceramic_addr.clone()
-            }
+            Self::IpfsRpc => Ok(peer.ipfs_rpc_addr().to_owned()),
+            Self::CeramicSimple | Self::CeramicWriteOnly | Self::CeramicNewStreams => match peer {
+                Peer::Ceramic(peer) => Ok(peer.ceramic_addr.clone()),
+                Peer::Ipfs(_) => Err(anyhow!(
+                    "cannot use non ceramic peer as target for simulation {}",
+                    self.name(),
+                )),
+            },
         }
     }
 }
@@ -114,7 +118,10 @@ pub async fn simulate(opts: Opts) -> Result<()> {
     let config = if opts.manager {
         manager_config(peers.len(), opts.users, opts.run_time)
     } else {
-        worker_config(opts.scenario.target_addr(&peers[&opts.target_peer]))
+        worker_config(
+            opts.scenario
+                .target_addr(&peers[&(opts.target_peer as PeerIdx)])?,
+        )
     };
 
     let goose_metrics = match GooseAttack::initialize_with_config(config)?

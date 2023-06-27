@@ -9,6 +9,7 @@ use k8s_openapi::{
     },
     apimachinery::pkg::util::intstr::IntOrString,
 };
+use keramik_common::peer_info::{CeramicPeerInfo, Peer};
 use kube::{
     api::{DeleteParams, Patch, PatchParams},
     client::Client,
@@ -31,7 +32,7 @@ use crate::network::{
     cas::{self, CasSpec},
     ceramic::{self, CeramicConfig},
     peers,
-    utils::{HttpRpcClient, RpcClient},
+    utils::{ceramic_addr, ceramic_peer_ipfs_rpc_addr, HttpRpcClient, IpfsRpcClient},
     BootstrapSpec, CeramicSpec, Network, NetworkStatus,
 };
 
@@ -44,7 +45,7 @@ use crate::utils::{
 fn on_error(
     _network: Arc<Network>,
     _error: &Error,
-    _context: Arc<Context<impl RpcClient>>,
+    _context: Arc<Context<impl IpfsRpcClient>>,
 ) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
@@ -142,6 +143,7 @@ pub const ADMIN_SECRET_NAME: &str = "ceramic-admin";
 
 pub const CAS_SERVICE_NAME: &str = "cas";
 pub const CAS_IFPS_SERVICE_NAME: &str = "cas-ipfs";
+pub const CAS_SERVICE_IPFS_PORT: i32 = 5001;
 pub const CAS_POSTGRES_SERVICE_NAME: &str = "cas-postgres";
 pub const CAS_POSTGRES_SECRET_NAME: &str = "postgres-auth";
 pub const GANACHE_SERVICE_NAME: &str = "ganache";
@@ -157,7 +159,7 @@ pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 /// Perform a reconile pass for the Network CRD
 async fn reconcile(
     network: Arc<Network>,
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
 ) -> Result<Action, Error> {
     let spec = network.spec();
     debug!(?spec, "reconcile");
@@ -192,7 +194,8 @@ async fn reconcile(
             delete_job(cx.clone(), &ns, BOOTSTRAP_JOB_NAME).await?;
         } else {
             // We have fewer peers, remove the extra peers from the list
-            status.peers.retain(|peer| peer.index < spec.replicas);
+            // Note since all *extra* peer use negative indexes they should always be retained.
+            status.peers.retain(|peer| peer.index() < spec.replicas);
         }
 
         // The number of replicas changed.
@@ -225,7 +228,7 @@ async fn reconcile(
 
 // Applies the namespace
 async fn apply_network_namespace(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     network: Arc<Network>,
 ) -> Result<String, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
@@ -250,7 +253,7 @@ async fn apply_network_namespace(
 }
 
 async fn apply_cas(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
     cas_spec: Option<CasSpec>,
@@ -333,13 +336,13 @@ async fn apply_cas(
 }
 
 async fn is_cas_postgres_secret_missing(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, CAS_POSTGRES_SECRET_NAME).await
 }
 async fn create_cas_postgres_secret(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
@@ -357,13 +360,13 @@ async fn create_cas_postgres_secret(
 }
 
 async fn is_admin_secret_missing(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, ADMIN_SECRET_NAME).await
 }
 async fn create_admin_secret(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
@@ -377,7 +380,7 @@ async fn create_admin_secret(
     Ok(())
 }
 async fn apply_ceramic(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
     replicas: i32,
@@ -402,7 +405,7 @@ async fn apply_ceramic(
 }
 
 async fn apply_ceramic_service(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
@@ -415,7 +418,7 @@ async fn apply_ceramic_service(
 }
 
 async fn apply_ceramic_stateful_set(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
     replicas: i32,
@@ -430,7 +433,7 @@ async fn apply_ceramic_stateful_set(
 }
 
 async fn apply_bootstrap_job(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
     status: &NetworkStatus,
@@ -473,27 +476,52 @@ async fn apply_bootstrap_job(
 }
 
 async fn update_peer_info(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
     status: &mut NetworkStatus,
 ) -> Result<(), Error> {
-    println!("update_peer_info {:?}", status);
+    // Check status of all ceramic peers first
     for index in 0..status.replicas {
-        if status.peers.iter().any(|info| info.index == index) {
+        if status.peers.iter().any(|info| info.index() == index) {
             // Skip peers we already know
             continue;
         }
-        let info = match cx.rpc_client.peer_info(ns, index).await {
+        let ipfs_rpc_addr = ceramic_peer_ipfs_rpc_addr(ns, index);
+        let info = match cx.rpc_client.peer_info(index, ipfs_rpc_addr).await {
             Ok(res) => res,
             Err(err) => {
-                trace!(%err, index, "failed to get peer id and mulitaddrs for peer");
+                trace!(%err, index, "failed to get peer info for ceramic peer");
                 continue;
             }
         };
-        status.peers.push(info);
+        let ceramic_addr = ceramic_addr(ns, index);
+        status.peers.push(Peer::Ceramic(CeramicPeerInfo {
+            ceramic_addr,
+            index: info.index,
+            peer_id: info.peer_id,
+            ipfs_rpc_addr: info.ipfs_rpc_addr,
+            p2p_addrs: info.p2p_addrs,
+        }));
     }
+    // ready_replicas count should not include other non ceramic peers
     status.ready_replicas = status.peers.len() as i32;
+
+    // Add extra peers, using negative peer indexes
+    {
+        // CAS IPFS peer
+        let ipfs_rpc_addr = format!("http://{CAS_IFPS_SERVICE_NAME}-0.{CAS_IFPS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
+        match cx.rpc_client.peer_info(-1, ipfs_rpc_addr).await {
+            Ok(info) => {
+                status.peers.push(Peer::Ipfs(info));
+            }
+            Err(err) => {
+                trace!(%err, "failed to get peer info for cas-ipfs");
+            }
+        };
+    }
+
+    // Save the config map with the peer information
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
@@ -511,7 +539,7 @@ async fn update_peer_info(
 }
 
 async fn is_secret_missing(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     name: &str,
 ) -> Result<bool, kube::error::Error> {
@@ -520,7 +548,7 @@ async fn is_secret_missing(
 }
 
 async fn create_secret(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
@@ -549,7 +577,7 @@ async fn create_secret(
 
 // Deletes a job. Does nothing if the job does not exist.
 async fn delete_job(
-    cx: Arc<Context<impl RpcClient>>,
+    cx: Arc<Context<impl IpfsRpcClient>>,
     ns: &str,
     name: &str,
 ) -> Result<(), kube::error::Error> {
@@ -566,7 +594,11 @@ mod test {
     use super::{reconcile, Network};
 
     use crate::{
-        network::{cas::CasSpec, utils::ResourceLimitsSpec},
+        network::{
+            cas::CasSpec,
+            stub::{default_ipfs_rpc_mock, mock_cas_peer_info_not_ready, mock_cas_peer_info_ready},
+            utils::ResourceLimitsSpec,
+        },
         utils::Context,
     };
 
@@ -579,7 +611,7 @@ mod test {
 
     use expect_test::{expect, expect_file};
     use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
-    use keramik_common::peer_info::PeerInfo;
+    use keramik_common::peer_info::IpfsPeerInfo;
 
     use std::sync::Arc;
     use unimock::{matching, MockFn, Unimock};
@@ -589,7 +621,7 @@ mod test {
     // that occur when reconiling a default spec and status.
     #[tokio::test]
     async fn reconcile_from_empty() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let (testctx, fakeserver) = Context::test(mock_rpc_client);
         let network = Network::test();
         let mocksrv = fakeserver.run(Stub::default());
@@ -614,22 +646,21 @@ mod test {
             });
         // Setup peer info
         let mock_rpc_client = Unimock::new((
+            mock_cas_peer_info_not_ready(),
             RpcClientMock::peer_info
                 .next_call(matching!(_))
-                .returns(Ok(PeerInfo {
+                .returns(Ok(IpfsPeerInfo {
                     index: 0,
                     peer_id: "peer_id_0".to_owned(),
                     ipfs_rpc_addr: "http://peer0:5001".to_owned(),
-                    ceramic_addr: "http://peer0:7007".to_owned(),
                     p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
                 })),
             RpcClientMock::peer_info
                 .next_call(matching!(_))
-                .returns(Ok(PeerInfo {
+                .returns(Ok(IpfsPeerInfo {
                     index: 1,
                     peer_id: "peer_id_1".to_owned(),
                     ipfs_rpc_addr: "http://peer1:5001".to_owned(),
-                    ceramic_addr: "http://peer1:7007".to_owned(),
                     p2p_addrs: vec!["/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1".to_owned()],
                 })),
         ));
@@ -656,7 +687,7 @@ mod test {
                    "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"index\":0,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://peer0:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]},{\"index\":1,\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://peer1:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}]"
+            +        "peers.json": "[{\"ceramic\":{\"index\":0,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ipfs\":{\"index\":1,\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}}]"
                    },
                    "metadata": {
                      "labels": {
@@ -664,7 +695,7 @@ mod test {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,29 @@
+            @@ -7,10 +7,32 @@
                  },
                  body: {
                    "status": {
@@ -673,26 +704,29 @@ mod test {
             -        "namespace": null,
             -        "peers": []
             +        "replicas": 2,
-            +        "readyReplicas": 2,
+            +        "readyReplicas": 1,
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
-            +            "index": 0,
-            +            "peerId": "peer_id_0",
-            +            "ipfsRpcAddr": "http://peer0:5001",
-            +            "ceramicAddr": "http://peer0:7007",
-            +            "p2pAddrs": [
-            +              "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
-            +            ]
+            +            "ceramic": {
+            +              "index": 0,
+            +              "peerId": "peer_id_0",
+            +              "ipfsRpcAddr": "http://peer0:5001",
+            +              "ceramicAddr": "http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
+            +              ]
+            +            }
             +          },
             +          {
-            +            "index": 1,
-            +            "peerId": "peer_id_1",
-            +            "ipfsRpcAddr": "http://peer1:5001",
-            +            "ceramicAddr": "http://peer1:7007",
-            +            "p2pAddrs": [
-            +              "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
-            +            ]
+            +            "ipfs": {
+            +              "index": 1,
+            +              "peerId": "peer_id_1",
+            +              "ipfsRpcAddr": "http://peer1:5001",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
+            +              ]
+            +            }
             +          }
             +        ]
                    }
@@ -701,6 +735,56 @@ mod test {
         "#]]);
         stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
         let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn reconcile_cas_ipfs_peer() {
+        let mock_rpc_client = Unimock::new(mock_cas_peer_info_ready());
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let network = Network::test();
+        let mut stub = Stub::default();
+        stub.keramik_peers_configmap.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "apiVersion": "v1",
+                   "kind": "ConfigMap",
+                   "data": {
+            -        "peers.json": "[]"
+            +        "peers.json": "[{\"ipfs\":{\"index\":-1,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}}]"
+                   },
+                   "metadata": {
+                     "labels": {
+        "#]]);
+        stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_cas_ipfs"]);
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -10,7 +10,18 @@
+                     "replicas": 0,
+                     "readyReplicas": 0,
+                     "namespace": null,
+            -        "peers": []
+            +        "peers": [
+            +          {
+            +            "ipfs": {
+            +              "index": -1,
+            +              "peerId": "peer_id_0",
+            +              "ipfsRpcAddr": "http://cas-ipfs:5001",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
+            +              ]
+            +            }
+            +          }
+            +        ]
+                   }
+                 },
+             }
+        "#]]);
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(network), testctx)
             .await
@@ -727,8 +811,7 @@ mod test {
                 peers: vec![],
                 ..Default::default()
             });
-        // Setup peer info
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         stub.status.patch(expect![[r#"
             --- original
@@ -851,8 +934,7 @@ mod test {
                 peers: vec![],
                 ..Default::default()
             });
-        // Setup peer info
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         stub.status.patch(expect![[r#"
             --- original
@@ -996,8 +1078,7 @@ mod test {
                 peers: vec![],
                 ..Default::default()
             });
-        // Setup peer info
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         stub.status.patch(expect![[r#"
             --- original
@@ -1071,8 +1152,7 @@ mod test {
                 peers: vec![],
                 ..Default::default()
             });
-        // Setup peer info
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         stub.status.patch(expect![[r#"
             --- original
@@ -1145,8 +1225,7 @@ mod test {
                 peers: vec![],
                 ..Default::default()
             });
-        // Setup peer info
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         stub.status.patch(expect![[r#"
             --- original
@@ -1283,8 +1362,7 @@ mod test {
                 peers: vec![],
                 ..Default::default()
             });
-        // Setup peer info
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         stub.status.patch(expect![[r#"
             --- original

@@ -412,7 +412,7 @@ async fn apply_opentelemetry(
 }
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
-mod test {
+mod tests {
     use super::{reconcile, Simulation};
 
     use crate::{
@@ -425,8 +425,10 @@ mod test {
 
     use crate::utils::test::timeout_after_1s;
 
-    use expect_test::expect;
-    use std::sync::Arc;
+    use expect_test::{expect, expect_file};
+    use k8s_openapi::api::core::v1::ConfigMap;
+    use keramik_common::peer_info::PeerInfo;
+    use std::{collections::BTreeMap, sync::Arc};
     use tracing_test::traced_test;
     use unimock::Unimock;
 
@@ -557,6 +559,57 @@ mod test {
                                {
                                  "name": "DID_KEY",
         "#]]);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_three_peers() {
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.peers_config_map.1 = {
+            let peers = vec![
+                PeerInfo {
+                    index: 0,
+                    peer_id: "0".to_owned(),
+                    ipfs_rpc_addr: "ipfs_rpc_addr_0".to_owned(),
+                    ceramic_addr: "ceramic_addr_0".to_owned(),
+                    p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
+                },
+                PeerInfo {
+                    index: 1,
+                    peer_id: "1".to_owned(),
+                    ipfs_rpc_addr: "ipfs_rpc_addr_1".to_owned(),
+                    ceramic_addr: "ceramic_addr_1".to_owned(),
+                    p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
+                },
+                PeerInfo {
+                    index: 2,
+                    peer_id: "2".to_owned(),
+                    ipfs_rpc_addr: "ipfs_rpc_addr_2".to_owned(),
+                    ceramic_addr: "ceramic_addr_2".to_owned(),
+                    p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
+                },
+            ];
+
+            let json_bytes =
+                serde_json::to_string(&peers).expect("should be able to serialize PeerInfo");
+            ConfigMap {
+                data: Some(BTreeMap::from_iter([("peers.json".to_owned(), json_bytes)])),
+                ..Default::default()
+            }
+        };
+        stub.worker_jobs
+            .push(expect_file!["./testdata/worker_job_2"].into());
+
         let mocksrv = fakeserver.run(stub);
         reconcile(Arc::new(simulation), testctx)
             .await

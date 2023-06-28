@@ -1496,8 +1496,7 @@ mod test {
                         "0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b"
                             .as_bytes()
                             .to_vec(),
-                    )
-                    .to_owned(),
+                    ),
                 )])),
                 ..Default::default()
             }),

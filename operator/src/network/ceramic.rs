@@ -133,7 +133,8 @@ pub struct CeramicSpec {
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for ceramic nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
-    /// Private key for signing anchor requests and generating the Admin DID.
+    /// Name of secret containing the private key used for signing anchor requests and generating
+    /// the Admin DID.
     pub private_key_secret: Option<String>,
 }
 

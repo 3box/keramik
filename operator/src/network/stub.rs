@@ -100,7 +100,9 @@ pub struct Stub {
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
     pub postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret),
-    pub ceramic_admin_secret: Vec<(ExpectPatch<ExpectFile>, Option<Secret>)>,
+    pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
+    pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
+    pub ceramic_admin_secret: Option<(ExpectPatch<ExpectFile>, Option<Secret>)>,
     pub ceramic_stateful_set: ExpectPatch<ExpectFile>,
     pub keramik_peers_configmap: ExpectPatch<ExpectFile>,
     pub cas_service: ExpectPatch<ExpectFile>,
@@ -139,7 +141,7 @@ impl Default for Stub {
                     ..Default::default()
                 },
             ),
-            ceramic_admin_secret: vec![(
+            ceramic_admin_secret_missing: (
                 expect_file!["./testdata/default_stubs/ceramic_admin_secret"].into(),
                 Some(k8s_openapi::api::core::v1::Secret {
                     metadata: kube::core::ObjectMeta {
@@ -149,7 +151,9 @@ impl Default for Stub {
                     },
                     ..Default::default()
                 }),
-            )],
+            ),
+            ceramic_admin_secret_source: None,
+            ceramic_admin_secret: None,
             ceramic_stateful_set: expect_file!["./testdata/default_stubs/ceramic_stateful_set"]
                 .into(),
             keramik_peers_configmap: expect_file![
@@ -232,10 +236,25 @@ impl ApiServerVerifier {
             self.handle_apply(stub.cas_postgres_stateful_set)
                 .await
                 .expect("cas-postgres stateful set should apply");
-            for step in stub.ceramic_admin_secret {
+            self.handle_request_response(
+                stub.ceramic_admin_secret_missing.0,
+                stub.ceramic_admin_secret_missing.1.as_ref(),
+            )
+            .await
+            .expect("ceramic-admin secret should be looked up");
+            if let Some(step) = stub.ceramic_admin_secret_source {
                 self.handle_request_response(step.0, step.1.as_ref())
                     .await
-                    .expect("ceramic-admin secret step should pass");
+                    .expect("ceramic-admin source secret should be found");
+                if step.2 {
+                    // skip the remainder of processing because this is an error case
+                    return;
+                }
+            }
+            if let Some(step) = stub.ceramic_admin_secret {
+                self.handle_request_response(step.0, step.1.as_ref())
+                    .await
+                    .expect("ceramic-admin secret should be created");
             }
             for cm in stub.ceramic_configmaps {
                 self.handle_apply(cm)

@@ -4,3 +4,4 @@ target/
 /analyze
 *.yaml
 *.yml
+.env*

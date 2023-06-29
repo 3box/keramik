@@ -30,7 +30,7 @@ use tracing::{debug, error, trace};
 use crate::network::{
     bootstrap,
     cas::{self, CasSpec},
-    ceramic::{self, CeramicConfig},
+    ceramic::{self, CeramicConfig, CeramicNetwork},
     peers,
     utils::{ceramic_addr, ceramic_peer_ipfs_rpc_addr, HttpRpcClient, IpfsRpcClient},
     BootstrapSpec, CeramicSpec, Network, NetworkStatus,
@@ -174,7 +174,16 @@ async fn reconcile(
 
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
-    apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone()).await?;
+    // Only create CAS resources if the Ceramic network was "local"
+    let ceramic_network = spec
+        .ceramic
+        .clone()
+        .unwrap_or_default()
+        .network
+        .unwrap_or_default();
+    if ceramic_network == CeramicNetwork::Local {
+        apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone()).await?;
+    }
 
     apply_ceramic(
         cx.clone(),
@@ -862,7 +871,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -128,39 +128,13 @@
+            @@ -132,39 +132,13 @@
                              ]
                            },
                            {
@@ -905,7 +914,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -190,6 +164,11 @@
+            @@ -194,6 +168,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -917,7 +926,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -290,6 +269,13 @@
+            @@ -302,6 +281,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -985,7 +994,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -128,39 +128,13 @@
+            @@ -132,39 +132,13 @@
                              ]
                            },
                            {
@@ -1028,7 +1037,7 @@ mod test {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -176,14 +150,14 @@
+            @@ -180,14 +154,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -1049,7 +1058,7 @@ mod test {
                                }
                              },
                              "volumeMounts": [
-            @@ -190,6 +164,11 @@
+            @@ -194,6 +168,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1061,7 +1070,7 @@ mod test {
                                }
                              ]
                            }
-            @@ -290,6 +269,13 @@
+            @@ -302,6 +281,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -1127,7 +1136,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -154,7 +154,7 @@
+            @@ -158,7 +158,7 @@
                                  "value": "/data/ipfs"
                                }
                              ],
@@ -1136,7 +1145,7 @@ mod test {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -176,14 +176,14 @@
+            @@ -180,14 +180,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -1411,7 +1420,7 @@ mod test {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -106,14 +106,14 @@
+            @@ -110,14 +110,14 @@
                              },
                              "resources": {
                                "limits": {
@@ -1432,7 +1441,7 @@ mod test {
                                }
                              },
                              "volumeMounts": [
-            @@ -245,14 +245,14 @@
+            @@ -257,14 +257,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -1571,4 +1580,26 @@ mod test {
             .expect("reconciler");
         timeout_after_1s(mocksrv).await;
     }
+    // #[tokio::test]
+    // async fn external_cas() {
+    //     // Setup network spec and status
+    //     let network = Network::test().with_spec(NetworkSpec {
+    //         ceramic: Some(CeramicSpec {
+    //             network: Some(CeramicNetwork::DevUnstable),
+    //             cas_api_url: Some(format!("http://x.x.x.x")),
+    //             ..Default::default()
+    //         }),
+    //         ..Default::default()
+    //     });
+    //     let mock_rpc_client = Unimock::new(());
+    //     let mut stub = Stub::default().with_network(network.clone());
+    //     // Tell the stub to skip all CAS-related configuration
+    //     stub.postgres_auth_secret.2 = false;
+    //     let (testctx, fakeserver) = Context::test(mock_rpc_client);
+    //     let mocksrv = fakeserver.run(stub);
+    //     reconcile(Arc::new(network), testctx)
+    //         .await
+    //         .expect("reconciler");
+    //     timeout_after_1s(mocksrv).await;
+    // }
 }

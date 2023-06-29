@@ -98,13 +98,21 @@ metadata:
 spec:
   replicas: 2
   ceramic:
-    privateKeySecret: "private-key"
+    privateKeySecret: "small"
 ```
 Note that `privateKeySecret` is the name of another k8s secret in the `keramik` namespace that has already been
 populated beforehand with the desired hex-encoded private key. This source secret MUST exist before it can be used to
 populate the Ceramic admin secret.
 ```shell
 kubectl create secret generic small --from-literal=private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+```
+The secret can also be created from a file containing the private key.
+```shell
+kubectl create secret generic small --from-file=.env.secret
+```
+Here's an example of the contents of the `.env.secret` file.
+```
+private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
 ```
 Alternatively, you can use a `kustomization.yml` file to create the secret from a file before creating the network, and
 using the name of the new secret in the network configuration.

@@ -259,7 +259,7 @@ pub async fn apply_config_map(
 
 /// Generate a random, hex-encoded secret
 pub fn generate_random_secret(
-    cx: Arc<Context<impl RpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     len: usize,
 ) -> String {
     let mut secret_bytes: Vec<u8> = Vec::new();

@@ -541,7 +541,7 @@ async fn update_peer_info(
     // Add extra peers, using negative peer indexes
     {
         // CAS IPFS peer
-        let ipfs_rpc_addr = format!("http://{CAS_IFPS_SERVICE_NAME}-0.{CAS_IFPS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
+        let ipfs_rpc_addr = format!("http://{CAS_IPFS_SERVICE_NAME}-0.{CAS_IPFS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
         match cx.rpc_client.peer_info(-1, ipfs_rpc_addr).await {
             Ok(info) => {
                 status.peers.push(Peer::Ipfs(info));
@@ -628,18 +628,13 @@ mod test {
     use crate::{
         network::{
             cas::CasSpec,
+            ceramic::{IpfsKind, IpfsSpec},
             stub::{default_ipfs_rpc_mock, mock_cas_peer_info_not_ready, mock_cas_peer_info_ready},
-            utils::ResourceLimitsSpec,
+            stub::{timeout_after_1s, Stub},
+            utils::{ResourceLimitsSpec, RpcClientMock},
+            CeramicSpec, NetworkSpec, NetworkStatus,
         },
         utils::Context,
-    };
-
-    use crate::network::{
-        cas::CasSpec,
-        ceramic::{IpfsKind, IpfsSpec},
-        stub::{timeout_after_1s, Stub},
-        utils::{ResourceLimitsSpec, RpcClientMock},
-        CeramicSpec, NetworkSpec, NetworkStatus,
     };
 
     use expect_test::{expect, expect_file};
@@ -1476,7 +1471,7 @@ mod test {
             }),
             ..Default::default()
         });
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         // Tell the stub that the admin secret does not exist. This will make the controller attempt to create it using
         // the source secret.
@@ -1552,7 +1547,7 @@ mod test {
     async fn ceramic_default_admin_secret() {
         // Setup default network spec
         let network = Network::test();
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
         // Tell the stub that the secret does not exist. This will make the controller attempt to create it.
         stub.ceramic_admin_secret_missing.1 = None;

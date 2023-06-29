@@ -323,7 +323,9 @@ impl From<CeramicNetwork> for CeramicNetworkConfig {
         match value {
             CeramicNetwork::DevUnstable => Self {
                 network: "dev-unstable".to_owned(),
-                network_topic: "/ceramic/dev-unstable".to_owned(),
+                // The pubsub topic cannot be specified when the network is anything other than "local" or "inmemory"
+                network_topic: "".to_owned(),
+                // We don't need an Ethereum RPC URL when testing against a CAS node outside of the cluster
                 eth_rpc_url: "".to_owned(),
             },
             _ => Self::default(),

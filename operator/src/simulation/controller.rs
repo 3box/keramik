@@ -38,7 +38,7 @@ use crate::network::{
     Network,
 };
 
-use keramik_common::peer_info::CeramicPeerInfo;
+use keramik_common::peer_info::Peer;
 
 use crate::utils::{
     apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map, apply_job,
@@ -236,7 +236,7 @@ async fn get_num_peers(
     let map = config_maps.get(PEERS_CONFIG_MAP_NAME).await?;
     let data = map.data.unwrap();
     let value = data.get(PEERS_MAP_KEY).unwrap();
-    let peers: Vec<CeramicPeerInfo> = serde_json::from_str(value).unwrap();
+    let peers: Vec<Peer> = serde_json::from_str(value).unwrap();
     Ok(peers.len() as u32)
 }
 
@@ -416,18 +416,15 @@ mod tests {
     use super::{reconcile, Simulation};
 
     use crate::{
-        simulation::{
-            stub::{ApiServerVerifier, Stub},
-            SimulationSpec,
-        },
-        utils::Context,
+        simulation::{stub::Stub, SimulationSpec},
+        utils::{test::ApiServerVerifier, Context},
     };
 
     use crate::utils::test::timeout_after_1s;
 
     use expect_test::{expect, expect_file};
     use k8s_openapi::api::core::v1::ConfigMap;
-    use keramik_common::peer_info::PeerInfo;
+    use keramik_common::peer_info::{CeramicPeerInfo, Peer};
     use std::{collections::BTreeMap, sync::Arc};
     use tracing_test::traced_test;
     use unimock::Unimock;
@@ -442,7 +439,8 @@ mod tests {
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test();
-        let mocksrv = fakeserver.run(Stub::default());
+        let stub = Stub::default();
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await
             .expect("reconciler");
@@ -499,7 +497,7 @@ mod tests {
                                {
                                  "name": "SIMULATE_TARGET_PEER",
         "#]]);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await
             .expect("reconciler");
@@ -529,7 +527,7 @@ mod tests {
                                {
                                  "name": "SIMULATE_RUN_TIME",
         "#]]);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await
             .expect("reconciler");
@@ -559,7 +557,7 @@ mod tests {
                                {
                                  "name": "DID_KEY",
         "#]]);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await
             .expect("reconciler");
@@ -577,27 +575,27 @@ mod tests {
         let mut stub = Stub::default();
         stub.peers_config_map.1 = {
             let peers = vec![
-                PeerInfo {
+                Peer::Ceramic(CeramicPeerInfo {
                     index: 0,
                     peer_id: "0".to_owned(),
                     ipfs_rpc_addr: "ipfs_rpc_addr_0".to_owned(),
                     ceramic_addr: "ceramic_addr_0".to_owned(),
                     p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
-                },
-                PeerInfo {
+                }),
+                Peer::Ceramic(CeramicPeerInfo {
                     index: 1,
                     peer_id: "1".to_owned(),
                     ipfs_rpc_addr: "ipfs_rpc_addr_1".to_owned(),
                     ceramic_addr: "ceramic_addr_1".to_owned(),
                     p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
-                },
-                PeerInfo {
+                }),
+                Peer::Ceramic(CeramicPeerInfo {
                     index: 2,
                     peer_id: "2".to_owned(),
                     ipfs_rpc_addr: "ipfs_rpc_addr_2".to_owned(),
                     ceramic_addr: "ceramic_addr_2".to_owned(),
                     p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
-                },
+                }),
             ];
 
             let json_bytes =
@@ -610,7 +608,7 @@ mod tests {
         stub.worker_jobs
             .push(expect_file!["./testdata/worker_job_2"].into());
 
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await
             .expect("reconciler");

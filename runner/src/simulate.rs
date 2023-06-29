@@ -31,7 +31,7 @@ pub struct Opts {
     target_peer: usize,
 
     /// Path to file containing the list of peers.
-    /// File should contian JSON encoding of Vec<PeerInfo>.
+    /// File should contian JSON encoding of Vec<Peer>.
     #[arg(long, env = "SIMULATE_PEERS_PATH")]
     peers: PathBuf,
 

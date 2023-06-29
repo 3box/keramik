@@ -22,7 +22,7 @@ struct ErrorResponse {
 }
 
 /// Define the behavior we consume from the IPFS RPC API.
-#[unimock(api=RpcClientMock)]
+#[unimock(api=IpfsRpcClientMock)]
 #[async_trait]
 pub trait IpfsRpcClient {
     async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: String) -> Result<IpfsPeerInfo>;

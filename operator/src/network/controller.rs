@@ -624,7 +624,7 @@ async fn delete_job(
 
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
-mod test {
+mod tests {
     use super::{reconcile, Network};
     use std::collections::BTreeMap;
 
@@ -632,12 +632,14 @@ mod test {
         network::{
             cas::CasSpec,
             ceramic::{IpfsKind, IpfsSpec},
-            stub::{default_ipfs_rpc_mock, mock_cas_peer_info_not_ready, mock_cas_peer_info_ready},
-            stub::{timeout_after_1s, ApiServerVerifier, Stub},
-            utils::{ResourceLimitsSpec, RpcClientMock},
+            stub::Stub,
+            utils::{IpfsRpcClientMock, ResourceLimitsSpec},
             CeramicSpec, NetworkSpec, NetworkStatus,
         },
-        utils::Context,
+        utils::{
+            test::{timeout_after_1s, ApiServerVerifier, WithStatus},
+            Context,
+        },
     };
 
     use expect_test::{expect, expect_file};
@@ -648,18 +650,42 @@ mod test {
 
     use crate::utils::managed_labels;
     use std::sync::Arc;
-    use unimock::{matching, MockFn, Unimock};
+    use unimock::{matching, Clause, MockFn, Unimock};
+
+    // Mock for cas peer info call that is NOT ready
+    fn mock_cas_peer_info_not_ready() -> impl Clause {
+        IpfsRpcClientMock::peer_info
+            .next_call(matching!(_))
+            .returns(Err(anyhow::anyhow!("cas-ipfs not ready")))
+    }
+    // Mock for cas peer info call that is ready
+    fn mock_cas_peer_info_ready() -> impl Clause {
+        IpfsRpcClientMock::peer_info
+            .next_call(matching!(_))
+            .returns(Ok(IpfsPeerInfo {
+                index: -1,
+                peer_id: "peer_id_0".to_owned(),
+                ipfs_rpc_addr: "http://cas-ipfs:5001".to_owned(),
+                p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
+            }))
+    }
+
+    // Construct default mock for IpfsRpc trait
+    fn default_ipfs_rpc_mock() -> Unimock {
+        Unimock::new(mock_cas_peer_info_not_ready())
+    }
 
     // This tests defines the default stubs,
     // meaning the default stubs are the request response pairs
     // that occur when reconiling a default spec and status.
     #[tokio::test]
     async fn reconcile_from_empty() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = default_ipfs_rpc_mock();
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let network = Network::test();
-        let mocksrv = fakeserver.run(Stub::default());
+        let stub = Stub::default();
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -682,7 +708,7 @@ mod test {
         // Setup peer info
         let mock_rpc_client = Unimock::new((
             mock_cas_peer_info_not_ready(),
-            RpcClientMock::peer_info
+            IpfsRpcClientMock::peer_info
                 .next_call(matching!(_))
                 .returns(Ok(IpfsPeerInfo {
                     index: 0,
@@ -690,7 +716,7 @@ mod test {
                     ipfs_rpc_addr: "http://peer0:5001".to_owned(),
                     p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
                 })),
-            RpcClientMock::peer_info
+            IpfsRpcClientMock::peer_info
                 .next_call(matching!(_))
                 .returns(Ok(IpfsPeerInfo {
                     index: 1,
@@ -771,7 +797,7 @@ mod test {
         stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -780,7 +806,8 @@ mod test {
     #[tokio::test]
     async fn reconcile_cas_ipfs_peer() {
         let mock_rpc_client = Unimock::new(mock_cas_peer_info_ready());
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
         let network = Network::test();
         let mut stub = Stub::default();
         stub.keramik_peers_configmap.patch(expect![[r#"
@@ -821,7 +848,7 @@ mod test {
                  },
              }
         "#]]);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -939,7 +966,7 @@ mod test {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1084,7 +1111,7 @@ mod test {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1167,7 +1194,7 @@ mod test {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1223,7 +1250,7 @@ mod test {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1376,7 +1403,7 @@ mod test {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1466,7 +1493,7 @@ mod test {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1522,7 +1549,7 @@ mod test {
         ));
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1552,7 +1579,7 @@ mod test {
         ));
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         assert!(reconcile(Arc::new(network), testctx).await.is_err());
         timeout_after_1s(mocksrv).await;
     }
@@ -1579,7 +1606,7 @@ mod test {
         ));
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
-        let mocksrv = fakeserver.run(stub);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");
@@ -1675,8 +1702,9 @@ mod test {
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
         "#]]);
-        let (testctx, fakeserver) = Context::test(mock_rpc_client);
-        let mocksrv = fakeserver.run(stub);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
             .expect("reconciler");

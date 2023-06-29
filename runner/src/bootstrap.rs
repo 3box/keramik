@@ -20,7 +20,7 @@ pub struct Opts {
     n: usize,
 
     /// Path to file containing the list of peers.
-    /// File should contian JSON encoding of Vec<PeerInfo>.
+    /// File should contian JSON encoding of Vec<Peer>.
     #[arg(long, env = "BOOTSTRAP_PEERS_PATH")]
     peers: PathBuf,
 }

@@ -44,13 +44,14 @@ set -eo pipefail
 export CERAMIC_ADMIN_DID=$(composedb did:from-private-key ${CERAMIC_ADMIN_PRIVATE_KEY})
 
 CERAMIC_ADMIN_DID=$CERAMIC_ADMIN_DID envsubst < /ceramic-init/daemon-config.json > /config/daemon-config.json
-CERAMIC_ADMIN_PRIVATE_KEY=$CERAMIC_ADMIN_PRIVATE_KEY envsubst < /ceramic-init/daemon-config.json > /config/daemon-config.json
 "#.to_owned()),
 
 ("daemon-config.json".to_owned(),
 r#"{
     "anchor": {
-        "auth-method": "did"
+        "auth-method": "did",
+        "anchor-service-url": "${CAS_API_URL}",
+        "ethereum-rpc-url": "${ETH_RPC_URL}"
     },
     "http-api": {
         "cors-allowed-origins": [
@@ -136,6 +137,10 @@ pub struct CeramicSpec {
     /// Name of secret containing the private key used for signing anchor requests and generating
     /// the Admin DID.
     pub private_key_secret: Option<String>,
+    /// Ceramic network to use.
+    pub network: Option<CeramicNetwork>,
+    /// URL for Ceramic Anchor Service (CAS).
+    pub cas_api_url: Option<String>,
 }
 
 /// Describes how the IPFS node for a peer should behave.
@@ -161,10 +166,26 @@ pub enum IpfsKind {
     Go,
 }
 
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "kebab-case")]
+pub enum CeramicNetwork {
+    #[default]
+    Local,
+    DevUnstable,
+}
+
 pub struct CeramicConfig {
     pub init_config_map: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
+    pub network_config: CeramicNetworkConfig,
+    pub cas_api_url: String,
+}
+
+pub struct CeramicNetworkConfig {
+    pub network: String,
+    pub network_topic: String,
+    pub eth_rpc_url: String,
 }
 
 pub enum IpfsConfig {
@@ -239,7 +260,7 @@ pub struct GoIpfsConfig {
 impl Default for GoIpfsConfig {
     fn default() -> Self {
         Self {
-            image: "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d". to_owned(),
+            image: "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d".to_owned(),
             image_pull_policy: "IfNotPresent".to_owned(),
             resource_limits: ResourceLimitsConfig {
                 cpu: Quantity("250m".to_owned()),
@@ -263,6 +284,16 @@ impl From<IpfsSpec> for GoIpfsConfig {
     }
 }
 
+impl Default for CeramicNetworkConfig {
+    fn default() -> Self {
+        Self {
+            network: "local".to_owned(),
+            network_topic: "/ceramic/local-keramik".to_owned(),
+            eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
+        }
+    }
+}
+
 impl Default for CeramicConfig {
     fn default() -> Self {
         Self {
@@ -273,6 +304,8 @@ impl Default for CeramicConfig {
                 memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
+            network_config: CeramicNetworkConfig::default(),
+            cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
         }
     }
 }
@@ -281,6 +314,19 @@ impl From<Option<CeramicSpec>> for CeramicConfig {
         match value {
             Some(spec) => spec.into(),
             None => CeramicConfig::default(),
+        }
+    }
+}
+
+impl From<CeramicNetwork> for CeramicNetworkConfig {
+    fn from(value: CeramicNetwork) -> Self {
+        match value {
+            CeramicNetwork::DevUnstable => Self {
+                network: "dev-unstable".to_owned(),
+                network_topic: "/ceramic/dev-unstable".to_owned(),
+                eth_rpc_url: "".to_owned(),
+            },
+            _ => Self::default(),
         }
     }
 }
@@ -295,6 +341,11 @@ impl From<CeramicSpec> for CeramicConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            network_config: value
+                .network
+                .map(Into::into)
+                .unwrap_or(default.network_config),
+            cas_api_url: value.cas_api_url.unwrap_or(default.cas_api_url),
         }
     }
 }
@@ -475,12 +526,22 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
     let ceramic_env = vec![
         EnvVar {
             name: "CERAMIC_NETWORK".to_owned(),
-            value: Some("local".to_owned()),
+            value: Some(config.network_config.network),
             ..Default::default()
         },
         EnvVar {
             name: "CERAMIC_NETWORK_TOPIC".to_owned(),
-            value: Some("/ceramic/local-keramik".to_owned()),
+            value: Some(config.network_config.network_topic),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_RPC_URL".to_owned(),
+            value: Some(config.network_config.eth_rpc_url),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "CAS_API_URL".to_owned(),
+            value: Some(config.cas_api_url),
             ..Default::default()
         },
         EnvVar {
@@ -586,10 +647,6 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             "daemon".to_owned(),
                             "--config".to_owned(),
                             "/config/daemon-config.json".to_owned(),
-                            "--anchor-service-api".to_owned(),
-                            format!("http://{CAS_SERVICE_NAME}:8081"),
-                            "--ethereum-rpc".to_owned(),
-                            format!("http://{GANACHE_SERVICE_NAME}:8545"),
                         ]),
                         env: Some(ceramic_env),
                         image: Some("3boxben/composedb:latest".to_owned()),

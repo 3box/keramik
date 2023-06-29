@@ -99,7 +99,7 @@ pub struct Stub {
     network: Network,
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
-    pub postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret),
+    pub postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
     pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
     pub ceramic_admin_secret: Option<(ExpectPatch<ExpectFile>, Option<Secret>)>,
@@ -140,6 +140,7 @@ impl Default for Stub {
                     },
                     ..Default::default()
                 },
+                true,
             ),
             ceramic_admin_secret_missing: (
                 expect_file!["./testdata/default_stubs/ceramic_admin_secret"].into(),
@@ -206,36 +207,39 @@ impl ApiServerVerifier {
             self.handle_apply(stub.namespace)
                 .await
                 .expect("namespace should apply");
-            self.handle_request_response(
-                stub.postgres_auth_secret.0,
-                Some(&stub.postgres_auth_secret.1),
-            )
-            .await
-            .expect("postgres-auth secret should exist");
-            self.handle_apply(stub.cas_service)
+            // Run/skip all CAS-related configuration
+            if stub.postgres_auth_secret.2 {
+                self.handle_request_response(
+                    stub.postgres_auth_secret.0,
+                    Some(&stub.postgres_auth_secret.1),
+                )
                 .await
-                .expect("cas service should apply");
-            self.handle_apply(stub.cas_ipfs_service)
-                .await
-                .expect("cas-ipfs service should apply");
-            self.handle_apply(stub.ganache_service)
-                .await
-                .expect("ganache service should apply");
-            self.handle_apply(stub.cas_postgres_service)
-                .await
-                .expect("cas-postgres service should apply");
-            self.handle_apply(stub.cas_stateful_set)
-                .await
-                .expect("cas stateful set should apply");
-            self.handle_apply(stub.cas_ipfs_stateful_set)
-                .await
-                .expect("cas-ipfs stateful set should apply");
-            self.handle_apply(stub.ganache_stateful_set)
-                .await
-                .expect("ganache stateful set should apply");
-            self.handle_apply(stub.cas_postgres_stateful_set)
-                .await
-                .expect("cas-postgres stateful set should apply");
+                .expect("postgres-auth secret should exist");
+                self.handle_apply(stub.cas_service)
+                    .await
+                    .expect("cas service should apply");
+                self.handle_apply(stub.cas_ipfs_service)
+                    .await
+                    .expect("cas-ipfs service should apply");
+                self.handle_apply(stub.ganache_service)
+                    .await
+                    .expect("ganache service should apply");
+                self.handle_apply(stub.cas_postgres_service)
+                    .await
+                    .expect("cas-postgres service should apply");
+                self.handle_apply(stub.cas_stateful_set)
+                    .await
+                    .expect("cas stateful set should apply");
+                self.handle_apply(stub.cas_ipfs_stateful_set)
+                    .await
+                    .expect("cas-ipfs stateful set should apply");
+                self.handle_apply(stub.ganache_stateful_set)
+                    .await
+                    .expect("ganache stateful set should apply");
+                self.handle_apply(stub.cas_postgres_stateful_set)
+                    .await
+                    .expect("cas-postgres stateful set should apply");
+            }
             self.handle_request_response(
                 stub.ceramic_admin_secret_missing.0,
                 stub.ceramic_admin_secret_missing.1.as_ref(),

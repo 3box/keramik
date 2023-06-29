@@ -41,11 +41,7 @@ Request {
                   "/js-ceramic/packages/cli/bin/ceramic.js",
                   "daemon",
                   "--config",
-                  "/config/daemon-config.json",
-                  "--anchor-service-api",
-                  "http://cas:8081",
-                  "--ethereum-rpc",
-                  "http://ganache:8545"
+                  "/config/daemon-config.json"
                 ],
                 "env": [
                   {
@@ -55,6 +51,14 @@ Request {
                   {
                     "name": "CERAMIC_NETWORK_TOPIC",
                     "value": "/ceramic/local-keramik"
+                  },
+                  {
+                    "name": "ETH_RPC_URL",
+                    "value": "http://ganache:8545"
+                  },
+                  {
+                    "name": "CAS_API_URL",
+                    "value": "http://cas:8081"
                   },
                   {
                     "name": "CERAMIC_SQLITE_PATH",
@@ -218,6 +222,14 @@ Request {
                   {
                     "name": "CERAMIC_NETWORK_TOPIC",
                     "value": "/ceramic/local-keramik"
+                  },
+                  {
+                    "name": "ETH_RPC_URL",
+                    "value": "http://ganache:8545"
+                  },
+                  {
+                    "name": "CAS_API_URL",
+                    "value": "http://cas:8081"
                   },
                   {
                     "name": "CERAMIC_SQLITE_PATH",

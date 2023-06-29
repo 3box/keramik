@@ -637,7 +637,7 @@ mod test {
     use crate::{
         network::{
             cas::CasSpec,
-            ceramic::{IpfsKind, IpfsSpec},
+            ceramic::{CeramicNetwork, IpfsKind, IpfsSpec},
             stub::{default_ipfs_rpc_mock, mock_cas_peer_info_not_ready, mock_cas_peer_info_ready},
             stub::{timeout_after_1s, Stub},
             utils::{ResourceLimitsSpec, RpcClientMock},
@@ -1580,26 +1580,98 @@ mod test {
             .expect("reconciler");
         timeout_after_1s(mocksrv).await;
     }
-    // #[tokio::test]
-    // async fn external_cas() {
-    //     // Setup network spec and status
-    //     let network = Network::test().with_spec(NetworkSpec {
-    //         ceramic: Some(CeramicSpec {
-    //             network: Some(CeramicNetwork::DevUnstable),
-    //             cas_api_url: Some(format!("http://x.x.x.x")),
-    //             ..Default::default()
-    //         }),
-    //         ..Default::default()
-    //     });
-    //     let mock_rpc_client = Unimock::new(());
-    //     let mut stub = Stub::default().with_network(network.clone());
-    //     // Tell the stub to skip all CAS-related configuration
-    //     stub.postgres_auth_secret.2 = false;
-    //     let (testctx, fakeserver) = Context::test(mock_rpc_client);
-    //     let mocksrv = fakeserver.run(stub);
-    //     reconcile(Arc::new(network), testctx)
-    //         .await
-    //         .expect("reconciler");
-    //     timeout_after_1s(mocksrv).await;
-    // }
+    #[tokio::test]
+    async fn ceramic_external_cas() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                ceramic: Some(CeramicSpec {
+                    network: Some(CeramicNetwork::DevUnstable),
+                    cas_api_url: Some(format!("https://some-external-cas.com:8080")),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+                ..Default::default()
+            });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        // Tell the stub to skip all CAS-related configuration
+        stub.postgres_auth_secret.2 = false;
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "status": {
+                     "replicas": 0,
+                     "readyReplicas": 0,
+            -        "namespace": null,
+            +        "namespace": "keramik-test",
+                     "peers": []
+                   }
+                 },
+        "#]]);
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -46,19 +46,19 @@
+                             "env": [
+                               {
+                                 "name": "CERAMIC_NETWORK",
+            -                    "value": "local"
+            +                    "value": "dev-unstable"
+                               },
+                               {
+                                 "name": "CERAMIC_NETWORK_TOPIC",
+            -                    "value": "/ceramic/local-keramik"
+            +                    "value": ""
+                               },
+                               {
+                                 "name": "ETH_RPC_URL",
+            -                    "value": "http://ganache:8545"
+            +                    "value": ""
+                               },
+                               {
+                                 "name": "CAS_API_URL",
+            -                    "value": "http://cas:8081"
+            +                    "value": "https://some-external-cas.com:8080"
+                               },
+                               {
+                                 "name": "CERAMIC_SQLITE_PATH",
+            @@ -217,19 +217,19 @@
+                               },
+                               {
+                                 "name": "CERAMIC_NETWORK",
+            -                    "value": "local"
+            +                    "value": "dev-unstable"
+                               },
+                               {
+                                 "name": "CERAMIC_NETWORK_TOPIC",
+            -                    "value": "/ceramic/local-keramik"
+            +                    "value": ""
+                               },
+                               {
+                                 "name": "ETH_RPC_URL",
+            -                    "value": "http://ganache:8545"
+            +                    "value": ""
+                               },
+                               {
+                                 "name": "CAS_API_URL",
+            -                    "value": "http://cas:8081"
+            +                    "value": "https://some-external-cas.com:8080"
+                               },
+                               {
+                                 "name": "CERAMIC_SQLITE_PATH",
+        "#]]);
+        let (testctx, fakeserver) = Context::test(mock_rpc_client);
+        let mocksrv = fakeserver.run(stub);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
 }

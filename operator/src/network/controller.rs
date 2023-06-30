@@ -894,7 +894,7 @@ mod tests {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -132,39 +132,13 @@
+            @@ -137,39 +137,13 @@
                              ]
                            },
                            {
@@ -937,7 +937,7 @@ mod tests {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -194,6 +168,11 @@
+            @@ -199,6 +173,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -949,7 +949,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -302,6 +281,13 @@
+            @@ -307,6 +286,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -1018,7 +1018,7 @@ mod tests {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -132,39 +132,13 @@
+            @@ -137,39 +137,13 @@
                              ]
                            },
                            {
@@ -1061,7 +1061,7 @@ mod tests {
                                  "protocol": "TCP"
                                },
                                {
-            @@ -180,14 +154,14 @@
+            @@ -185,14 +159,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -1082,7 +1082,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -194,6 +168,11 @@
+            @@ -199,6 +173,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1094,7 +1094,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -302,6 +281,13 @@
+            @@ -307,6 +286,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -1161,7 +1161,7 @@ mod tests {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -158,7 +158,7 @@
+            @@ -163,7 +163,7 @@
                                  "value": "/data/ipfs"
                                }
                              ],
@@ -1170,7 +1170,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -180,14 +180,14 @@
+            @@ -185,14 +185,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -1448,7 +1448,7 @@ mod tests {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -110,14 +110,14 @@
+            @@ -115,14 +115,14 @@
                              },
                              "resources": {
                                "limits": {
@@ -1469,7 +1469,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -257,14 +257,14 @@
+            @@ -262,14 +262,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -1677,7 +1677,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -217,19 +217,19 @@
+            @@ -222,19 +222,19 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -1701,6 +1701,42 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn ceramic_image() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            ceramic: Some(CeramicSpec {
+                image: Some("ceramic:foo".to_owned()),
+                image_pull_policy: Some("IfNotPresent".to_owned()),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -81,8 +81,8 @@
+                                 "value": "2"
+                               }
+                             ],
+            -                "image": "3boxben/composedb:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "ceramic:foo",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "livenessProbe": {
+                               "httpGet": {
+                                 "path": "/api/v0/node/healthcheck",
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

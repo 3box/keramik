@@ -187,10 +187,9 @@ async fn reconcile(
         network.clone(),
         spec.replicas,
         spec.ceramic
-            .clone()
-            .unwrap_or_default()
-            .private_key_secret
-            .as_ref(),
+            .as_ref()
+            .map(|spec| spec.private_key_secret.as_ref())
+            .unwrap_or_default(),
         ceramic_config,
     )
     .await?;

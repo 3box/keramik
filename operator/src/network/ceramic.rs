@@ -131,6 +131,10 @@ pub fn service_spec() -> ServiceSpec {
 pub struct CeramicSpec {
     /// Name of a config map with a ceramic-init.sh script that runs as an initialization step.
     pub init_config_map: Option<String>,
+    /// Image of the ceramic container.
+    pub image: Option<String>,
+    /// Pull policy for the ceramic container image.
+    pub image_pull_policy: Option<String>,
     /// Configuration of the IPFS container
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for ceramic nodes, applies to both requests and limits.
@@ -173,6 +177,8 @@ pub enum IpfsKind {
 
 pub struct CeramicConfig {
     pub init_config_map: String,
+    pub image: String,
+    pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
     pub network_type: String,
@@ -281,6 +287,8 @@ impl Default for CeramicConfig {
     fn default() -> Self {
         Self {
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
+            image: "3boxben/composedb:latest".to_owned(),
+            image_pull_policy: "Always".to_owned(),
             ipfs: IpfsConfig::default(),
             resource_limits: ResourceLimitsConfig {
                 cpu: Quantity("250m".to_owned()),
@@ -308,6 +316,8 @@ impl From<CeramicSpec> for CeramicConfig {
         let default = Self::default();
         Self {
             init_config_map: value.init_config_map.unwrap_or(default.init_config_map),
+            image: value.image.unwrap_or(default.image),
+            image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
             ipfs: value.ipfs.map(Into::into).unwrap_or(default.ipfs),
             resource_limits: ResourceLimitsConfig::from_spec(
                 value.resource_limits,
@@ -382,7 +392,7 @@ impl RustIpfsConfig {
                     ..Default::default()
                 },
                 ContainerPort {
-                    container_port: 9090,
+                    container_port: 9465,
                     name: Some("metrics".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
@@ -450,7 +460,7 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
                     ..Default::default()
                 },
                 ContainerPort {
-                    container_port: 9090,
+                    container_port: 9465,
                     name: Some("metrics".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
@@ -620,14 +630,22 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             "/config/daemon-config.json".to_owned(),
                         ]),
                         env: Some(ceramic_env),
-                        image: Some("3boxben/composedb:latest".to_owned()),
-                        image_pull_policy: Some("Always".to_owned()),
+                        image: Some(config.image),
+                        image_pull_policy: Some(config.image_pull_policy),
                         name: "ceramic".to_owned(),
-                        ports: Some(vec![ContainerPort {
-                            container_port: CERAMIC_SERVICE_API_PORT,
-                            name: Some("api".to_owned()),
-                            ..Default::default()
-                        }]),
+                        ports: Some(vec![
+                            ContainerPort {
+                                container_port: CERAMIC_SERVICE_API_PORT,
+                                name: Some("api".to_owned()),
+                                ..Default::default()
+                            },
+                            ContainerPort {
+                                container_port: 9464,
+                                name: Some("metrics".to_owned()),
+                                protocol: Some("TCP".to_owned()),
+                                ..Default::default()
+                            },
+                        ]),
                         readiness_probe: Some(Probe {
                             http_get: Some(HTTPGetAction {
                                 path: Some("/api/v0/node/healthcheck".to_owned()),

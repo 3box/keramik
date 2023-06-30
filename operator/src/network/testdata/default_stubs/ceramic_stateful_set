@@ -97,6 +97,11 @@ Request {
                   {
                     "containerPort": 7007,
                     "name": "api"
+                  },
+                  {
+                    "containerPort": 9464,
+                    "name": "metrics",
+                    "protocol": "TCP"
                   }
                 ],
                 "readinessProbe": {
@@ -173,7 +178,7 @@ Request {
                     "protocol": "TCP"
                   },
                   {
-                    "containerPort": 9090,
+                    "containerPort": 9465,
                     "name": "metrics",
                     "protocol": "TCP"
                   }

@@ -100,22 +100,31 @@ spec:
   ceramic:
     privateKeySecret: "small"
 ```
+
 Note that `privateKeySecret` is the name of another k8s secret in the `keramik` namespace that has already been
 populated beforehand with the desired hex-encoded private key. This source secret MUST exist before it can be used to
 populate the Ceramic admin secret.
+
 ```shell
 kubectl create secret generic small --from-literal=private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
 ```
+
 The secret can also be created from a file containing the private key.
+
 ```shell
-kubectl create secret generic small --from-file=.env.secret
+kubectl create secret generic small --from-file=private-key=./my_secret
 ```
-Here's an example of the contents of the `.env.secret` file.
+
+Here's an example of the contents of the `my_secret` file. Please make sure that there are no newlines at the end of
+the file.
+
 ```
-private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
 ```
+
 Alternatively, you can use a `kustomization.yml` file to create the secret from a file before creating the network, and
 using the name of the new secret in the network configuration.
+
 ```yaml
 ---
 namespace: keramik
@@ -125,6 +134,49 @@ secretGenerator:
   envs:
   - .env.secret
 ```
+
+Here's an example of the contents of the `.env.secret` file.
+
+```
+private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+```
+
+### Configuring a Ceramic Anchor Service (CAS), PubSub topic, or Ethereum RPC Endpoint
+
+By default, Keramik will instantiate all the resources required for a functional CAS service, including a Ganache
+blockchain.
+
+You can configure the Ceramic nodes to use an external instance of the CAS instead of one inside the cluster. If using a
+CAS running in 3Box Labs infrastructure, you will also need to specify the Ceramic network type associated with the
+node, e.g. `dev-unstable`.
+
+In this case, the Ceramic network PubSub topic must be specified as an empty string in order to clear it from the
+Ceramic configuration. Ceramic nodes do not permit the PubSub topic to be specified for a network type that is not one
+of `local` or `inmemory`.
+
+You may also specify an Ethereum RPC endpoint for the Ceramic nodes to be able to verify anchors, or set it to an empty
+string to clear it from the Ceramic configuration. In the latter case, the Ceramic nodes will come up but will not be
+able to verify anchors.
+
+If left unspecified, `networkType` will default to `local`, `pubsubTopic` to `/ceramic/local-keramik`, `ethRpcUrl` to
+`http://ganache:8545`, and `casApiUrl` to `http://cas:8081`. These defaults point to an internal CAS using a local
+pubsub topic in a fully isolated network.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    privateKeySecret: "small"
+    networkType: "dev-unstable"
+    pubsubTopic: ""
+    ethRpcUrl: ""
+    casApiUrl: "https://some-anchor-service.com"
+```
+
 ## Simulation
 
 To run a simulation, first define a simulation.

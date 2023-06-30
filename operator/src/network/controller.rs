@@ -542,17 +542,21 @@ async fn update_peer_info(
     status.ready_replicas = status.peers.len() as i32;
 
     // Add extra peers, using negative peer indexes
+    // Using negative peer indexes is a simple way to avoid conflicts with Ceramic peers
     {
         // CAS IPFS peer
-        let ipfs_rpc_addr = format!("http://{CAS_IPFS_SERVICE_NAME}-0.{CAS_IPFS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
-        match cx.rpc_client.peer_info(-1, ipfs_rpc_addr).await {
-            Ok(info) => {
-                status.peers.push(Peer::Ipfs(info));
-            }
-            Err(err) => {
-                trace!(%err, "failed to get peer info for cas-ipfs");
-            }
-        };
+        let cas_peer_idx = -1;
+        if !status.peers.iter().any(|info| info.index() == cas_peer_idx) {
+            let ipfs_rpc_addr = format!("http://{CAS_IPFS_SERVICE_NAME}-0.{CAS_IPFS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
+            match cx.rpc_client.peer_info(cas_peer_idx, ipfs_rpc_addr).await {
+                Ok(info) => {
+                    status.peers.push(Peer::Ipfs(info));
+                }
+                Err(err) => {
+                    trace!(%err, "failed to get peer info for cas-ipfs");
+                }
+            };
+        }
     }
 
     // Save the config map with the peer information
@@ -647,6 +651,8 @@ mod tests {
         api::core::v1::Secret, apimachinery::pkg::api::resource::Quantity, ByteString,
     };
     use keramik_common::peer_info::IpfsPeerInfo;
+    use tracing::debug;
+    use tracing_test::traced_test;
 
     use crate::utils::managed_labels;
     use std::sync::Arc;
@@ -664,9 +670,9 @@ mod tests {
             .next_call(matching!(_))
             .returns(Ok(IpfsPeerInfo {
                 index: -1,
-                peer_id: "peer_id_0".to_owned(),
+                peer_id: "cas_peer_id".to_owned(),
                 ipfs_rpc_addr: "http://cas-ipfs:5001".to_owned(),
-                p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
+                p2p_addrs: vec!["/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id".to_owned()],
             }))
     }
 
@@ -692,6 +698,7 @@ mod tests {
         timeout_after_1s(mocksrv).await;
     }
     #[tokio::test]
+    #[traced_test]
     async fn reconcile_two_peers() {
         // Setup network spec and status
         let network = Network::test()
@@ -707,7 +714,6 @@ mod tests {
             });
         // Setup peer info
         let mock_rpc_client = Unimock::new((
-            mock_cas_peer_info_not_ready(),
             IpfsRpcClientMock::peer_info
                 .next_call(matching!(_))
                 .returns(Ok(IpfsPeerInfo {
@@ -723,6 +729,138 @@ mod tests {
                     peer_id: "peer_id_1".to_owned(),
                     ipfs_rpc_addr: "http://peer1:5001".to_owned(),
                     p2p_addrs: vec!["/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1".to_owned()],
+                })),
+            mock_cas_peer_info_ready(),
+        ));
+        let mut stub = Stub::default().with_network(network.clone());
+        // Patch expected request values
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -17,7 +17,7 @@
+                   },
+                   "spec": {
+                     "podManagementPolicy": "Parallel",
+            -        "replicas": 0,
+            +        "replicas": 2,
+                     "selector": {
+                       "matchLabels": {
+                         "app": "ceramic"
+        "#]]);
+        stub.keramik_peers_configmap.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "apiVersion": "v1",
+                   "kind": "ConfigMap",
+                   "data": {
+            -        "peers.json": "[]"
+            +        "peers.json": "[{\"ceramic\":{\"index\":0,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"index\":1,\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"index\":-1,\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+                   },
+                   "metadata": {
+                     "labels": {
+        "#]]);
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -7,10 +7,43 @@
+                 },
+                 body: {
+                   "status": {
+            -        "replicas": 0,
+            -        "readyReplicas": 0,
+            -        "namespace": null,
+            -        "peers": []
+            +        "replicas": 2,
+            +        "readyReplicas": 2,
+            +        "namespace": "keramik-test",
+            +        "peers": [
+            +          {
+            +            "ceramic": {
+            +              "index": 0,
+            +              "peerId": "peer_id_0",
+            +              "ipfsRpcAddr": "http://peer0:5001",
+            +              "ceramicAddr": "http://ceramic-0.ceramic.keramik-test.svc.cluster.local:7007",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
+            +              ]
+            +            }
+            +          },
+            +          {
+            +            "ceramic": {
+            +              "index": 1,
+            +              "peerId": "peer_id_1",
+            +              "ipfsRpcAddr": "http://peer1:5001",
+            +              "ceramicAddr": "http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
+            +              ]
+            +            }
+            +          },
+            +          {
+            +            "ipfs": {
+            +              "index": -1,
+            +              "peerId": "cas_peer_id",
+            +              "ipfsRpcAddr": "http://cas-ipfs:5001",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
+            +              ]
+            +            }
+            +          }
+            +        ]
+                   }
+                 },
+             }
+        "#]]);
+        stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_two_peers_twice() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                replicas: 2,
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                replicas: 2,
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                peers: vec![],
+            });
+        // Setup peer info
+        let mock_rpc_client = Unimock::new((
+            IpfsRpcClientMock::peer_info
+                .next_call(matching!(_))
+                .returns(Ok(IpfsPeerInfo {
+                    index: 0,
+                    peer_id: "peer_id_0".to_owned(),
+                    ipfs_rpc_addr: "http://peer0:5001".to_owned(),
+                    p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
+                })),
+            IpfsRpcClientMock::peer_info
+                .next_call(matching!(_))
+                .returns(Ok(IpfsPeerInfo {
+                    index: 1,
+                    peer_id: "peer_id_1".to_owned(),
+                    ipfs_rpc_addr: "http://peer1:5001".to_owned(),
+                    p2p_addrs: vec!["/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1".to_owned()],
+                })),
+            IpfsRpcClientMock::peer_info
+                .next_call(matching!(_))
+                .returns(Ok(IpfsPeerInfo {
+                    index: -1,
+                    peer_id: "cas_peer_id".to_owned(),
+                    ipfs_rpc_addr: "http://cas_peer:5001".to_owned(),
+                    p2p_addrs: vec!["/ip4/10.0.0.2/tcp/4001/p2p/cas_peer_id".to_owned()],
                 })),
         ));
         let mut stub = Stub::default().with_network(network.clone());
@@ -748,7 +886,7 @@ mod tests {
                    "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ceramic\":{\"index\":0,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ipfs\":{\"index\":1,\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}}]"
+            +        "peers.json": "[{\"ceramic\":{\"index\":0,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"index\":1,\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"index\":-1,\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas_peer:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "metadata": {
                      "labels": {
@@ -756,7 +894,7 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,32 @@
+            @@ -7,10 +7,43 @@
                  },
                  body: {
                    "status": {
@@ -765,7 +903,7 @@ mod tests {
             -        "namespace": null,
             -        "peers": []
             +        "replicas": 2,
-            +        "readyReplicas": 1,
+            +        "readyReplicas": 2,
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
@@ -773,19 +911,30 @@ mod tests {
             +              "index": 0,
             +              "peerId": "peer_id_0",
             +              "ipfsRpcAddr": "http://peer0:5001",
-            +              "ceramicAddr": "http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007",
+            +              "ceramicAddr": "http://ceramic-0.ceramic.keramik-test.svc.cluster.local:7007",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
             +              ]
             +            }
             +          },
             +          {
-            +            "ipfs": {
+            +            "ceramic": {
             +              "index": 1,
             +              "peerId": "peer_id_1",
             +              "ipfsRpcAddr": "http://peer1:5001",
+            +              "ceramicAddr": "http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
+            +              ]
+            +            }
+            +          },
+            +          {
+            +            "ipfs": {
+            +              "index": -1,
+            +              "peerId": "cas_peer_id",
+            +              "ipfsRpcAddr": "http://cas_peer:5001",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.2/tcp/4001/p2p/cas_peer_id"
             +              ]
             +            }
             +          }
@@ -795,12 +944,114 @@ mod tests {
              }
         "#]]);
         stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
+
+        let network = {
+            let (testctx, api_handle) = Context::test(mock_rpc_client);
+            let fakeserver = ApiServerVerifier::new(api_handle);
+            let mocksrv = stub.run(fakeserver);
+            reconcile(Arc::new(network), testctx.clone())
+                .await
+                .expect("reconciler first");
+            timeout_after_1s(mocksrv).await
+        };
+
+        debug!(?network, "network after one reconcile");
+
+        //Setup peer info and stub for second pass.
+
+        // Setup peer info
+        let mock_rpc_client = Unimock::new((
+            // We should not get anymore calls since we know the information for all peers
+        ));
+
+        let mut stub = Stub::default().with_network(network.clone());
+        // Patch expected request values
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -17,7 +17,7 @@
+                   },
+                   "spec": {
+                     "podManagementPolicy": "Parallel",
+            -        "replicas": 0,
+            +        "replicas": 2,
+                     "selector": {
+                       "matchLabels": {
+                         "app": "ceramic"
+        "#]]);
+        stub.keramik_peers_configmap.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "apiVersion": "v1",
+                   "kind": "ConfigMap",
+                   "data": {
+            -        "peers.json": "[]"
+            +        "peers.json": "[{\"ceramic\":{\"index\":0,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"index\":1,\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"index\":-1,\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas_peer:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/cas_peer_id\"]}}]"
+                   },
+                   "metadata": {
+                     "labels": {
+        "#]]);
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -7,10 +7,43 @@
+                 },
+                 body: {
+                   "status": {
+            -        "replicas": 0,
+            -        "readyReplicas": 0,
+            -        "namespace": null,
+            -        "peers": []
+            +        "replicas": 2,
+            +        "readyReplicas": 3,
+            +        "namespace": "keramik-test",
+            +        "peers": [
+            +          {
+            +            "ceramic": {
+            +              "index": 0,
+            +              "peerId": "peer_id_0",
+            +              "ipfsRpcAddr": "http://peer0:5001",
+            +              "ceramicAddr": "http://ceramic-0.ceramic.keramik-test.svc.cluster.local:7007",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
+            +              ]
+            +            }
+            +          },
+            +          {
+            +            "ceramic": {
+            +              "index": 1,
+            +              "peerId": "peer_id_1",
+            +              "ipfsRpcAddr": "http://peer1:5001",
+            +              "ceramicAddr": "http://ceramic-1.ceramic.keramik-test.svc.cluster.local:7007",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
+            +              ]
+            +            }
+            +          },
+            +          {
+            +            "ipfs": {
+            +              "index": -1,
+            +              "peerId": "cas_peer_id",
+            +              "ipfsRpcAddr": "http://cas_peer:5001",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.2/tcp/4001/p2p/cas_peer_id"
+            +              ]
+            +            }
+            +          }
+            +        ]
+                   }
+                 },
+             }
+        "#]]);
+        stub.bootstrap_job = Some(expect_file!["./testdata/bootstrap_job_two_peers"]);
+
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await
-            .expect("reconciler");
+            .expect("reconciler second");
         timeout_after_1s(mocksrv).await;
     }
     #[tokio::test]
@@ -818,7 +1069,7 @@ mod tests {
                    "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ipfs\":{\"index\":-1,\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}}]"
+            +        "peers.json": "[{\"ipfs\":{\"index\":-1,\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "metadata": {
                      "labels": {
@@ -836,10 +1087,10 @@ mod tests {
             +          {
             +            "ipfs": {
             +              "index": -1,
-            +              "peerId": "peer_id_0",
+            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
-            +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
+            +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
             +              ]
             +            }
             +          }

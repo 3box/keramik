@@ -32,7 +32,7 @@ where
     }
 }
 
-pub async fn timeout_after_1s(handle: tokio::task::JoinHandle<()>) {
+pub async fn timeout_after_1s<T>(handle: tokio::task::JoinHandle<T>) -> T {
     tokio::time::timeout(std::time::Duration::from_secs(1), handle)
         .await
         .expect("timeout on mock apiserver")
@@ -57,7 +57,7 @@ impl ApiServerVerifier {
         &mut self,
         expected_request: impl Expectation,
         resource: R,
-    ) -> Result<()>
+    ) -> Result<R>
     where
         R: WithStatus + Serialize,
         <R as WithStatus>::Status: for<'de> Deserialize<'de>,
@@ -80,7 +80,7 @@ impl ApiServerVerifier {
                 .body(Body::from(response))
                 .unwrap(),
         );
-        Ok(())
+        Ok(resource)
     }
 
     pub async fn handle_apply(&mut self, expected_request: impl Expectation) -> Result<()> {

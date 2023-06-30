@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -96,10 +97,14 @@ impl Scenario {
 pub async fn simulate(opts: Opts) -> Result<()> {
     let mut metrics = Metrics::init(&opts)?;
 
-    let peers = parse_peers_info(opts.peers).await?;
+    let peers: BTreeMap<PeerIdx, Peer> = parse_peers_info(opts.peers)
+        .await?
+        .into_iter()
+        .filter(|(_, peer)| matches!(peer, Peer::Ceramic(_)))
+        .collect();
 
     if opts.users % peers.len() != 0 {
-        bail!("number of users must be a multiple of the number of peers, this ensures we can deterministically identifiy each user")
+        bail!("number of users {} must be a multiple of the number of peers {}, this ensures we can deterministically identifiy each user", opts.users, peers.len())
     }
     // We assume exactly one worker per peer.
     // This allows us to be deterministic in how each user operates.

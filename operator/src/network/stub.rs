@@ -144,106 +144,109 @@ impl Stub {
     /// You should await the `JoinHandle` (with a timeout) from this function to ensure that the
     /// stub runs to completion (i.e. all expected calls were responded to),
     /// using the timeout to catch missing api calls to Kubernetes.
-    pub fn run(self, mut fakeserver: ApiServerVerifier) -> tokio::task::JoinHandle<()> {
-        tokio::spawn(async move {
-            // We need to handle each expected call in sequence
-            fakeserver
-                .handle_apply(self.namespace)
-                .await
-                .expect("namespace should apply");
-            // Run/skip all CAS-related configuration
-            if self.postgres_auth_secret.2 {
-                fakeserver
-                    .handle_request_response(
-                        self.postgres_auth_secret.0,
-                        Some(&self.postgres_auth_secret.1),
-                    )
-                    .await
-                    .expect("postgres-auth secret should exist");
-                fakeserver
-                    .handle_apply(self.cas_service)
-                    .await
-                    .expect("cas service should apply");
-                fakeserver
-                    .handle_apply(self.cas_ipfs_service)
-                    .await
-                    .expect("cas-ipfs service should apply");
-                fakeserver
-                    .handle_apply(self.ganache_service)
-                    .await
-                    .expect("ganache service should apply");
-                fakeserver
-                    .handle_apply(self.cas_postgres_service)
-                    .await
-                    .expect("cas-postgres service should apply");
-                fakeserver
-                    .handle_apply(self.cas_stateful_set)
-                    .await
-                    .expect("cas stateful set should apply");
-                fakeserver
-                    .handle_apply(self.cas_ipfs_stateful_set)
-                    .await
-                    .expect("cas-ipfs stateful set should apply");
-                fakeserver
-                    .handle_apply(self.ganache_stateful_set)
-                    .await
-                    .expect("ganache stateful set should apply");
-                fakeserver
-                    .handle_apply(self.cas_postgres_stateful_set)
-                    .await
-                    .expect("cas-postgres stateful set should apply");
-            }
+    pub fn run(self, fakeserver: ApiServerVerifier) -> tokio::task::JoinHandle<Network> {
+        tokio::spawn(self._run(fakeserver))
+    }
+
+    // Use explicit function since async closures are not yet supported
+    async fn _run(self, mut fakeserver: ApiServerVerifier) -> Network {
+        // We need to handle each expected call in sequence
+        fakeserver
+            .handle_apply(self.namespace)
+            .await
+            .expect("namespace should apply");
+        // Run/skip all CAS-related configuration
+        if self.postgres_auth_secret.2 {
             fakeserver
                 .handle_request_response(
-                    self.ceramic_admin_secret_missing.0,
-                    self.ceramic_admin_secret_missing.1.as_ref(),
+                    self.postgres_auth_secret.0,
+                    Some(&self.postgres_auth_secret.1),
                 )
                 .await
-                .expect("ceramic-admin secret should be looked up");
-            if let Some(step) = self.ceramic_admin_secret_source {
-                fakeserver
-                    .handle_request_response(step.0, step.1.as_ref())
-                    .await
-                    .expect("ceramic-admin source secret should be found");
-                if step.2 {
-                    // skip the remainder of processing because this is an error case
-                    return;
-                }
-            }
-            if let Some(step) = self.ceramic_admin_secret {
-                fakeserver
-                    .handle_request_response(step.0, step.1.as_ref())
-                    .await
-                    .expect("ceramic-admin secret should be created");
-            }
-            for cm in self.ceramic_configmaps {
-                fakeserver
-                    .handle_apply(cm)
-                    .await
-                    .expect("ceramic configmap should apply");
-            }
+                .expect("postgres-auth secret should exist");
             fakeserver
-                .handle_apply(self.ceramic_service)
+                .handle_apply(self.cas_service)
                 .await
-                .expect("ceramic service should apply");
+                .expect("cas service should apply");
             fakeserver
-                .handle_apply(self.ceramic_stateful_set)
+                .handle_apply(self.cas_ipfs_service)
                 .await
-                .expect("ceramic stateful set should apply");
+                .expect("cas-ipfs service should apply");
             fakeserver
-                .handle_apply(self.keramik_peers_configmap)
+                .handle_apply(self.ganache_service)
                 .await
-                .expect("keramik-peers configmap should apply");
-            if let Some(bootstrap_job) = self.bootstrap_job {
-                fakeserver
-                    .handle_apply(bootstrap_job)
-                    .await
-                    .expect("bootstrap job should apply");
+                .expect("ganache service should apply");
+            fakeserver
+                .handle_apply(self.cas_postgres_service)
+                .await
+                .expect("cas-postgres service should apply");
+            fakeserver
+                .handle_apply(self.cas_stateful_set)
+                .await
+                .expect("cas stateful set should apply");
+            fakeserver
+                .handle_apply(self.cas_ipfs_stateful_set)
+                .await
+                .expect("cas-ipfs stateful set should apply");
+            fakeserver
+                .handle_apply(self.ganache_stateful_set)
+                .await
+                .expect("ganache stateful set should apply");
+            fakeserver
+                .handle_apply(self.cas_postgres_stateful_set)
+                .await
+                .expect("cas-postgres stateful set should apply");
+        }
+        fakeserver
+            .handle_request_response(
+                self.ceramic_admin_secret_missing.0,
+                self.ceramic_admin_secret_missing.1.as_ref(),
+            )
+            .await
+            .expect("ceramic-admin secret should be looked up");
+        if let Some(step) = self.ceramic_admin_secret_source {
+            fakeserver
+                .handle_request_response(step.0, step.1.as_ref())
+                .await
+                .expect("ceramic-admin source secret should be found");
+            if step.2 {
+                // skip the remainder of processing because this is an error case
+                return self.network;
             }
+        }
+        if let Some(step) = self.ceramic_admin_secret {
             fakeserver
-                .handle_patch_status(self.status, self.network.clone())
+                .handle_request_response(step.0, step.1.as_ref())
                 .await
-                .expect("status should patch");
-        })
+                .expect("ceramic-admin secret should be created");
+        }
+        for cm in self.ceramic_configmaps {
+            fakeserver
+                .handle_apply(cm)
+                .await
+                .expect("ceramic configmap should apply");
+        }
+        fakeserver
+            .handle_apply(self.ceramic_service)
+            .await
+            .expect("ceramic service should apply");
+        fakeserver
+            .handle_apply(self.ceramic_stateful_set)
+            .await
+            .expect("ceramic stateful set should apply");
+        fakeserver
+            .handle_apply(self.keramik_peers_configmap)
+            .await
+            .expect("keramik-peers configmap should apply");
+        if let Some(bootstrap_job) = self.bootstrap_job {
+            fakeserver
+                .handle_apply(bootstrap_job)
+                .await
+                .expect("bootstrap job should apply");
+        }
+        fakeserver
+            .handle_patch_status(self.status, self.network.clone())
+            .await
+            .expect("status should patch")
     }
 }

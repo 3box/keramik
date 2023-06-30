@@ -236,7 +236,13 @@ async fn get_num_peers(
     let map = config_maps.get(PEERS_CONFIG_MAP_NAME).await?;
     let data = map.data.unwrap();
     let value = data.get(PEERS_MAP_KEY).unwrap();
-    let peers: Vec<Peer> = serde_json::from_str(value).unwrap();
+    let peers: Vec<Peer> = serde_json::from_str::<Vec<Peer>>(value)
+        .unwrap()
+        .into_iter()
+        .filter(|peer| matches!(peer, Peer::Ceramic(_)))
+        .collect();
+
+    debug!(peers = peers.len(), "get_num_peers");
     Ok(peers.len() as u32)
 }
 

@@ -20,8 +20,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::network::{
     controller::{
-        CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
-        CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+        CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_LOCAL_NETWORK_TYPE, CERAMIC_SERVICE_API_PORT,
+        CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME,
+        INIT_CONFIG_MAP_NAME,
     },
     utils::{ResourceLimitsConfig, ResourceLimitsSpec},
 };
@@ -137,9 +138,13 @@ pub struct CeramicSpec {
     /// Name of secret containing the private key used for signing anchor requests and generating
     /// the Admin DID.
     pub private_key_secret: Option<String>,
-    /// Ceramic network to use.
-    pub network: Option<CeramicNetwork>,
-    /// URL for Ceramic Anchor Service (CAS).
+    /// Ceramic network type
+    pub network_type: Option<String>,
+    /// PubSub topic for Ceramic nodes to use
+    pub pubsub_topic: Option<String>,
+    /// Ethereum RPC URL for Ceramic nodes to use for verifying anchors
+    pub eth_rpc_url: Option<String>,
+    /// URL for Ceramic Anchor Service (CAS)
     pub cas_api_url: Option<String>,
 }
 
@@ -166,26 +171,14 @@ pub enum IpfsKind {
     Go,
 }
 
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "kebab-case")]
-pub enum CeramicNetwork {
-    #[default]
-    Local,
-    DevUnstable,
-}
-
 pub struct CeramicConfig {
     pub init_config_map: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
-    pub network_config: CeramicNetworkConfig,
-    pub cas_api_url: String,
-}
-
-pub struct CeramicNetworkConfig {
-    pub network: String,
-    pub network_topic: String,
+    pub network_type: String,
+    pub pubsub_topic: String,
     pub eth_rpc_url: String,
+    pub cas_api_url: String,
 }
 
 pub enum IpfsConfig {
@@ -284,16 +277,6 @@ impl From<IpfsSpec> for GoIpfsConfig {
     }
 }
 
-impl Default for CeramicNetworkConfig {
-    fn default() -> Self {
-        Self {
-            network: "local".to_owned(),
-            network_topic: "/ceramic/local-keramik".to_owned(),
-            eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
-        }
-    }
-}
-
 impl Default for CeramicConfig {
     fn default() -> Self {
         Self {
@@ -304,7 +287,9 @@ impl Default for CeramicConfig {
                 memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
-            network_config: CeramicNetworkConfig::default(),
+            network_type: CERAMIC_LOCAL_NETWORK_TYPE.to_owned(),
+            pubsub_topic: "/ceramic/local-keramik".to_owned(),
+            eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
             cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
         }
     }
@@ -314,21 +299,6 @@ impl From<Option<CeramicSpec>> for CeramicConfig {
         match value {
             Some(spec) => spec.into(),
             None => CeramicConfig::default(),
-        }
-    }
-}
-
-impl From<CeramicNetwork> for CeramicNetworkConfig {
-    fn from(value: CeramicNetwork) -> Self {
-        match value {
-            CeramicNetwork::DevUnstable => Self {
-                network: "dev-unstable".to_owned(),
-                // The pubsub topic cannot be specified when the network is anything other than "local" or "inmemory"
-                network_topic: "".to_owned(),
-                // We don't need an Ethereum RPC URL when testing against a CAS node outside of the cluster
-                eth_rpc_url: "".to_owned(),
-            },
-            _ => Self::default(),
         }
     }
 }
@@ -343,10 +313,9 @@ impl From<CeramicSpec> for CeramicConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
-            network_config: value
-                .network
-                .map(Into::into)
-                .unwrap_or(default.network_config),
+            network_type: value.network_type.unwrap_or(default.network_type),
+            pubsub_topic: value.pubsub_topic.unwrap_or(default.pubsub_topic),
+            eth_rpc_url: value.eth_rpc_url.unwrap_or(default.eth_rpc_url),
             cas_api_url: value.cas_api_url.unwrap_or(default.cas_api_url),
         }
     }
@@ -528,17 +497,17 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
     let ceramic_env = vec![
         EnvVar {
             name: "CERAMIC_NETWORK".to_owned(),
-            value: Some(config.network_config.network),
+            value: Some(config.network_type),
             ..Default::default()
         },
         EnvVar {
             name: "CERAMIC_NETWORK_TOPIC".to_owned(),
-            value: Some(config.network_config.network_topic),
+            value: Some(config.pubsub_topic),
             ..Default::default()
         },
         EnvVar {
             name: "ETH_RPC_URL".to_owned(),
-            value: Some(config.network_config.eth_rpc_url),
+            value: Some(config.eth_rpc_url),
             ..Default::default()
         },
         EnvVar {

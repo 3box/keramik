@@ -30,10 +30,10 @@ use tracing::{debug, error, trace};
 use crate::network::{
     bootstrap,
     cas::{self, CasSpec},
-    ceramic::{self, CeramicConfig, CeramicNetwork},
+    ceramic::{self, CeramicConfig},
     peers,
     utils::{ceramic_addr, ceramic_peer_ipfs_rpc_addr, HttpRpcClient, IpfsRpcClient},
-    BootstrapSpec, CeramicSpec, Network, NetworkStatus,
+    BootstrapSpec, Network, NetworkStatus,
 };
 
 use crate::utils::{
@@ -155,6 +155,7 @@ pub const CAS_APP: &str = "cas";
 pub const CAS_POSTGRES_APP: &str = "cas-postgres";
 pub const CAS_IPFS_APP: &str = "cas-ipfs";
 pub const GANACHE_APP: &str = "ganache";
+pub const CERAMIC_LOCAL_NETWORK_TYPE: &str = "local";
 
 pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 
@@ -175,13 +176,8 @@ async fn reconcile(
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
     // Only create CAS resources if the Ceramic network was "local"
-    let ceramic_network = spec
-        .ceramic
-        .clone()
-        .unwrap_or_default()
-        .network
-        .unwrap_or_default();
-    if ceramic_network == CeramicNetwork::Local {
+    let ceramic_config: CeramicConfig = spec.ceramic.clone().into();
+    if ceramic_config.network_type == CERAMIC_LOCAL_NETWORK_TYPE {
         apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone()).await?;
     }
 
@@ -190,7 +186,12 @@ async fn reconcile(
         &ns,
         network.clone(),
         spec.replicas,
-        spec.ceramic.clone(),
+        spec.ceramic
+            .clone()
+            .unwrap_or_default()
+            .private_key_secret
+            .as_ref(),
+        ceramic_config,
     )
     .await?;
 
@@ -414,19 +415,12 @@ async fn apply_ceramic(
     ns: &str,
     network: Arc<Network>,
     replicas: i32,
-    spec: Option<CeramicSpec>,
+    source_secret_name: Option<&String>,
+    config: CeramicConfig,
 ) -> Result<(), kube::error::Error> {
     if is_admin_secret_missing(cx.clone(), ns).await? {
-        create_admin_secret(
-            cx.clone(),
-            ns,
-            network.clone(),
-            spec.clone().unwrap_or_default().private_key_secret.as_ref(),
-        )
-        .await?;
+        create_admin_secret(cx.clone(), ns, network.clone(), source_secret_name).await?;
     }
-
-    let config: CeramicConfig = spec.into();
 
     let config_maps = ceramic::config_maps(&config);
     let orefs: Vec<_> = network
@@ -637,7 +631,7 @@ mod test {
     use crate::{
         network::{
             cas::CasSpec,
-            ceramic::{CeramicNetwork, IpfsKind, IpfsSpec},
+            ceramic::{IpfsKind, IpfsSpec},
             stub::{default_ipfs_rpc_mock, mock_cas_peer_info_not_ready, mock_cas_peer_info_ready},
             stub::{timeout_after_1s, Stub},
             utils::{ResourceLimitsSpec, RpcClientMock},
@@ -1586,8 +1580,11 @@ mod test {
         let network = Network::test()
             .with_spec(NetworkSpec {
                 ceramic: Some(CeramicSpec {
-                    network: Some(CeramicNetwork::DevUnstable),
-                    cas_api_url: Some(format!("https://some-external-cas.com:8080")),
+                    network_type: Some("dev-unstable".to_owned()),
+                    cas_api_url: Some("https://some-external-cas.com:8080".to_owned()),
+                    // Explicitly clear the PubSub topic and Ethereum RPC endpoint from the Ceramic configuration
+                    pubsub_topic: Some("".to_owned()),
+                    eth_rpc_url: Some("".to_owned()),
                     ..Default::default()
                 }),
                 ..Default::default()

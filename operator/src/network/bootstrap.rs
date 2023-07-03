@@ -1,11 +1,8 @@
-use k8s_openapi::{
-    api::{
-        batch::v1::JobSpec,
-        core::v1::{
-            ConfigMapVolumeSource, Container, EnvVar, PodSpec, PodTemplateSpec, Volume, VolumeMount,
-        },
+use k8s_openapi::api::{
+    batch::v1::JobSpec,
+    core::v1::{
+        ConfigMapVolumeSource, Container, EnvVar, PodSpec, PodTemplateSpec, Volume, VolumeMount,
     },
-    apimachinery::pkg::util::intstr::IntOrString,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
@@ -16,9 +13,6 @@ use crate::network::controller::PEERS_CONFIG_MAP_NAME;
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BootstrapSpec {
-    /// Percent (0-100) of peers that must be ready before bootstrapping begins.
-    /// Defaults to 100%.
-    pub percent: Option<IntOrString>,
     /// Image of the runner for the bootstrap job.
     pub image: Option<String>,
     /// Image pull policy for the bootstrap job.

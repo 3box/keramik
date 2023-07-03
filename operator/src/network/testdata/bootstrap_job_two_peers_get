@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/apis/batch/v1/namespaces/keramik-test/jobs/bootstrap",
+    headers: {},
+    body: ,
+}

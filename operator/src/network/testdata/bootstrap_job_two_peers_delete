@@ -1,0 +1,10 @@
+Request {
+    method: "DELETE",
+    uri: "/apis/batch/v1/namespaces/keramik-test/jobs/bootstrap?",
+    headers: {
+        "content-type": "application/json",
+    },
+    body: {
+      "propagationPolicy": "Foreground"
+    },
+}

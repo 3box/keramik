@@ -2,7 +2,7 @@
 
 use expect_patch::ExpectPatch;
 use expect_test::{expect_file, ExpectFile};
-use k8s_openapi::api::core::v1::Secret;
+use k8s_openapi::api::{batch::v1::Job, core::v1::Secret};
 
 use crate::{
     network::{Network, NetworkSpec, NetworkStatus},
@@ -67,7 +67,7 @@ pub struct Stub {
     pub cas_postgres_stateful_set: ExpectPatch<ExpectFile>,
     pub ceramic_configmaps: Vec<ExpectPatch<ExpectFile>>,
     pub ceramic_service: ExpectPatch<ExpectFile>,
-    pub bootstrap_job: Option<ExpectFile>,
+    pub bootstrap_job: Vec<(ExpectFile, Option<Job>)>,
 }
 
 impl Default for Stub {
@@ -126,7 +126,7 @@ impl Default for Stub {
             ]
             .into()],
             ceramic_service: expect_file!["./testdata/default_stubs/ceramic_service"].into(),
-            bootstrap_job: None,
+            bootstrap_job: vec![],
         }
     }
 }
@@ -238,9 +238,9 @@ impl Stub {
             .handle_apply(self.keramik_peers_configmap)
             .await
             .expect("keramik-peers configmap should apply");
-        if let Some(bootstrap_job) = self.bootstrap_job {
+        for (req, resp) in self.bootstrap_job {
             fakeserver
-                .handle_apply(bootstrap_job)
+                .handle_request_response(req, resp.as_ref())
                 .await
                 .expect("bootstrap job should apply");
         }

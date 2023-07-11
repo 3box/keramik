@@ -20,7 +20,7 @@ pub fn scenario() -> Result<Scenario, GooseError> {
     let update_large_model = transaction!(update_large_model).set_name("update_large_model");
 
     Ok(scenario!("CeramicWriteOnly")
-        .set_wait_time(Duration::from_millis(10), Duration::from_millis(100))?
+        .set_wait_time(Duration::from_millis(900), Duration::from_millis(1100))?
         .register_transaction(setup)
         .register_transaction(update_small_model)
         .register_transaction(update_large_model))

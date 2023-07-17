@@ -4,7 +4,6 @@ Keramik is a Kubernetes operator for simulating Ceramic networks.
 
 The `k8s` directory contains the kubernetes manifests for deploying Keramik.
 
-
 ## Setup Kubernetes
 
 Keramik can be used locally or via a cloud Kubernetes service.
@@ -39,19 +38,36 @@ While not required to use keramik it makes deploying and mutating networks signi
 kind create cluster --config kind.yaml
 ```
 
-### AWS EKS
+#### Deploy a Ceramic network
 
-Login to the EKS cluster using this [guide](https://docs.aws.amazon.com/eks/latest/userguide/create-kubeconfig.html)
-
-## Deploy a Ceramic network
-
-First we need to deploy keramik in order to create and manage a Ceramic network:
+Next we need to deploy keramik in order to create and manage a Ceramic network:
 
     kubectl create namespace keramik
     cargo run --bin crdgen | kubectl create -f - # Create CRDs
     kubectl apply -k ./k8s/operator/             # Start up keramik operator
 
+### AWS EKS
+
+#### Setup
+
+Requires
+ * eks - https://eksctl.io/introduction/#installation
+ * aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+
+Once these are installed, you will need to login with aws cli via sso
+
+    aws configure sso
+
+You will need to use `https://3box.awsapps.com/start/` for the sso url with region `us-east-2`. Use account 
+`Benchmarking` with role `AWSAdministratorAccess`. It is recommended to rename the profile to `keramik` or `benchmarking`.
+
+You can now find namespaces with  
+
+    aws eks update-kubeconfig --region=us-east-1 --profile=keramik --name=benchmarking-ceramic
+
+###
 With the operator running we can now define a Ceramic network.
+
 Place the following network definition into the file `small.yaml`.
 
 ```yaml
@@ -60,7 +76,7 @@ Place the following network definition into the file `small.yaml`.
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
-  name: small
+  name: <initials>-small
 spec:
   replicas: 2
 ```
@@ -72,14 +88,22 @@ Apply this network definition to the k8s cluster:
 After a minute or two you should have a functioning Ceramic network.
 Check the status of the network:
 
-    kubectl describe network small
+    kubectl describe network <initials>-small
 
-Keramik places each network into its own namespace named after the name of the network.
+Keramik places each network into its own namespace named after the name of the network. You can default your context
+to this namespace using:
+
+    kubectl config set-context --current --namespace=keramik-<initials>-small
+
 Inspect the pods within the network using:
 
-    kubectl -n keramik-small get pods
+    kubectl get pods
 
 >HINT: Use tools like [kubectx](https://github.com/ahmetb/kubectx) or [kubie](https://github.com/sbstp/kubie) to work with multiple namespaces and contexts.
+
+When you're finished, you can teardown your network with the following command:
+
+    kubectl delete network <initials>-small
 
 ### Specifying a Ceramic admin secret
 
@@ -342,12 +366,16 @@ Then navigate to http://localhost:9090 for metrics and http://localhost:16686 fo
 
 ## Analysis
 
-To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet file from the otel-0 pod.
-First restart otel-0 pod so it writes out the parquet file footer.
+First you will need to install a few things:
 
-    kubectl delete pod otel-0
-    kubectl exec otel-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
-    kubectl cp otel-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
+    pip install duckdb duckdb-engine pandas jupyter jupysql matplotlib
+    
+To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet file from the otel-0 pod.
+First restart opentelemetry-0 pod so it writes out the parquet file footer.
+
+    kubectl delete pod opentelemetry-0
+    kubectl exec opentelemetry-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
+    kubectl cp opentelemetry-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
     cd analyze
 
 Use duckdb to examine the data:
@@ -358,7 +386,6 @@ Use duckdb to examine the data:
 Alternatively start a jupyter notebook using `analyze/sim.ipynb`:
 
     jupyter notebook
-
 
 ## Comparing Simulation Runs
 

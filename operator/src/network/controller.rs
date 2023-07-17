@@ -28,6 +28,7 @@ use crate::network::{
     bootstrap,
     cas::{self, CasSpec},
     ceramic::{self, CeramicConfig},
+    datadog::DataDogConfig,
     peers,
     utils::{ceramic_addr, ceramic_peer_ipfs_rpc_addr, HttpRpcClient, IpfsRpcClient},
     BootstrapSpec, Network, NetworkStatus,
@@ -170,12 +171,14 @@ async fn reconcile(
         NetworkStatus::default()
     };
 
+    let datadog: DataDogConfig = (&spec.datadog).into();
+
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
     // Only create CAS resources if the Ceramic network was "local"
     let ceramic_config: CeramicConfig = spec.ceramic.clone().into();
     if ceramic_config.network_type == CERAMIC_LOCAL_NETWORK_TYPE {
-        apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone()).await?;
+        apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone(), &datadog).await?;
     }
 
     apply_ceramic(
@@ -188,6 +191,7 @@ async fn reconcile(
             .map(|spec| spec.private_key_secret.as_ref())
             .unwrap_or_default(),
         ceramic_config,
+        &datadog,
     )
     .await?;
 
@@ -253,6 +257,7 @@ async fn apply_cas(
     ns: &str,
     network: Arc<Network>,
     cas_spec: Option<CasSpec>,
+    datadog: &DataDogConfig,
 ) -> Result<(), kube::error::Error> {
     if is_cas_postgres_secret_missing(cx.clone(), ns).await? {
         create_cas_postgres_secret(cx.clone(), ns, network.clone()).await?;
@@ -300,7 +305,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas",
-        cas::cas_stateful_set_spec(cas_spec.clone()),
+        cas::cas_stateful_set_spec(ns, cas_spec.clone(), datadog),
     )
     .await?;
     apply_stateful_set(
@@ -406,6 +411,7 @@ async fn apply_ceramic(
     replicas: i32,
     source_secret_name: Option<&String>,
     config: CeramicConfig,
+    datadog: &DataDogConfig,
 ) -> Result<(), kube::error::Error> {
     if is_admin_secret_missing(cx.clone(), ns).await? {
         create_admin_secret(cx.clone(), ns, network.clone(), source_secret_name).await?;
@@ -422,7 +428,7 @@ async fn apply_ceramic(
     }
 
     apply_ceramic_service(cx.clone(), ns, network.clone()).await?;
-    apply_ceramic_stateful_set(cx.clone(), ns, network.clone(), replicas, config).await?;
+    apply_ceramic_stateful_set(cx.clone(), ns, network.clone(), replicas, config, datadog).await?;
 
     Ok(())
 }
@@ -446,8 +452,9 @@ async fn apply_ceramic_stateful_set(
     network: Arc<Network>,
     replicas: i32,
     config: CeramicConfig,
+    datadog: &DataDogConfig,
 ) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
-    let spec = ceramic::stateful_set_spec(replicas, config);
+    let spec = ceramic::stateful_set_spec(ns, replicas, config, datadog);
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
@@ -634,6 +641,7 @@ mod tests {
         network::{
             cas::CasSpec,
             ceramic::{GoIpfsSpec, IpfsSpec, RustIpfsSpec},
+            datadog::DataDogSpec,
             stub::Stub,
             utils::{IpfsRpcClientMock, PeerStatus, ResourceLimitsSpec},
             CeramicSpec, NetworkSpec, NetworkStatus,
@@ -1927,7 +1935,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -120,8 +120,8 @@
+            @@ -122,8 +122,8 @@
                                  }
                                }
                              ],
@@ -2001,7 +2009,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -130,12 +130,12 @@
+            @@ -132,12 +132,12 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2428,6 +2436,121 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
+            @@ -257,8 +257,8 @@
+                                 "value": "2"
+                               }
+                             ],
+            -                "image": "ceramicnetwork/composedb:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "ceramic:foo",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "name": "init-ceramic-config",
+                             "resources": {
+                               "limits": {
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn datadog() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            datadog: Some(DataDogSpec {
+                enabled: Some(true),
+                version: Some("test".to_owned()),
+                profiling_enabled: Some(true),
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramic_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -27,11 +27,16 @@
+                     "template": {
+                       "metadata": {
+                         "annotations": {
+            +              "admission.datadoghq.com/js-lib.version": "latest",
+                           "prometheus/path": "/metrics"
+                         },
+                         "labels": {
+            +              "admission.datadoghq.com/enabled": "true",
+                           "app": "ceramic",
+            -              "managed-by": "keramik"
+            +              "managed-by": "keramik",
+            +              "tags.datadoghq.com/env": "keramik-test",
+            +              "tags.datadoghq.com/service": "ceramic",
+            +              "tags.datadoghq.com/version": "test"
+                         }
+                       },
+                       "spec": {
+            @@ -79,6 +84,18 @@
+                               {
+                                 "name": "CERAMIC_LOG_LEVEL",
+                                 "value": "2"
+            +                  },
+            +                  {
+            +                    "name": "DD_AGENT_HOST",
+            +                    "valueFrom": {
+            +                      "fieldRef": {
+            +                        "fieldPath": "status.hostIP"
+            +                      }
+            +                    }
+            +                  },
+            +                  {
+            +                    "name": "DD_PROFILING_ENABLED",
+            +                    "value": "true"
+                               }
+                             ],
+                             "image": "ceramicnetwork/composedb:latest",
+        "#]]);
+        stub.cas_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -25,10 +25,16 @@
+                     "serviceName": "cas",
+                     "template": {
+                       "metadata": {
+            -            "annotations": {},
+            +            "annotations": {
+            +              "admission.datadoghq.com/js-lib.version": "latest"
+            +            },
+                         "labels": {
+            +              "admission.datadoghq.com/enabled": "true",
+                           "app": "cas",
+            -              "managed-by": "keramik"
+            +              "managed-by": "keramik",
+            +              "tags.datadoghq.com/env": "keramik-test",
+            +              "tags.datadoghq.com/service": "cas",
+            +              "tags.datadoghq.com/version": "test"
+                         }
+                       },
+                       "spec": {
+            @@ -120,6 +126,18 @@
+                                     "name": "postgres-auth"
+                                   }
+                                 }
+            +                  },
+            +                  {
+            +                    "name": "DD_AGENT_HOST",
+            +                    "valueFrom": {
+            +                      "fieldRef": {
+            +                        "fieldPath": "status.hostIP"
+            +                      }
+            +                    }
+            +                  },
+            +                  {
+            +                    "name": "DD_PROFILING_ENABLED",
+            +                    "value": "true"
+                               }
+                             ],
+                             "image": "ceramicnetwork/ceramic-anchor-service:latest",
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

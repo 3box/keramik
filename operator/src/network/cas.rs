@@ -18,12 +18,16 @@ use kube::core::ObjectMeta;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-use crate::network::{
-    controller::{
-        CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
-        CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
+use crate::{
+    network::{
+        controller::{
+            CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP,
+            CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
+        },
+        datadog::DataDogConfig,
+        utils::{ResourceLimitsConfig, ResourceLimitsSpec},
     },
-    utils::{ResourceLimitsConfig, ResourceLimitsSpec},
+    utils::managed_labels,
 };
 
 use crate::utils::selector_labels;
@@ -121,231 +125,202 @@ impl From<CasSpec> for CasConfig {
 }
 
 // TODO make this a deployment
-pub fn cas_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+pub fn cas_stateful_set_spec(
+    ns: &str,
+    config: impl Into<CasConfig>,
+    datadog: &DataDogConfig,
+) -> StatefulSetSpec {
     let config = config.into();
+    let mut env = vec![
+        EnvVar {
+            name: "NODE_ENV".to_owned(),
+            value: Some("dev".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ANCHOR_EXPIRATION_PERIOD".to_owned(),
+            value: Some("300000".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ANCHOR_SCHEDULE_EXPRESSION".to_owned(),
+            value: Some("0/1 * * * ? *".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "APP_MODE".to_owned(),
+            value: Some("bundled".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "APP_PORT".to_owned(),
+            value: Some("8081".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "BLOCKCHAIN_CONNECTOR".to_owned(),
+            value: Some("ethereum".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_NETWORK".to_owned(),
+            value: Some("ganache".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_RPC_URL".to_owned(),
+            value: Some("http://ganache:8545".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_WALLET_PK".to_owned(),
+            value: Some(
+                "0x16dd0990d19001c50eeea6d32e8fdeef40d3945962caf18c18c3930baa5a6ec9".to_owned(),
+            ),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_CONTRACT_ADDRESS".to_owned(),
+            value: Some("0xD3f84Cf6Be3DD0EB16dC89c972f7a27B441A39f2".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "IPFS_API_URL".to_owned(),
+            value: Some(format!("http://{CAS_IPFS_SERVICE_NAME}:5001")),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "IPFS_PUBSUB_TOPIC".to_owned(),
+            value: Some("local".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "LOG_LEVEL".to_owned(),
+            value: Some("debug".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "MERKLE_DEPTH_LIMIT".to_owned(),
+            value: Some("0".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "VALIDATE_RECORDS".to_owned(),
+            value: Some("false".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "DB_NAME".to_owned(),
+            value: Some("anchor_db".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "DB_HOST".to_owned(),
+            value: Some(CAS_POSTGRES_SERVICE_NAME.to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "DB_USERNAME".to_owned(),
+            value_from: Some(EnvVarSource {
+                secret_key_ref: Some(SecretKeySelector {
+                    key: "username".to_owned(),
+                    name: Some("postgres-auth".to_owned()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "DB_PASSWORD".to_owned(),
+            value_from: Some(EnvVarSource {
+                secret_key_ref: Some(SecretKeySelector {
+                    key: "password".to_owned(),
+                    name: Some("postgres-auth".to_owned()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+    ];
+
+    datadog.inject_env(&mut env);
+
     StatefulSetSpec {
-    replicas: Some( 1,),
-    selector: LabelSelector {
-        match_labels: selector_labels(CAS_APP),
-    ..Default::default()},
-    service_name: CAS_SERVICE_NAME.to_owned(),
-    template: PodTemplateSpec {
-        metadata: Some(
-            ObjectMeta {
-                labels:selector_labels(CAS_APP),
-            ..Default::default()},
-        ),
-        spec: Some(
-            PodSpec {
-                containers: vec![
-                    Container {
-                        env: Some(
-                            vec![
-                                EnvVar {
-                                    name: "NODE_ENV".to_owned(),
-                                    value: Some(
-                                        "dev".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "ANCHOR_EXPIRATION_PERIOD".to_owned(),
-                                    value: Some(
-                                        "300000".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "ANCHOR_SCHEDULE_EXPRESSION".to_owned(),
-                                    value: Some(
-                                        "0/1 * * * ? *".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "APP_MODE".to_owned(),
-                                    value: Some(
-                                        "bundled".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "APP_PORT".to_owned(),
-                                    value: Some(
-                                        "8081".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "BLOCKCHAIN_CONNECTOR".to_owned(),
-                                    value: Some(
-                                        "ethereum".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "ETH_NETWORK".to_owned(),
-                                    value: Some(
-                                        "ganache".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "ETH_RPC_URL".to_owned(),
-                                    value: Some(
-                                        "http://ganache:8545".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "ETH_WALLET_PK".to_owned(),
-                                    value: Some(
-                                        "0x16dd0990d19001c50eeea6d32e8fdeef40d3945962caf18c18c3930baa5a6ec9".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "ETH_CONTRACT_ADDRESS".to_owned(),
-                                    value: Some(
-                                        "0xD3f84Cf6Be3DD0EB16dC89c972f7a27B441A39f2".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "IPFS_API_URL".to_owned(),
-                                    value: Some(
-                                        format!("http://{CAS_IPFS_SERVICE_NAME}:5001"),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "IPFS_PUBSUB_TOPIC".to_owned(),
-                                    value: Some(
-                                        "local".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "LOG_LEVEL".to_owned(),
-                                    value: Some(
-                                        "debug".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "MERKLE_DEPTH_LIMIT".to_owned(),
-                                    value: Some(
-                                        "0".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "VALIDATE_RECORDS".to_owned(),
-                                    value: Some(
-                                        "false".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "DB_NAME".to_owned(),
-                                    value: Some(
-                                        "anchor_db".to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "DB_HOST".to_owned(),
-                                    value: Some(
-                                        CAS_POSTGRES_SERVICE_NAME.to_owned(),
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "DB_USERNAME".to_owned(),
-                                    value_from: Some(
-                                        EnvVarSource {
-                                            secret_key_ref: Some(
-                                                SecretKeySelector {
-                                                    key: "username".to_owned(),
-                                                    name: Some(
-                                                        "postgres-auth".to_owned(),
-                                                    ),
-                                                ..Default::default()},
-                                            ),
-                                        ..Default::default()},
-                                    ),
-                                ..Default::default()},
-                                EnvVar {
-                                    name: "DB_PASSWORD".to_owned(),
-                                    value_from: Some(
-                                        EnvVarSource {
-                                            secret_key_ref: Some(
-                                                SecretKeySelector {
-                                                    key: "password".to_owned(),
-                                                    name: Some(
-                                                        "postgres-auth".to_owned(),
-                                                    ),
-                                                ..Default::default()},
-                                            ),
-                                        ..Default::default()},
-                                    ),
-                                ..Default::default()},
-                            ],
-                        ),
-                        image: Some(config.image),
-                        image_pull_policy: Some( config.image_pull_policy,),
-                        name: "cas".to_owned(),
-                        ports: Some(
-                            vec![
-                                ContainerPort {
-                                    container_port: 8081,
-                                ..Default::default()},
-                            ],
-                        ),
-                        resources: Some(
-                            ResourceRequirements {
-                                limits: Some(config.cas_resource_limits.clone().into()),
-                                requests: Some(config.cas_resource_limits.into()),
-                            ..Default::default()},
-                        ),
-                        volume_mounts: Some(
-                            vec![
-                                VolumeMount {
-                                    mount_path: "/cas/db".to_owned(),
-                                    name: "cas-data".to_owned(),
-                                ..Default::default()},
-                            ],
-                        ),
-                    ..Default::default()},
-                ],
-                volumes: Some(
-                    vec![
-                        Volume {
-                            name: "cas-data".to_owned(),
-                            persistent_volume_claim: Some(
-                                PersistentVolumeClaimVolumeSource {
-                                    claim_name: "cas-data".to_owned(),
-                                ..Default::default()},
-                            ),
-                        ..Default::default()},
-                    ],
-                ),
-            ..Default::default()},
-        ),
-    },
-    volume_claim_templates: Some(
-        vec![
-            PersistentVolumeClaim {
-                metadata: ObjectMeta {
-                    name: Some(
-                        "cas-data".to_owned(),
-                    ),
-                ..Default::default()},
-                spec: Some(
-                    PersistentVolumeClaimSpec {
-                        access_modes: Some(
-                            vec![
-                                "ReadWriteOnce".to_owned(),
-                            ],
-                        ),
-                        resources: Some(
-                            ResourceRequirements {
-                                requests: Some(BTreeMap::from_iter(vec![
-                                                  ("storage".to_owned(), Quantity(
-                                            "10Gi".to_owned(),
-                                        )),
-                                    ])),
-                            ..Default::default()},
-                        ),
-                    ..Default::default()},
-                ),
-            ..Default::default()},
-        ],
-    ),
-..Default::default()}
+        replicas: Some(1),
+        selector: LabelSelector {
+            match_labels: selector_labels(CAS_APP),
+            ..Default::default()
+        },
+        service_name: CAS_SERVICE_NAME.to_owned(),
+        template: PodTemplateSpec {
+            metadata: Some(ObjectMeta {
+                labels: selector_labels(CAS_APP).map(|mut lbls| {
+                    lbls.append(&mut managed_labels().unwrap());
+                    datadog.inject_labels(&mut lbls, ns.to_owned(), "cas".to_owned());
+                    lbls
+                }),
+
+                annotations: Some(BTreeMap::new()).map(|mut annotations| {
+                    datadog.inject_annotations(&mut annotations);
+                    annotations
+                }),
+                ..Default::default()
+            }),
+            spec: Some(PodSpec {
+                containers: vec![Container {
+                    env: Some(env),
+                    image: Some(config.image),
+                    image_pull_policy: Some(config.image_pull_policy),
+                    name: "cas".to_owned(),
+                    ports: Some(vec![ContainerPort {
+                        container_port: 8081,
+                        ..Default::default()
+                    }]),
+                    resources: Some(ResourceRequirements {
+                        limits: Some(config.cas_resource_limits.clone().into()),
+                        requests: Some(config.cas_resource_limits.into()),
+                        ..Default::default()
+                    }),
+                    volume_mounts: Some(vec![VolumeMount {
+                        mount_path: "/cas/db".to_owned(),
+                        name: "cas-data".to_owned(),
+                        ..Default::default()
+                    }]),
+                    ..Default::default()
+                }],
+                volumes: Some(vec![Volume {
+                    name: "cas-data".to_owned(),
+                    persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
+                        claim_name: "cas-data".to_owned(),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            }),
+        },
+        volume_claim_templates: Some(vec![PersistentVolumeClaim {
+            metadata: ObjectMeta {
+                name: Some("cas-data".to_owned()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeClaimSpec {
+                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
+                resources: Some(ResourceRequirements {
+                    requests: Some(BTreeMap::from_iter(vec![(
+                        "storage".to_owned(),
+                        Quantity("10Gi".to_owned()),
+                    )])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    }
 }
 pub fn cas_service_spec() -> ServiceSpec {
     ServiceSpec {

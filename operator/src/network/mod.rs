@@ -3,12 +3,14 @@ pub(crate) mod bootstrap;
 pub(crate) mod cas;
 pub(crate) mod ceramic;
 pub(crate) mod controller;
+pub(crate) mod datadog;
 pub(crate) mod peers;
 pub(crate) mod utils;
 
 #[cfg(test)]
 pub mod stub;
-use crate::network::cas::CasSpec;
+
+use crate::network::{cas::CasSpec, datadog::DataDogSpec};
 // Expose Context for testing
 #[cfg(test)]
 pub use crate::utils::Context;
@@ -41,6 +43,8 @@ pub struct NetworkSpec {
     pub ceramic: Option<CeramicSpec>,
     /// Describes how CAS should be deployed.
     pub cas: Option<CasSpec>,
+    /// Descibes if/how datadog should be deployed.
+    pub datadog: Option<DataDogSpec>,
 }
 
 /// Current status of the network.

@@ -10,10 +10,3 @@ images:
     # newTag: latest
     newTag: dev
 
-secretGenerator:
-- name: small-private-key
-  envs:
-  - .env.small
-- name: big-private-key
-  envs:
-  - .env.big

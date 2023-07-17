@@ -24,6 +24,7 @@ use crate::network::{
         CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME,
         INIT_CONFIG_MAP_NAME,
     },
+    datadog::DataDogConfig,
     utils::{ResourceLimitsConfig, ResourceLimitsSpec},
 };
 
@@ -530,9 +531,14 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
     }
 }
 
-pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> StatefulSetSpec {
+pub fn stateful_set_spec(
+    ns: &str,
+    replicas: i32,
+    config: impl Into<CeramicConfig>,
+    datadog: &DataDogConfig,
+) -> StatefulSetSpec {
     let config = config.into();
-    let ceramic_env = vec![
+    let mut ceramic_env = vec![
         EnvVar {
             name: "CERAMIC_NETWORK".to_owned(),
             value: Some(config.network_type),
@@ -579,6 +585,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
             ..Default::default()
         },
     ];
+
     let mut init_env = vec![EnvVar {
         name: "CERAMIC_ADMIN_PRIVATE_KEY".to_owned(),
         value_from: Some(EnvVarSource {
@@ -592,6 +599,8 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
         ..Default::default()
     }];
     init_env.append(&mut ceramic_env.clone());
+
+    datadog.inject_env(&mut ceramic_env);
 
     let mut volumes = vec![
         Volume {
@@ -641,9 +650,15 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                 annotations: Some(BTreeMap::from_iter(vec![(
                     "prometheus/path".to_owned(),
                     "/metrics".to_owned(),
-                )])),
+                )]))
+                .map(|mut annotations| {
+                    datadog.inject_annotations(&mut annotations);
+                    annotations
+                }),
+
                 labels: selector_labels(CERAMIC_APP).map(|mut lbls| {
                     lbls.append(&mut managed_labels().unwrap());
+                    datadog.inject_labels(&mut lbls, ns.to_owned(), "ceramic".to_owned());
                     lbls
                 }),
                 ..Default::default()
@@ -658,8 +673,8 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                             "/config/daemon-config.json".to_owned(),
                         ]),
                         env: Some(ceramic_env),
-                        image: Some(config.image),
-                        image_pull_policy: Some(config.image_pull_policy),
+                        image: Some(config.image.clone()),
+                        image_pull_policy: Some(config.image_pull_policy.clone()),
                         name: "ceramic".to_owned(),
                         ports: Some(vec![
                             ContainerPort {
@@ -725,8 +740,8 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                         "/ceramic-init/ceramic-init.sh".to_owned(),
                     ]),
                     env: Some(init_env),
-                    image: Some("ceramicnetwork/composedb:latest".to_owned()),
-                    image_pull_policy: Some("Always".to_owned()),
+                    image: Some(config.image),
+                    image_pull_policy: Some(config.image_pull_policy),
                     name: "init-ceramic-config".to_owned(),
                     resources: Some(ResourceRequirements {
                         limits: Some(config.resource_limits.clone().into()),

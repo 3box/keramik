@@ -1,5 +1,5 @@
 [book]
-authors = ["Danny Browning"]
+authors = ["Danny Browning", "Nathaniel Cook"]
 language = "en"
 multilingual = false
 src = "keramik/src"

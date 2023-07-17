@@ -25,8 +25,10 @@ Request {
         "serviceName": "cas",
         "template": {
           "metadata": {
+            "annotations": {},
             "labels": {
-              "app": "cas"
+              "app": "cas",
+              "managed-by": "keramik"
             }
           },
           "spec": {

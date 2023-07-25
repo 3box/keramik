@@ -153,14 +153,16 @@ pub struct CeramicSpec {
 }
 
 /// Describes how the IPFS node for a peer should behave.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub enum IpfsSpec {
+    Rust(RustIpfsSpec),
+    Go(GoIpfsSpec),
+}
+
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct IpfsSpec {
-    // Both Go and Rust have the same specification.
-    // If this changes, its possible to convert IpfsSpec into an enum
-    // with variants for each kind.
-    // Until that need arises we use a `kind` field on the struct.
-    pub kind: IpfsKind,
+pub struct RustIpfsSpec {
     pub image: Option<String>,
     pub image_pull_policy: Option<String>,
     // Resource limits for ipfs nodes, applies to both requests and limits.
@@ -169,10 +171,12 @@ pub struct IpfsSpec {
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub enum IpfsKind {
-    #[default]
-    Rust,
-    Go,
+pub struct GoIpfsSpec {
+    pub image: Option<String>,
+    pub image_pull_policy: Option<String>,
+    // Resource limits for ipfs nodes, applies to both requests and limits.
+    pub resource_limits: Option<ResourceLimitsSpec>,
+    pub commands: Option<Vec<String>>,
 }
 
 pub struct CeramicConfig {
@@ -237,8 +241,8 @@ impl Default for RustIpfsConfig {
         }
     }
 }
-impl From<IpfsSpec> for RustIpfsConfig {
-    fn from(value: IpfsSpec) -> Self {
+impl From<RustIpfsSpec> for RustIpfsConfig {
+    fn from(value: RustIpfsSpec) -> Self {
         let default = RustIpfsConfig::default();
         Self {
             image: value.image.unwrap_or(default.image),
@@ -255,6 +259,7 @@ pub struct GoIpfsConfig {
     image: String,
     image_pull_policy: String,
     resource_limits: ResourceLimitsConfig,
+    commands: Vec<String>,
 }
 impl Default for GoIpfsConfig {
     fn default() -> Self {
@@ -266,11 +271,12 @@ impl Default for GoIpfsConfig {
                 memory: Quantity("512Mi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
+            commands: vec![],
         }
     }
 }
-impl From<IpfsSpec> for GoIpfsConfig {
-    fn from(value: IpfsSpec) -> Self {
+impl From<GoIpfsSpec> for GoIpfsConfig {
+    fn from(value: GoIpfsSpec) -> Self {
         let default = GoIpfsConfig::default();
         Self {
             image: value.image.unwrap_or(default.image),
@@ -279,6 +285,7 @@ impl From<IpfsSpec> for GoIpfsConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            commands: value.commands.unwrap_or(default.commands),
         }
     }
 }
@@ -333,9 +340,9 @@ impl From<CeramicSpec> for CeramicConfig {
 
 impl From<IpfsSpec> for IpfsConfig {
     fn from(value: IpfsSpec) -> Self {
-        match value.kind {
-            IpfsKind::Rust => Self::Rust(value.into()),
-            IpfsKind::Go => Self::Go(value.into()),
+        match value {
+            IpfsSpec::Rust(spec) => Self::Rust(spec.into()),
+            IpfsSpec::Go(spec) => Self::Go(spec.into()),
         }
     }
 }
@@ -415,11 +422,9 @@ impl RustIpfsConfig {
 
 impl GoIpfsConfig {
     fn config_maps(&self) -> BTreeMap<String, BTreeMap<String, String>> {
-        BTreeMap::from_iter(vec![(
-            "ipfs-container-init".to_owned(),
-            BTreeMap::from_iter(vec![(
-                "001-config.sh".to_owned(),
-                r#"#!/bin/sh
+        let mut ipfs_config = vec![(
+            "001-config.sh".to_owned(),
+            r#"#!/bin/sh
 set -ex
 # Do not bootstrap against public nodes
 ipfs bootstrap rm all
@@ -437,11 +442,48 @@ ipfs config  --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/4001"]'
 ipfs config Swarm.ResourceMgr.MaxMemory '400 MB'
 ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
 "#
-                .to_owned(),
-            )]),
+            .to_owned(),
+        )];
+        if !self.commands.is_empty() {
+            ipfs_config.push((
+                "002-config.sh".to_owned(),
+                [
+                    vec!["#!/bin/sh", "set -ex"],
+                    self.commands.iter().map(AsRef::as_ref).collect(),
+                ]
+                .concat()
+                .join("\n"),
+            ));
+        }
+        BTreeMap::from_iter(vec![(
+            "ipfs-container-init".to_owned(),
+            BTreeMap::from_iter(ipfs_config),
         )])
     }
     fn into_container(self) -> Container {
+        let mut volume_mounts = vec![
+            VolumeMount {
+                mount_path: "/data/ipfs".to_owned(),
+                name: IPFS_DATA_PV_CLAIM.to_owned(),
+                ..Default::default()
+            },
+            VolumeMount {
+                mount_path: "/container-init.d/001-config.sh".to_owned(),
+                name: "ipfs-container-init".to_owned(),
+                // Use an explict subpath otherwise, k8s uses symlinks which breaks
+                // kubo's init logic.
+                sub_path: Some("001-config.sh".to_owned()),
+                ..Default::default()
+            },
+        ];
+        if !self.commands.is_empty() {
+            volume_mounts.push(VolumeMount {
+                mount_path: "/container-init.d/002-config.sh".to_owned(),
+                name: "ipfs-container-init".to_owned(),
+                sub_path: Some("002-config.sh".to_owned()),
+                ..Default::default()
+            })
+        }
         Container {
             image: Some(self.image),
             image_pull_policy: Some(self.image_pull_policy),
@@ -471,21 +513,7 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
                 requests: Some(self.resource_limits.into()),
                 ..Default::default()
             }),
-            volume_mounts: Some(vec![
-                VolumeMount {
-                    mount_path: "/data/ipfs".to_owned(),
-                    name: IPFS_DATA_PV_CLAIM.to_owned(),
-                    ..Default::default()
-                },
-                VolumeMount {
-                    mount_path: "/container-init.d/001-config.sh".to_owned(),
-                    name: "ipfs-container-init".to_owned(),
-                    // Use an explict subpath otherwise, k8s uses symlinks which breaks
-                    // kubo's init logic.
-                    sub_path: Some("001-config.sh".to_owned()),
-                    ..Default::default()
-                },
-            ]),
+            volume_mounts: Some(volume_mounts),
             ..Default::default()
         }
     }

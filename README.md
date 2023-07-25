@@ -299,12 +299,12 @@ Example network config that uses Rust based IPFS (i.e. ceramic-one) with its def
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
-  name: example-vanilla-kubo
+  name: example-vanilla-ceramic-one
 spec:
   replicas: 5
   ceramic:
     ipfs:
-      kind: rust
+      rust: {}
 ```
 
 Example network config that uses Rust based IPFS (i.e. ceramic-one) with a specific image.
@@ -313,14 +313,14 @@ Example network config that uses Rust based IPFS (i.e. ceramic-one) with a speci
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
-  name: example-vanilla-kubo
+  name: example-custom-ceramic-one
 spec:
   replicas: 5
   ceramic:
     ipfs:
-      kind: rust
-      image: rust-ceramic/ceramic-one:dev
-      imagePullPolicy: IfNotPresent
+      rust:
+        image: rust-ceramic/ceramic-one:dev
+        imagePullPolicy: IfNotPresent
 ```
 
 ### Kubo IPFS
@@ -336,7 +336,7 @@ spec:
   replicas: 5
   ceramic:
     ipfs:
-      kind: go
+      go: {}
 ```
 
 Example network config that uses Go based IPFS (i.e. Kubo) with a specific image.
@@ -350,9 +350,25 @@ spec:
   replicas: 5
   ceramic:
     ipfs:
-      kind: go
-      image: ceramic/go-ipfs:dev-validator
-      imagePullPolicy: IfNotPresent
+      go:
+        image: ceramic/go-ipfs:dev-validator
+        imagePullPolicy: IfNotPresent
+```
+
+Example network config that uses Go based IPFS (i.e. Kubo) with extra configuration commands.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      go:
+        commands:
+          - ipfs config --json Swarm.RelayClient.Enabled false
 ```
 
 ## Opentelemetry

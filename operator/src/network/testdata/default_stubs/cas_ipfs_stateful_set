@@ -46,7 +46,7 @@ Request {
                 "ports": [
                   {
                     "containerPort": 4001,
-                    "name": "swarm"
+                    "name": "swarm-tcp"
                   },
                   {
                     "containerPort": 5001,

@@ -392,7 +392,7 @@ pub fn cas_ipfs_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
                     ports: Some(vec![
                         ContainerPort {
                             container_port: 4001,
-                            name: Some("swarm".to_owned()),
+                            name: Some("swarm-tcp".to_owned()),
                             ..Default::default()
                         },
                         ContainerPort {

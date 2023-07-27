@@ -1479,7 +1479,7 @@ mod tests {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,39 +137,13 @@
+            @@ -137,34 +137,8 @@
                              ]
                            },
                            {
@@ -1515,12 +1515,6 @@ mod tests {
             +                "imagePullPolicy": "IfNotPresent",
                              "name": "ipfs",
                              "ports": [
-                               {
-                                 "containerPort": 4001,
-            -                    "name": "swarm-tcp",
-            +                    "name": "swarm",
-                                 "protocol": "TCP"
-                               },
                                {
             @@ -199,6 +173,11 @@
                                {
@@ -1602,7 +1596,7 @@ mod tests {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,39 +137,13 @@
+            @@ -137,34 +137,8 @@
                              ]
                            },
                            {
@@ -1638,12 +1632,6 @@ mod tests {
             +                "imagePullPolicy": "IfNotPresent",
                              "name": "ipfs",
                              "ports": [
-                               {
-                                 "containerPort": 4001,
-            -                    "name": "swarm-tcp",
-            +                    "name": "swarm",
-                                 "protocol": "TCP"
-                               },
                                {
             @@ -185,14 +159,14 @@
                              ],
@@ -1744,7 +1732,7 @@ mod tests {
         stub.ceramic_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,39 +137,13 @@
+            @@ -137,34 +137,8 @@
                              ]
                            },
                            {
@@ -1780,12 +1768,6 @@ mod tests {
             +                "imagePullPolicy": "IfNotPresent",
                              "name": "ipfs",
                              "ports": [
-                               {
-                                 "containerPort": 4001,
-            -                    "name": "swarm-tcp",
-            +                    "name": "swarm",
-                                 "protocol": "TCP"
-                               },
                                {
             @@ -199,6 +173,16 @@
                                {

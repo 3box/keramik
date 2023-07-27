@@ -491,7 +491,7 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
             ports: Some(vec![
                 ContainerPort {
                     container_port: 4001,
-                    name: Some("swarm".to_owned()),
+                    name: Some("swarm-tcp".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
                 },

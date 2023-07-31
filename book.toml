@@ -1,0 +1,6 @@
+[book]
+authors = ["Danny Browning"]
+language = "en"
+multilingual = false
+src = "keramik/src"
+title = "Keramik"

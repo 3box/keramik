@@ -294,7 +294,7 @@ impl Default for CeramicConfig {
     fn default() -> Self {
         Self {
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
-            image: "3boxben/composedb:latest".to_owned(),
+            image: "ceramicnetwork/composedb:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
             ipfs: IpfsConfig::default(),
             resource_limits: ResourceLimitsConfig {
@@ -725,7 +725,7 @@ pub fn stateful_set_spec(replicas: i32, config: impl Into<CeramicConfig>) -> Sta
                         "/ceramic-init/ceramic-init.sh".to_owned(),
                     ]),
                     env: Some(init_env),
-                    image: Some("3boxben/composedb:latest".to_owned()),
+                    image: Some("ceramicnetwork/composedb:latest".to_owned()),
                     image_pull_policy: Some("Always".to_owned()),
                     name: "init-ceramic-config".to_owned(),
                     resources: Some(ResourceRequirements {

@@ -81,7 +81,7 @@ Request {
                     "value": "2"
                   }
                 ],
-                "image": "3boxben/composedb:latest",
+                "image": "ceramicnetwork/composedb:latest",
                 "imagePullPolicy": "Always",
                 "livenessProbe": {
                   "httpGet": {
@@ -257,7 +257,7 @@ Request {
                     "value": "2"
                   }
                 ],
-                "image": "3boxben/composedb:latest",
+                "image": "ceramicnetwork/composedb:latest",
                 "imagePullPolicy": "Always",
                 "name": "init-ceramic-config",
                 "resources": {

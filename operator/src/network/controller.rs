@@ -2421,7 +2421,7 @@ mod tests {
                                  "value": "2"
                                }
                              ],
-            -                "image": "3boxben/composedb:latest",
+            -                "image": "ceramicnetwork/composedb:latest",
             -                "imagePullPolicy": "Always",
             +                "image": "ceramic:foo",
             +                "imagePullPolicy": "IfNotPresent",

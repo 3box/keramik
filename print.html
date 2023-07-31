@@ -1,0 +1,634 @@
+<!DOCTYPE HTML>
+<html lang="en" class="sidebar-visible no-js light">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Keramik</title>
+                <meta name="robots" content="noindex" />
+                
+
+        <!-- Custom HTML head -->
+        
+
+        <meta content="text/html; charset=utf-8" http-equiv="Content-Type">
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff" />
+
+                <link rel="icon" href="favicon.svg">
+                        <link rel="shortcut icon" href="favicon.png">
+                <link rel="stylesheet" href="css/variables.css">
+        <link rel="stylesheet" href="css/general.css">
+        <link rel="stylesheet" href="css/chrome.css">
+                <link rel="stylesheet" href="css/print.css" media="print">
+        
+        <!-- Fonts -->
+        <link rel="stylesheet" href="FontAwesome/css/font-awesome.css">
+                <link rel="stylesheet" href="fonts/fonts.css">
+        
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" href="highlight.css">
+        <link rel="stylesheet" href="tomorrow-night.css">
+        <link rel="stylesheet" href="ayu-highlight.css">
+
+        <!-- Custom theme stylesheets -->
+        
+            </head>
+    <body>
+        <!-- Provide site root to javascript -->
+        <script type="text/javascript">
+            var path_to_root = "";
+            var default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? "navy" : "light";
+        </script>
+
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script type="text/javascript">
+            try {
+                var theme = localStorage.getItem('mdbook-theme');
+                var sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script type="text/javascript">
+            var theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            var html = document.querySelector('html');
+            html.classList.remove('no-js')
+            html.classList.remove('light')
+            html.classList.add(theme);
+            html.classList.add('js');
+        </script>
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script type="text/javascript">
+            var html = document.querySelector('html');
+            var sidebar = 'hidden';
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            }
+            html.classList.remove('sidebar-visible');
+            html.classList.add("sidebar-" + sidebar);
+        </script>
+
+        <nav id="sidebar" class="sidebar" aria-label="Table of contents">
+            <div class="sidebar-scrollbox">
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">3.</strong> Deploying Images</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">3.1.</strong> Operator Design</a></li></ol></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">4.</strong> Setup Network</a></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">5.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">6.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">6.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">7.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">7.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">7.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">7.4.</strong> Secrets</a></li></ol></li></ol>            </div>
+            <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
+        </nav>
+
+        <div id="page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                
+                <div id="menu-bar-hover-placeholder"></div>
+                <div id="menu-bar" class="menu-bar sticky bordered">
+                    <div class="left-buttons">
+                        <button id="sidebar-toggle" class="icon-button" type="button" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="sidebar">
+                            <i class="fa fa-bars"></i>
+                        </button>
+                        <button id="theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="theme-list">
+                            <i class="fa fa-paint-brush"></i>
+                        </button>
+                        <ul id="theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="light">Light (default)</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="ayu">Ayu</button></li>
+                        </ul>
+                                                <button id="search-toggle" class="icon-button" type="button" title="Search. (Shortkey: s)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="S" aria-controls="searchbar">
+                            <i class="fa fa-search"></i>
+                        </button>
+                                            </div>
+
+                    <h1 class="menu-title">Keramik</h1>
+
+                    <div class="right-buttons">
+                                                <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <i id="print-button" class="fa fa-print"></i>
+                        </a>
+                                                                        
+                    </div>
+                </div>
+
+                                <div id="search-wrapper" class="hidden">
+                    <form id="searchbar-outer" class="searchbar-outer">
+                        <input type="search" id="searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="searchresults-outer" aria-describedby="searchresults-header">
+                    </form>
+                    <div id="searchresults-outer" class="searchresults-outer hidden">
+                        <div id="searchresults-header" class="searchresults-header"></div>
+                        <ul id="searchresults">
+                        </ul>
+                    </div>
+                </div>
+                
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script type="text/javascript">
+                    document.getElementById('sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="content" class="content">
+                    <main>
+                        <h1 id="environment"><a class="header" href="#environment">Environment</a></h1>
+<p>Keramik can be setup in a <a href="environment.html#local-environment">local</a> or <a href="environment.html#eks-environment">eks</a> environment.</p>
+<h2 id="local-environment"><a class="header" href="#local-environment">Local Environment</a></h2>
+<p>Requires</p>
+<ul>
+<li><a href="https://rustup.rs/">rust</a></li>
+<li><a href="https://kind.sigs.k8s.io/">kind</a></li>
+<li><a href="https://kubernetes.io/docs/tasks/tools/install-kubectl/">kubectl</a></li>
+<li><a href="https://docs.docker.com/get-docker/">docker</a></li>
+<li><a href="https://grpc.io/docs/protoc-installation/">protoc</a></li>
+</ul>
+<p>When using a local environment, you will need to <a href="./create_cluster.html">create a cluster</a></p>
+<h2 id="eks"><a class="header" href="#eks">EKS</a></h2>
+<p>Requires</p>
+<ul>
+<li>eks - https://eksctl.io/introduction/#installation</li>
+<li>aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html</li>
+</ul>
+<p>Once these are installed, you will need to login with aws cli via sso</p>
+<pre><code class="language-shell">aws configure sso
+</code></pre>
+<p>You will need to use <code>https://3box.awsapps.com/start/</code> for the sso url with region <code>us-east-2</code>. Use account
+<code>Benchmarking</code> with role <code>AWSAdministratorAccess</code>. It is recommended to rename the profile to <code>keramik</code> or <code>benchmarking</code>.</p>
+<p>You can now find namespaces with</p>
+<pre><code class="language-shell">aws eks update-kubeconfig --region=us-east-1 --profile=keramik --name=benchmarking-ceramic
+</code></pre>
+<p>When using an eks environment, you <em>do not</em> need to create a cluster. You will need to <a href="./setup_network.html">setup a network</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="creating-a-cluster"><a class="header" href="#creating-a-cluster">Creating a Cluster</a></h1>
+<p>Kind (Kubernetes in Docker) runs a local k8s cluster. Create and initialize a new kind cluster using this configuration:</p>
+<pre><code class="language-yaml"># kind.yaml
+---
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+featureGates:
+  MaxUnavailableStatefulSet: true
+</code></pre>
+<p>This configuration enables a feature that allows stateful sets to more rapidly redeploy pods on changes.
+While not required to use keramik it makes deploying and mutating networks significantly faster.</p>
+<pre><code class="language-shell"># Create a new kind cluster (i.e. local k8s)
+kind create cluster --config kind.yaml 
+</code></pre>
+<p>Next we need to deploy keramik in order to create and manage a Ceramic network:</p>
+<pre><code class="language-shell"># Create keramik namespace
+kubectl create namespace keramik
+# Create CRDs
+cargo run --bin crdgen | kubectl create -f - 
+# Start up keramik operator
+kubectl apply -k ./k8s/operator/             
+</code></pre>
+<p>Now you will need to <a href="./deploy_images.html">deploy images</a> to the cluster and <a href="./setup_network.html">setup a network</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="deploying-images"><a class="header" href="#deploying-images">Deploying Images</a></h1>
+<p>There are two images that need to be deployed to the cluster if using a <a href="./environment.html#local-environment">local environment</a>
+or if you are trying to develop functionality or <a href="./developing-scenarios.html">scenarios</a>. These images are</p>
+<ul>
+<li><a href="deploy_images.html#operator">Operator</a> - long lived process that manages the network custom resource.</li>
+<li><a href="deploy_images.html#runner">Runner</a> - short lived process that performs various tasks within the network (i.e. bootstrapping)</li>
+</ul>
+<h2 id="operator"><a class="header" href="#operator">Operator</a></h2>
+<p>The <code>operator</code> automates creating and manipulating networks via custom resource definition.
+Any changes to the operator require that you rebuild it and load it into kind again.</p>
+<pre><code class="language-shell">docker buildx build --load -t keramik/operator:dev --target operator .
+kind load docker-image keramik/operator:dev
+</code></pre>
+<p>Next edit <code>./k8s/operator/kustomization.yaml</code> to use the <code>dev</code> tag</p>
+<pre><code class="language-yaml">images:
+  - name: keramik/operator
+    newTag: dev
+</code></pre>
+<p>Finally apply these changes:</p>
+<pre><code class="language-shell">kubectl apply -k ./k8s/operator/
+</code></pre>
+<p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
+<h2 id="runner"><a class="header" href="#runner">Runner</a></h2>
+<p>The <code>runner</code> is a utility for running various jobs to initialize the network and run workloads against it.
+Any changes to the runner require that you rebuild it and load it into kind again.</p>
+<pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
+kind load docker-image keramik/runner:dev
+</code></pre>
+<p>Now we need to tell the operator to use this new version of the runner.
+Edit <code>small.yaml</code> to configure the image of the bootstrap runner.</p>
+<pre><code class="language-yaml"># small.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  # Use custom runner image for bootstrapping
+  bootstrap:
+    image: keramik/runner:dev
+    imagePullPolicy: IfNotPresent
+</code></pre>
+<p>You will then apply this to start the runner</p>
+<pre><code class="language-shell">kubectl apply -f small.yaml
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="operator-patterns"><a class="header" href="#operator-patterns">Operator Patterns</a></h1>
+<p>This document discusses some of the designs patterns of the operator.</p>
+<h2 id="specs-statuses-and-configs"><a class="header" href="#specs-statuses-and-configs">Specs, Statuses, and Configs</a></h2>
+<p>The operator is responsible to managing many resources and controlling how those resources can be customized.
+As a result the operator adopts a specs, statuses and configs pattern.</p>
+<ul>
+<li>Specs - Defines the desired state.</li>
+<li>Statuses - Reports the current state.</li>
+<li>Configs - Custom configuration to control creating a Spec.</li>
+</ul>
+<p>Both specs and statuses are native concepts to Kubernetes.
+A spec provides the user facing API for defining their desired state.
+A status reports on the actual state.
+This code base introduces the concept of a config.</p>
+<p>Naturally, operators wrap existing specs and hide some of their details.
+However some of those details should be exposed to the user.
+A config defines how the parts of a spec owned by the operator can be exposed.
+In turn the configs themselves have their own specs, i.e. the API into how to customize internal specs of the operator.</p>
+<p>For example the <code>bootstrap</code> job requires <code>JobSpec</code> to run the job.
+The bootstrap job is responsible for telling new peers in the network about existing peers.
+Exposing the <code>JobSpec</code> to the user puts too much onus on the user to create a functional job.
+Instead we define a <code>BootstrapSpec</code>, a <code>BootstrapConfig</code> and a function that can create the necessary <code>JobSpec</code> given a <code>BootstrapConfig</code>.
+The <code>BootstrapSpec</code> is the user API for controlling the bootstrap job.
+The <code>BootstrapConfig</code> controls which properties of the <code>JobSpec</code> can be customized and provides sane defaults.</p>
+<p>Let's see how this plays out in the code.
+Here is a simplified example of the bootstrap job that allows customizing only the image and bootstrap method:</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// BootstrapSpec defines how the network bootstrap process should proceed.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+pub struct BootstrapSpec {
+    // Note, both image and method are optional as the user
+    // may want to specify only one or the other or both.
+    pub image: Option&lt;String&gt;,
+    pub method: Option&lt;String&gt;,
+}
+// BootstrapConfig defines which properties of the JobSpec can be customized.
+pub struct BootstrapConfig {
+    // Note, neither image nor method are optional as we need
+    // valid values in order to build the JobSpec.
+    pub image: String,
+    pub method: String,
+}
+// Define clear defaults for the config.
+impl Default for BootstrapConfig {
+    fn default() -&gt; Self {
+        Self {
+            image: &quot;public.ecr.aws/r5b3e0r5/3box/keramik-runner&quot;.to_owned(),
+            method: &quot;ring&quot;.to_owned(),
+        }
+    }
+}
+// Implement a conversion from the spec to the config applying defaults.
+impl From&lt;BootstrapSpec&gt; for BootstrapConfig {
+    fn from(value: BootstrapSpec) -&gt; Self {
+        let default = Self::default();
+        Self {
+            image: value.image.unwrap_or(default.image),
+            method: value.method.unwrap_or(default.method),
+        }
+    }
+}
+// Additionally implement the conversion for the case we the entire spec was left undefined.
+impl From&lt;Option&lt;BootstrapSpec&gt;&gt; for BootstrapConfig {
+    fn from(value: Option&lt;BootstrapSpec&gt;) -&gt; Self {
+        match value {
+            Some(spec) =&gt; spec.into(),
+            None =&gt; BootstrapConfig::default(),
+        }
+    }
+}
+// Define a function that can produce a JobSpec from a config.
+pub fn bootstrap_job_spec(config: impl Into&lt;BootstrapConfig&gt;) -&gt; JobSpec {
+    let config: BootstrapConfig = config.into();
+    // Define the JobSpec using the config, implementation elided.
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>Now for the operator reconcile loop we can simply add the <code>BootstrapSpec</code> spec to the top level <code>NetworkSpec</code> and construct a <code>JobSpec</code> to apply.</p>
+<pre><pre class="playground"><code class="language-rust">
+<span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub struct NetworkSpec {
+    pub replicas: i32,
+    pub bootstrap: Option&lt;BootstrapSpec&gt;,
+    // ...
+}
+
+pub async fn reconcile(network: Arc&lt;Network&gt;, cx: Arc&lt;ContextData&gt;) -&gt; Result&lt;Action, Error&gt; {
+    // ...
+
+    // Now with a single line we go from user defined spec to complete JobSpec
+    let spec: JobSpec = bootstrap_job_spec(network.spec().bootstrap);
+    apply_job(cx.clone(), ns, network.clone(), BOOTSTRAP_JOB_NAME, spec).await?;
+
+    // ...
+}
+<span class="boring">}
+</span></code></pre></pre>
+<p>With this pattern it now becomes easy to add more functionallity to the operator by adding a new field to the config and mapping it to the spec.
+Additionally by defining the defaults on the config type there is one clear location where defaults are defined and applied, instead of scattering them through the implementation of the spec construction function or elsewhere.</p>
+<h2 id="assembled-nodes"><a class="header" href="#assembled-nodes">Assembled Nodes</a></h2>
+<p>Another pattern the operator leverages is to assemble the set of nodes instead of relying on determistic behaviors to assume information about nodes.
+Assembly is more robust as it is explicit about node information.</p>
+<p>In practice this means the operator produces a <code>keramik-peers</code> config map for each network.
+The config map contains a key <code>peers.json</code> which is the JSON serialization of all ready peers with their p2p address and rpc address.
+It is expected that other systems consume that config map in order to learn about peers in the network.
+The <code>runner</code> does exactly this inorder to bootstrap the network.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="setting-up-a-network"><a class="header" href="#setting-up-a-network">Setting Up a Network</a></h1>
+<p>With the operator running we can now define a Ceramic network.</p>
+<p>Place the following network definition into the file <code>small.yaml</code>.</p>
+<pre><code class="language-yaml"># small.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: &lt;initials&gt;-small
+spec:
+  replicas: 2
+</code></pre>
+<p>Apply this network definition to the k8s cluster:</p>
+<pre><code class="language-shell">kubectl apply -f small.yaml
+</code></pre>
+<p>After a minute or two you should have a functioning Ceramic network.
+Check the status of the network:</p>
+<pre><code class="language-shell">export NETWORK_NAME=&lt;initials&gt;-small
+kubectl describe network $NETWORK_NAME
+</code></pre>
+<p>Keramik places each network into its own namespace named after the name of the network. You can default your context
+to this namespace using:</p>
+<pre><code class="language-shell">kubectl config set-context --current --namespace=keramik-$NETWORK_NAME
+</code></pre>
+<p>Inspect the pods within the network using:</p>
+<pre><code class="language-shell">kubectl get pods
+</code></pre>
+<blockquote>
+<p>HINT: Use tools like <a href="https://github.com/ahmetb/kubectx">kubectx</a> or <a href="https://github.com/sbstp/kubie">kubie</a> to work with multiple namespaces and contexts.</p>
+</blockquote>
+<p>When you're finished, you can tear down your network with the following command:</p>
+<pre><code class="language-shell">kubectl delete network $NETWORK_NAME
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="simulation"><a class="header" href="#simulation">Simulation</a></h1>
+<p>To run a simulation, first define a simulation.</p>
+<pre><code class="language-yaml"># basic.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Simulation
+metadata:
+  name: basic
+  namespace: keramik-small
+spec:
+  scenario: ceramic-simple
+  users: 10
+  run_time: 4
+</code></pre>
+<p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the 
+namespace is set to the same network applied when <a href="./setup_network.html">the network was setup</a>.
+Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.</p>
+<p>Once ready, apply this simulation defintion to the k8s cluster:</p>
+<pre><code class="language-shell">kubectl apply -f basic.yaml
+</code></pre>
+<p>Keramik will first start all the metrics and tracing resources, once ready it will start the simulation by first starting the simulation manager and then all the workers.
+The manager and workers will stop once the simulation is complete.</p>
+<p>You can then <a href="analysis.html">analyze</a> the results of the simulation.</p>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="analysis"><a class="header" href="#analysis">Analysis</a></h2>
+<p>First you will need to install a few things:</p>
+<pre><code>pip install duckdb duckdb-engine pandas jupyter jupysql matplotlib
+</code></pre>
+<p>To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet file from the otel-0 pod.
+First restart opentelemetry-0 pod so it writes out the parquet file footer.</p>
+<pre><code>kubectl delete pod opentelemetry-0
+kubectl exec opentelemetry-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
+kubectl cp opentelemetry-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
+cd analyze
+</code></pre>
+<p>Use duckdb to examine the data:</p>
+<pre><code>duckdb
+&gt; SELECT * FROM 'metrics.parquet' LIMIT 10;
+</code></pre>
+<p>Alternatively start a jupyter notebook using <code>analyze/sim.ipynb</code>:</p>
+<pre><code>jupyter notebook
+</code></pre>
+<h2 id="comparing-simulation-runs"><a class="header" href="#comparing-simulation-runs">Comparing Simulation Runs</a></h2>
+<p>How do we conclude a simulation is better or worse that another run?</p>
+<p>Each simulation will likely be targeting a specific result however there are common results we should expect to see.</p>
+<p>Changes should not make correctness worse. Correctness is defined using two metrics:</p>
+<ul>
+<li>Percentage of events successfully persisted on the node that accepted the initial write.</li>
+<li>Percentage of events successfully replicated on nodes that observed the writes via the Ceramic protocol.</li>
+</ul>
+<p>Changes should not make performance worse. Performance is defined using these metrics:</p>
+<ul>
+<li>Writes/sec across all nodes in the cluster and by node</li>
+<li>p50,p90,p95,p99 and p99.9 of the duration of writes across all nodes in the cluster and by node</li>
+<li>Success/failure ratio of writes requests across all nodes in the cluster and by node</li>
+<li>p50,p90,p95,p99 and p99.9 of duration of time to become replicated. The time from when one node accepts the write to when another node has the same write available for read.</li>
+</ul>
+<p>For any simulation of the Ceramic protocol these metrics should apply. Any report about the results of a simulation should include these metrics and we compare them against the established a baseline.</p>
+<h2 id="performance-analysis"><a class="header" href="#performance-analysis">Performance Analysis</a></h2>
+<p>In addition to the above, we can also use <a href="./datadog.html">datadog</a> to dive further into performance.</p>
+<div style="break-before: page; page-break-before: always;"></div><div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h1>
+<p>For more advanced usage of keramik, please see</p>
+<ul>
+<li><a href="./advanced_configuration.html">Advanced CAS and Ceramic Configuration</a></li>
+<li><a href="./metrics.html">Metrics</a></li>
+<li><a href="./ipfs.html">IPFS</a></li>
+<li><a href="./secrets.html">Secrets</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-cas-and-ceramic-configuration"><a class="header" href="#advanced-cas-and-ceramic-configuration">Advanced CAS and Ceramic Configuration</a></h1>
+<p>By default, Keramik will instantiate all the resources required for a functional CAS service, including a Ganache
+blockchain.</p>
+<p>You can configure the Ceramic nodes to use an external instance of the CAS instead of one inside the cluster. If using a
+CAS running in 3Box Labs infrastructure, you will also need to specify the Ceramic network type associated with the
+node, e.g. <code>dev-unstable</code>.</p>
+<p>In this case, the Ceramic network PubSub topic must be specified as an empty string in order to clear it from the
+Ceramic configuration. Ceramic nodes do not permit the PubSub topic to be specified for a network type that is not one
+of <code>local</code> or <code>inmemory</code>.</p>
+<p>You may also specify an Ethereum RPC endpoint for the Ceramic nodes to be able to verify anchors, or set it to an empty
+string to clear it from the Ceramic configuration. In the latter case, the Ceramic nodes will come up but will not be
+able to verify anchors.</p>
+<p>If left unspecified, <code>networkType</code> will default to <code>local</code>, <code>pubsubTopic</code> to <code>/ceramic/local-keramik</code>, <code>ethRpcUrl</code> to
+<code>http://ganache:8545</code>, and <code>casApiUrl</code> to <code>http://cas:8081</code>. These defaults point to an internal CAS using a local
+pubsub topic in a fully isolated network.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    privateKeySecret: &quot;small&quot;
+    networkType: &quot;dev-unstable&quot;
+    pubsubTopic: &quot;&quot;
+    ethRpcUrl: &quot;&quot;
+    casApiUrl: &quot;https://some-anchor-service.com&quot;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="opentelemetry"><a class="header" href="#opentelemetry">Opentelemetry</a></h1>
+<p>To view the metrics and traces port-forward the services:</p>
+<pre><code>kubectl port-forward prometheus-0 9090
+kubectl port-forward jaeger-0 16686
+</code></pre>
+<p>Then navigate to http://localhost:9090 for metrics and http://localhost:16686 for traces.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ipfs"><a class="header" href="#ipfs">IPFS</a></h1>
+<p>The IPFS behavior used by Ceramic can be customized.</p>
+<h2 id="rust-ipfs"><a class="header" href="#rust-ipfs">Rust IPFS</a></h2>
+<p>Example network config that uses Rust based IPFS (i.e. ceramic-one) with its defaults.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-vanilla-ceramic-one
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      rust: {}
+</code></pre>
+<p>Example network config that uses Rust based IPFS (i.e. ceramic-one) with a specific image.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-ceramic-one
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      rust:
+        image: rust-ceramic/ceramic-one:dev
+        imagePullPolicy: IfNotPresent
+</code></pre>
+<h2 id="kubo-ipfs"><a class="header" href="#kubo-ipfs">Kubo IPFS</a></h2>
+<p>Example network config that uses Go based IPFS (i.e. Kubo) with its defaults.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-vanilla-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      go: {}
+</code></pre>
+<p>Example network config that uses Go based IPFS (i.e. Kubo) with a specific image.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      go:
+        image: ceramic/go-ipfs:dev-validator
+        imagePullPolicy: IfNotPresent
+</code></pre>
+<p>Example network config that uses Go based IPFS (i.e. Kubo) with extra configuration commands.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      go:
+        commands:
+          - ipfs config --json Swarm.RelayClient.Enabled false
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="specifying-a-ceramic-admin-secret"><a class="header" href="#specifying-a-ceramic-admin-secret">Specifying a Ceramic admin secret</a></h1>
+<p>You can choose to specify a private key for the Ceramic nodes to use as their admin secret. This will allow you to set
+up the corresponding DID with CAS Auth.</p>
+<p>Leaving the private key unspecified will cause a new key to be randomly generated. This can be fine for simulation runs
+against CAS/Ganache running locally within the cluster but not for simulations that hit CAS running behind the AWS API
+Gateway. Using an unauthorized DID in that case will prevent the Ceramic nodes from starting up.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    privateKeySecret: &quot;small&quot;
+</code></pre>
+<p>Note that <code>privateKeySecret</code> is the name of another k8s secret in the <code>keramik</code> namespace that has already been
+populated beforehand with the desired hex-encoded private key. This source secret MUST exist before it can be used to
+populate the Ceramic admin secret.</p>
+<pre><code class="language-shell">kubectl create secret generic small --from-literal=private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+</code></pre>
+<p>The secret can also be created from a file containing the private key.</p>
+<pre><code class="language-shell">kubectl create secret generic small --from-file=private-key=./my_secret
+</code></pre>
+<p>Here's an example of the contents of the <code>my_secret</code> file. Please make sure that there are no newlines at the end of
+the file.</p>
+<pre><code>0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+</code></pre>
+<p>Alternatively, you can use a <code>kustomization.yml</code> file to create the secret from a file before creating the network, and
+using the name of the new secret in the network configuration.</p>
+<pre><code class="language-yaml">---
+namespace: keramik
+
+secretGenerator:
+- name: small
+  envs:
+  - .env.secret
+</code></pre>
+<p>Here's an example of the contents of the <code>.env.secret</code> file.</p>
+<pre><code>private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+</code></pre>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+                        
+                        
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+                
+                            </nav>
+
+        </div>
+
+        
+        
+        
+                <script type="text/javascript">
+            window.playground_copyable = true;
+        </script>
+        
+        
+                <script src="elasticlunr.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="mark.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="searcher.js" type="text/javascript" charset="utf-8"></script>
+        
+        <script src="clipboard.min.js" type="text/javascript" charset="utf-8"></script>
+        <script src="highlight.js" type="text/javascript" charset="utf-8"></script>
+        <script src="book.js" type="text/javascript" charset="utf-8"></script>
+
+        <!-- Custom JS scripts -->
+        
+                        <script type="text/javascript">
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+                
+    </body>
+</html>

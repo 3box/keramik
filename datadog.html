@@ -143,7 +143,93 @@
 
                 <div id="content" class="content">
                     <main>
-                        
+                        <h1 id="datadog"><a class="header" href="#datadog">Datadog</a></h1>
+<p>Keramik can also be configured to send metrics and telemetry data to datadog.</p>
+<p>We will be following these steps.</p>
+<ol start="0">
+<li>Setup Keramik network</li>
+<li>Install the operator</li>
+<li>Configure the operator</li>
+<li>Configure secrets for the operator</li>
+<li>Configure datadog within a Keramik network.</li>
+</ol>
+<p>The datadog operator needs to be installed into an existing Keramik network.
+Create Keramik network using <code>small.yaml</code> from <a href="setup_network.html">here</a>.</p>
+<pre><code>kubectl apply -f small.yaml
+</code></pre>
+<p>Install the datadog k8s operator into the network.
+This requires <a href="https://helm.sh/docs/intro/install/">installing</a> <code>helm</code>, there doesn't seem to be any other way to install the operator without first installing helm.
+However once the datadog operator is installed helm is no longer needed.</p>
+<pre><code>helm repo add datadog https://helm.datadoghq.com
+helm install -n keramik-small my-datadog-operator datadog/datadog-operator
+</code></pre>
+<p>Configure the datadog operator:</p>
+<pre><code class="language-yaml">#dd.yaml
+---
+kind: DatadogAgent
+apiVersion: datadoghq.com/v2alpha1
+metadata:
+  name: datadog
+spec:
+  global:
+    kubelet:
+      tlsVerify: false
+    site: us3.datadoghq.com
+    credentials:
+      apiSecret:
+        secretName: datadog-secret
+        keyName: api-key
+      appSecret:
+        secretName: datadog-secret
+        keyName: app-key
+  override:
+    clusterAgent:
+      image:
+        name: gcr.io/datadoghq/cluster-agent:latest
+    nodeAgent:
+      image:
+        name: gcr.io/datadoghq/agent:latest
+  features:
+    npm:
+      enabled: true
+    apm:
+      enabled: true
+      hostPortConfig:
+        enabled: true
+</code></pre>
+<p>Apply this yaml file into the namespace of the network:</p>
+<pre><code>kubectl apply -n keramik-small -f dd.yaml
+</code></pre>
+<p>Setup secrets:</p>
+<pre><code>kubectl create secret generic datadog-secret --from-literal api-key=&lt;DATADOG_API_KEY&gt; --from-literal app-key=&lt;DATADOG_APP_KEY&gt;
+</code></pre>
+<p>Replace <code>&lt;DATADOG_API_KEY&gt;</code> and <code>&lt;DATADOG_APP_KEY&gt;</code> accordingly.</p>
+<p>Enable datadog reporting for the network:</p>
+<pre><code class="language-yaml"># small.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  datadog:
+    enabled: true
+    version: &quot;unique_value&quot;
+    profilingEnabled: true
+</code></pre>
+<pre><code>kubectl apply -f small.yaml
+</code></pre>
+<p>Telemetry data sent to datadog will have two properties to uniquely identifiy the data from other keramik networks.</p>
+<ul>
+<li><code>env</code> - this is set based on the namespace of the keramik network.</li>
+<li><code>version</code> - specified in the datadog config, may be any unique value.</li>
+</ul>
+<h2 id="cleanup"><a class="header" href="#cleanup">Cleanup</a></h2>
+<pre><code>kubectl delete datadogagent datadog
+helm delete my-datadog-operator
+</code></pre>
+
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">

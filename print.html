@@ -222,7 +222,9 @@ Any changes to the runner require that you rebuild it and load it into kind agai
 <pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
 kind load docker-image keramik/runner:dev
 </code></pre>
-<p>Now we need to tell the operator to use this new version of the runner.
+<p>Now we need to tell any resources that use the running image to use this new version of the runner.</p>
+<h3 id="networks"><a class="header" href="#networks">Networks</a></h3>
+<p>Network resources use the runner to bootstrap peers.
 Edit <code>small.yaml</code> to configure the image of the bootstrap runner.</p>
 <pre><code class="language-yaml"># small.yaml
 ---
@@ -239,6 +241,24 @@ spec:
 </code></pre>
 <p>You will then apply this to start the runner</p>
 <pre><code class="language-shell">kubectl apply -f small.yaml
+</code></pre>
+<h3 id="simulations"><a class="header" href="#simulations">Simulations</a></h3>
+<p>Simulations use the runner to run scenarios.
+Edit <code>basic.yaml</code> to configure the runner image for simulations.
+This will change the runner image for all jobs created by the simulation.</p>
+<pre><code class="language-yaml"># basic.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Simulation
+metadata:
+  name: basic
+  namespace: keramik-small
+spec:
+  scenario: ceramic-simple
+  users: 10
+  run_time: 4
+  image: keramik/runner:dev
+  imagePullPolicy: IfNotPresent
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="operator-patterns"><a class="header" href="#operator-patterns">Operator Patterns</a></h1>
 <p>This document discusses some of the designs patterns of the operator.</p>

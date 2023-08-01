@@ -9,13 +9,14 @@ use k8s_openapi::api::{
 
 use kube::core::ObjectMeta;
 
-use crate::network::controller::PEERS_CONFIG_MAP_NAME;
+use crate::{network::controller::PEERS_CONFIG_MAP_NAME, simulation::JobImageConfig};
 
 // WorkerConfig defines which properties of the JobSpec can be customized.
 pub struct WorkerConfig {
     pub scenario: String,
     pub target_peer: u32,
     pub nonce: u32,
+    pub job_image_config: JobImageConfig,
 }
 
 pub fn worker_job_spec(config: WorkerConfig) -> JobSpec {
@@ -32,8 +33,8 @@ pub fn worker_job_spec(config: WorkerConfig) -> JobSpec {
             spec: Some(PodSpec {
                 containers: vec![Container {
                     name: "worker".to_owned(),
-                    image: Some("public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest".to_owned()),
-                    image_pull_policy: Some("Always".to_owned()),
+                    image: Some(config.job_image_config.image),
+                    image_pull_policy: Some(config.job_image_config.image_pull_policy),
                     command: Some(vec![
                         "/usr/bin/keramik-runner".to_owned(),
                         "simulate".to_owned(),

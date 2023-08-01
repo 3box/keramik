@@ -26,7 +26,8 @@ use rand::RngCore;
 use tracing::{debug, error};
 
 use crate::simulation::{
-    manager, manager::ManagerConfig, worker, worker::WorkerConfig, Simulation, SimulationStatus,
+    manager, manager::ManagerConfig, worker, worker::WorkerConfig, JobImageConfig, Simulation,
+    SimulationStatus,
 };
 
 use crate::monitoring::{jaeger, opentelemetry, prometheus};
@@ -151,11 +152,14 @@ async fn reconcile(
         return Ok(Action::requeue(Duration::from_secs(10)));
     }
 
+    let job_image_config = JobImageConfig::from(spec);
+
     let manager_config = ManagerConfig {
         scenario: spec.scenario.to_owned(),
         users: spec.users.to_owned(),
         run_time: spec.run_time.to_owned(),
         nonce: status.nonce,
+        job_image_config: job_image_config.clone(),
     };
 
     apply_manager(cx.clone(), &ns, simulation.clone(), manager_config).await?;
@@ -166,7 +170,15 @@ async fn reconcile(
 
     if manager_ready > 0 {
         //for loop n peers
-        apply_n_workers(cx.clone(), &ns, num_peers, status.nonce, simulation.clone()).await?;
+        apply_n_workers(
+            cx.clone(),
+            &ns,
+            num_peers,
+            status.nonce,
+            simulation.clone(),
+            job_image_config.clone(),
+        )
+        .await?;
     }
 
     let simulations: Api<Simulation> = Api::namespaced(cx.k_client.clone(), &ns);
@@ -277,6 +289,7 @@ async fn apply_n_workers(
     peers: u32,
     nonce: u32,
     simulation: Arc<Simulation>,
+    job_image_config: JobImageConfig,
 ) -> Result<(), kube::error::Error> {
     let spec = simulation.spec();
     let orefs = simulation
@@ -289,6 +302,7 @@ async fn apply_n_workers(
             scenario: spec.scenario.to_owned(),
             target_peer: i,
             nonce,
+            job_image_config: job_image_config.clone(),
         };
 
         apply_job(
@@ -614,6 +628,97 @@ mod tests {
         stub.worker_jobs
             .push(expect_file!["./testdata/worker_job_2"].into());
 
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_scenario_custom_images() {
+        let mock_rpc_client = Unimock::new(());
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            scenario: "test-scenario".to_owned(),
+            image: Some("image:dev".to_owned()),
+            image_pull_policy: Some("IfNotPresent".to_owned()),
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -41,7 +41,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_SCENARIO",
+            -                    "value": ""
+            +                    "value": "test-scenario"
+                               },
+                               {
+                                 "name": "SIMULATE_MANAGER",
+            @@ -76,8 +76,8 @@
+                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+                               }
+                             ],
+            -                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "image:dev",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "name": "manager",
+                             "volumeMounts": [
+                               {
+        "#]]);
+        stub.worker_jobs[0].patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -45,7 +45,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_SCENARIO",
+            -                    "value": ""
+            +                    "value": "test-scenario"
+                               },
+                               {
+                                 "name": "SIMULATE_TARGET_PEER",
+            @@ -68,8 +68,8 @@
+                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+                               }
+                             ],
+            -                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "image:dev",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "name": "worker",
+                             "volumeMounts": [
+                               {
+        "#]]);
+        stub.worker_jobs[1].patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -45,7 +45,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_SCENARIO",
+            -                    "value": ""
+            +                    "value": "test-scenario"
+                               },
+                               {
+                                 "name": "SIMULATE_TARGET_PEER",
+            @@ -68,8 +68,8 @@
+                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+                               }
+                             ],
+            -                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "image:dev",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "name": "worker",
+                             "volumeMounts": [
+                               {
+        "#]]);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await

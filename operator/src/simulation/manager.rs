@@ -9,7 +9,7 @@ use k8s_openapi::api::{
 };
 use kube::core::ObjectMeta;
 
-use crate::network::controller::PEERS_CONFIG_MAP_NAME;
+use crate::{network::controller::PEERS_CONFIG_MAP_NAME, simulation::JobImageConfig};
 
 pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
@@ -33,6 +33,7 @@ pub struct ManagerConfig {
     pub users: u32,
     pub run_time: u32,
     pub nonce: u32,
+    pub job_image_config: JobImageConfig,
 }
 
 pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
@@ -51,8 +52,8 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
                 subdomain: Some("goose".to_owned()),
                 containers: vec![Container {
                     name: "manager".to_owned(),
-                    image: Some("public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest".to_owned()),
-                    image_pull_policy: Some("Always".to_owned()),
+                    image: Some(config.job_image_config.image),
+                    image_pull_policy: Some(config.job_image_config.image_pull_policy),
                     command: Some(vec![
                         "/usr/bin/keramik-runner".to_owned(),
                         "simulate".to_owned(),

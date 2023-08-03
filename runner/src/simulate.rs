@@ -103,7 +103,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
         .filter(|(_, peer)| matches!(peer, Peer::Ceramic(_)))
         .collect();
 
-    if opts.users % peers.len() != 0 {
+    if opts.manager && opts.users % peers.len() != 0 {
         bail!("number of users {} must be a multiple of the number of peers {}, this ensures we can deterministically identifiy each user", opts.users, peers.len())
     }
     // We assume exactly one worker per peer.

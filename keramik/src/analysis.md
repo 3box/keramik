@@ -8,6 +8,7 @@ To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet 
 First restart opentelemetry-0 pod so it writes out the parquet file footer.
 
     kubectl delete pod opentelemetry-0
+    sleep 5 # Give pod time to restart
     kubectl exec opentelemetry-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
     kubectl cp opentelemetry-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
     cd analyze

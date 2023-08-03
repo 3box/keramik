@@ -22,7 +22,7 @@ images:
     newTag: dev
 ```
 
-Finally apply these changes:
+If you have already [created a cluster](./create_cluster.md), you will need to apply these changes:
 
 ```shell
 kubectl apply -k ./k8s/operator/
@@ -40,53 +40,5 @@ docker buildx build --load -t keramik/runner:dev --target runner .
 kind load docker-image keramik/runner:dev
 ```
 
-Now we need to tell any resources that use the running image to use this new version of the runner.
-
-### Networks
-
-Network resources use the runner to bootstrap peers.
-Edit `small.yaml` to configure the image of the bootstrap runner.
-
-```yaml
-# small.yaml
----
-apiVersion: "keramik.3box.io/v1alpha1"
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  # Use custom runner image for bootstrapping
-  bootstrap:
-    image: keramik/runner:dev
-    imagePullPolicy: IfNotPresent
-```
-
-You will then apply this to start the runner
-
-```shell
-kubectl apply -f small.yaml
-```
-
-### Simulations
-
-Simulations use the runner to run scenarios.
-Edit `basic.yaml` to configure the runner image for simulations.
-This will change the runner image for all jobs created by the simulation.
-
-
-```yaml
-# basic.yaml
----
-apiVersion: "keramik.3box.io/v1alpha1"
-kind: Simulation
-metadata:
-  name: basic
-  namespace: keramik-small
-spec:
-  scenario: ceramic-simple
-  users: 10
-  run_time: 4
-  image: keramik/runner:dev
-  imagePullPolicy: IfNotPresent
-```
+Next you will [deploy custom resource definitions](./deploy_crds.md) to the cluster. If you've already deployed CRDS and setup a network, you will 
+need to [setup a network](./setup_network.md) again to use your new runner.

@@ -14,6 +14,18 @@ spec:
   replicas: 2
 ```
 
+If you're running a simulation in the cloud, you will want to use `version` to separate out the metrics and errors for
+your simulation run.
+
+```yaml
+datadog:
+  enabled: true
+  version: "unique-simulation-name"
+  profilingEnabled: true
+```
+
+A complete example of a network definition with datadog enabled can be found [here](./datadog.md).
+
 Apply this network definition to the k8s cluster:
 
 ```shell
@@ -40,6 +52,8 @@ Inspect the pods within the network using:
 ```shell
 kubectl get pods
 ```
+
+When your pods are ready, you can [run a simulation](./simulation.md)
 
 >HINT: Use tools like [kubectx](https://github.com/ahmetb/kubectx) or [kubie](https://github.com/sbstp/kubie) to work with multiple namespaces and contexts.
 

@@ -17,8 +17,8 @@ When using a local environment, you will need to [create a cluster](./create_clu
 ## EKS
 
 Requires
-* eks - https://eksctl.io/introduction/#installation
-* aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html
+* [eks - https://eksctl.io/introduction/#installation](https://eksctl.io/introduction/#installation)
+* [aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
 
 Once these are installed, you will need to login with aws cli via sso
 

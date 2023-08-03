@@ -2,9 +2,9 @@
 
 - [Environment Setup](./environment.md)
  - [Creating a Cluster](./create_cluster.md)
- - [Deploying Images](./deploy_images.md)
-   - [Operator Design](./operator.md)
-- [Setup Network](./setup_network.md)
+   - [Deploying Images](./deploy_images.md)
+   - [Deploying Keramik](./deploy_crds.md)
+   - [Setup Network](./setup_network.md)
 - [Running a Simulation](./simulation.md)
 - [Analyzing Simulation Runs](./analysis.md)
   - [Analysis with Datadog](./datadog.md) 
@@ -13,3 +13,4 @@
   - [Metrics](./metrics.md)
   - [IPFS](./ipfs.md)
   - [Secrets](./secrets.md)
+  - [Operator Design](./operator.md)

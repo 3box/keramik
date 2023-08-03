@@ -19,17 +19,8 @@ While not required to use keramik it makes deploying and mutating networks signi
 kind create cluster --config kind.yaml 
 ```
 
-Next we need to deploy keramik in order to create and manage a Ceramic network:
+Now you will need to [deploy images](./deploy_images.md) to the cluster.
 
-```shell
-# Create keramik namespace
-kubectl create namespace keramik
-# Create CRDs
-cargo run --bin crdgen | kubectl create -f - 
-# Start up keramik operator
-kubectl apply -k ./k8s/operator/             
-```
 
-Now you will need to [deploy images](./deploy_images.md) to the cluster and [setup a network](./setup_network.md).
 
 

@@ -86,9 +86,9 @@ spec:
     profilingEnabled: true
 ```
 
-
-    kubectl apply -f small.yaml
-
+```shell
+kubectl apply -f small.yaml
+```
 
 Telemetry data sent to datadog will have two properties to uniquely identifiy the data from other keramik networks.
 

@@ -1,7 +1,8 @@
 # Setting Up a Network
 With the operator running we can now define a Ceramic network.
 
-Place the following network definition into the file `small.yaml`.
+Place the following network definition into the file `small.yaml`. You can also use a [custom image](./custom_runner_image.md)
+for the runner when setting up a network.
 
 ```yaml
 # small.yaml
@@ -33,6 +34,8 @@ kubectl apply -f small.yaml
 ```
 
 After a minute or two you should have a functioning Ceramic network.
+
+## Checking the status of the network
 Check the status of the network:
 
 ```shell

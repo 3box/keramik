@@ -69,7 +69,7 @@ Request {
                   },
                   {
                     "name": "ETH_WALLET_PK",
-                    "value": "0x16dd0990d19001c50eeea6d32e8fdeef40d3945962caf18c18c3930baa5a6ec9"
+                    "value": "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9"
                   },
                   {
                     "name": "ETH_CONTRACT_ADDRESS",

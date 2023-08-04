@@ -175,7 +175,7 @@ pub fn cas_stateful_set_spec(
         EnvVar {
             name: "ETH_WALLET_PK".to_owned(),
             value: Some(
-                "0x16dd0990d19001c50eeea6d32e8fdeef40d3945962caf18c18c3930baa5a6ec9".to_owned(),
+                "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9".to_owned(),
             ),
             ..Default::default()
         },

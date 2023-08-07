@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">3.</strong> Deploying Images</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">3.1.</strong> Operator Design</a></li></ol></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">4.</strong> Setup Network</a></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">5.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">6.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">6.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">7.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">7.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">7.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">7.4.</strong> Secrets</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.6.</strong> Operator Design</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -159,8 +159,8 @@
 <h2 id="eks"><a class="header" href="#eks">EKS</a></h2>
 <p>Requires</p>
 <ul>
-<li>eks - https://eksctl.io/introduction/#installation</li>
-<li>aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html</li>
+<li><a href="https://eksctl.io/introduction/#installation">eks - https://eksctl.io/introduction/#installation</a></li>
+<li><a href="https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html">aws cli - https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html</a></li>
 </ul>
 <p>Once these are installed, you will need to login with aws cli via sso</p>
 <pre><code class="language-shell">aws configure sso
@@ -185,15 +185,7 @@ While not required to use keramik it makes deploying and mutating networks signi
 <pre><code class="language-shell"># Create a new kind cluster (i.e. local k8s)
 kind create cluster --config kind.yaml 
 </code></pre>
-<p>Next we need to deploy keramik in order to create and manage a Ceramic network:</p>
-<pre><code class="language-shell"># Create keramik namespace
-kubectl create namespace keramik
-# Create CRDs
-cargo run --bin crdgen | kubectl create -f - 
-# Start up keramik operator
-kubectl apply -k ./k8s/operator/             
-</code></pre>
-<p>Now you will need to <a href="./deploy_images.html">deploy images</a> to the cluster and <a href="./setup_network.html">setup a network</a>.</p>
+<p>Now you will need to <a href="./deploy_images.html">deploy images</a> to the cluster.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="deploying-images"><a class="header" href="#deploying-images">Deploying Images</a></h1>
 <p>There are two images that need to be deployed to the cluster if using a <a href="./environment.html#local-environment">local environment</a>
 or if you are trying to develop functionality or <a href="./developing-scenarios.html">scenarios</a>. These images are</p>
@@ -212,7 +204,7 @@ kind load docker-image keramik/operator:dev
   - name: keramik/operator
     newTag: dev
 </code></pre>
-<p>Finally apply these changes:</p>
+<p>If you have already <a href="./create_cluster.html">created a cluster</a>, you will need to apply these changes:</p>
 <pre><code class="language-shell">kubectl apply -k ./k8s/operator/
 </code></pre>
 <p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
@@ -222,10 +214,220 @@ Any changes to the runner require that you rebuild it and load it into kind agai
 <pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
 kind load docker-image keramik/runner:dev
 </code></pre>
-<p>Now we need to tell any resources that use the running image to use this new version of the runner.</p>
-<h3 id="networks"><a class="header" href="#networks">Networks</a></h3>
-<p>Network resources use the runner to bootstrap peers.
-Edit <code>small.yaml</code> to configure the image of the bootstrap runner.</p>
+<p>Next you will <a href="./deploy_crds.html">deploy custom resource definitions</a> to the cluster. If you've already deployed CRDS and setup a network, you will 
+need to <a href="./setup_network.html">setup a network</a> again to use your new runner.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="deploy-keramik"><a class="header" href="#deploy-keramik">Deploy Keramik</a></h1>
+<p>To deploy keramik, we will need to deploy custom resource definitions (CRDs) and the keramik operator.</p>
+<pre><code class="language-shell"># Create keramik namespace
+kubectl create namespace keramik
+# Create CRDs
+cargo run --bin crdgen | kubectl create -f - 
+# Start up keramik operator
+kubectl apply -k ./k8s/operator/             
+</code></pre>
+<p>Once that is complete, we will <a href="./setup_network.html">setup a network</a>.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="setting-up-a-network"><a class="header" href="#setting-up-a-network">Setting Up a Network</a></h1>
+<p>With the operator running we can now define a Ceramic network.</p>
+<p>Place the following network definition into the file <code>small.yaml</code>. You can also use a <a href="./custom_runner_image.html">custom image</a>
+for the runner when setting up a network.</p>
+<pre><code class="language-yaml"># small.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: &lt;initials&gt;-small
+spec:
+  replicas: 2
+</code></pre>
+<p>If you're running a simulation in the cloud, you will want to use <code>version</code> to separate out the metrics and errors for
+your simulation run.</p>
+<pre><code class="language-yaml">datadog:
+  enabled: true
+  version: &quot;unique-simulation-name&quot;
+  profilingEnabled: true
+</code></pre>
+<p>A complete example of a network definition with datadog enabled can be found <a href="./datadog.html">here</a>.</p>
+<p>Apply this network definition to the k8s cluster:</p>
+<pre><code class="language-shell">kubectl apply -f small.yaml
+</code></pre>
+<p>After a minute or two you should have a functioning Ceramic network.</p>
+<h2 id="checking-the-status-of-the-network"><a class="header" href="#checking-the-status-of-the-network">Checking the status of the network</a></h2>
+<p>Check the status of the network:</p>
+<pre><code class="language-shell">export NETWORK_NAME=&lt;initials&gt;-small
+kubectl describe network $NETWORK_NAME
+</code></pre>
+<p>Keramik places each network into its own namespace named after the name of the network. You can default your context
+to this namespace using:</p>
+<pre><code class="language-shell">kubectl config set-context --current --namespace=keramik-$NETWORK_NAME
+</code></pre>
+<p>Inspect the pods within the network using:</p>
+<pre><code class="language-shell">kubectl get pods
+</code></pre>
+<p>When your pods are ready, you can <a href="./simulation.html">run a simulation</a></p>
+<blockquote>
+<p>HINT: Use tools like <a href="https://github.com/ahmetb/kubectx">kubectx</a> or <a href="https://github.com/sbstp/kubie">kubie</a> to work with multiple namespaces and contexts.</p>
+</blockquote>
+<p>When you're finished, you can tear down your network with the following command:</p>
+<pre><code class="language-shell">kubectl delete network $NETWORK_NAME
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="simulation"><a class="header" href="#simulation">Simulation</a></h1>
+<p>To run a simulation, first define a simulation.</p>
+<pre><code class="language-yaml"># basic.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Simulation
+metadata:
+  name: basic
+  namespace: keramik-small
+spec:
+  scenario: ceramic-simple
+  users: 10
+  run_time: 4
+</code></pre>
+<p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the 
+namespace is set to the same network applied when <a href="./setup_network.html">the network was setup</a>.
+Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.</p>
+<p>Once ready, apply this simulation defintion to the k8s cluster:</p>
+<pre><code class="language-shell">kubectl apply -f basic.yaml
+</code></pre>
+<p>Keramik will first start all the metrics and tracing resources, once ready it will start the simulation by first starting the simulation manager and then all the workers.
+The manager and workers will stop once the simulation is complete.</p>
+<p>You can then <a href="analysis.html">analyze</a> the results of the simulation.</p>
+<div style="break-before: page; page-break-before: always;"></div><h2 id="analysis"><a class="header" href="#analysis">Analysis</a></h2>
+<p>First you will need to install a few things:</p>
+<pre><code>pip install duckdb duckdb-engine pandas jupyter jupysql matplotlib
+</code></pre>
+<p>To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet file from the otel-0 pod.
+First restart opentelemetry-0 pod so it writes out the parquet file footer.</p>
+<pre><code>kubectl delete pod opentelemetry-0
+sleep 5 # Give pod time to restart
+kubectl exec opentelemetry-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
+kubectl cp opentelemetry-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
+cd analyze
+</code></pre>
+<p>Use duckdb to examine the data:</p>
+<pre><code>duckdb
+&gt; SELECT * FROM 'metrics.parquet' LIMIT 10;
+</code></pre>
+<p>Alternatively start a jupyter notebook using <code>analyze/sim.ipynb</code>:</p>
+<pre><code>jupyter notebook
+</code></pre>
+<h2 id="comparing-simulation-runs"><a class="header" href="#comparing-simulation-runs">Comparing Simulation Runs</a></h2>
+<p>How do we conclude a simulation is better or worse that another run?</p>
+<p>Each simulation will likely be targeting a specific result however there are common results we should expect to see.</p>
+<p>Changes should not make correctness worse. Correctness is defined using two metrics:</p>
+<ul>
+<li>Percentage of events successfully persisted on the node that accepted the initial write.</li>
+<li>Percentage of events successfully replicated on nodes that observed the writes via the Ceramic protocol.</li>
+</ul>
+<p>Changes should not make performance worse. Performance is defined using these metrics:</p>
+<ul>
+<li>Writes/sec across all nodes in the cluster and by node</li>
+<li>p50,p90,p95,p99 and p99.9 of the duration of writes across all nodes in the cluster and by node</li>
+<li>Success/failure ratio of writes requests across all nodes in the cluster and by node</li>
+<li>p50,p90,p95,p99 and p99.9 of duration of time to become replicated. The time from when one node accepts the write to when another node has the same write available for read.</li>
+</ul>
+<p>For any simulation of the Ceramic protocol these metrics should apply. Any report about the results of a simulation should include these metrics and we compare them against the established a baseline.</p>
+<h2 id="performance-analysis"><a class="header" href="#performance-analysis">Performance Analysis</a></h2>
+<p>In addition to the above, we can also use <a href="./datadog.html">datadog</a> to dive further into performance.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="datadog"><a class="header" href="#datadog">Datadog</a></h1>
+<p>Keramik can also be configured to send metrics and telemetry data to datadog.</p>
+<p>We will be following these steps.</p>
+<ol start="0">
+<li>Setup Keramik network</li>
+<li>Install the operator</li>
+<li>Configure the operator</li>
+<li>Configure secrets for the operator</li>
+<li>Configure datadog within a Keramik network.</li>
+</ol>
+<p>The datadog operator needs to be installed into an existing Keramik network.
+Create Keramik network using <code>small.yaml</code> from <a href="setup_network.html">here</a>.</p>
+<pre><code>kubectl apply -f small.yaml
+</code></pre>
+<p>Install the datadog k8s operator into the network.
+This requires <a href="https://helm.sh/docs/intro/install/">installing</a> <code>helm</code>, there doesn't seem to be any other way to install the operator without first installing helm.
+However once the datadog operator is installed helm is no longer needed.</p>
+<pre><code>helm repo add datadog https://helm.datadoghq.com
+helm install -n keramik-small my-datadog-operator datadog/datadog-operator
+</code></pre>
+<p>Configure the datadog operator:</p>
+<pre><code class="language-yaml">#dd.yaml
+---
+kind: DatadogAgent
+apiVersion: datadoghq.com/v2alpha1
+metadata:
+  name: datadog
+spec:
+  global:
+    kubelet:
+      tlsVerify: false
+    site: us3.datadoghq.com
+    credentials:
+      apiSecret:
+        secretName: datadog-secret
+        keyName: api-key
+      appSecret:
+        secretName: datadog-secret
+        keyName: app-key
+  override:
+    clusterAgent:
+      image:
+        name: gcr.io/datadoghq/cluster-agent:latest
+    nodeAgent:
+      image:
+        name: gcr.io/datadoghq/agent:latest
+  features:
+    npm:
+      enabled: true
+    apm:
+      enabled: true
+      hostPortConfig:
+        enabled: true
+</code></pre>
+<p>Apply this yaml file into the namespace of the network:</p>
+<pre><code>kubectl apply -n keramik-small -f dd.yaml
+</code></pre>
+<p>Setup secrets:</p>
+<pre><code>kubectl create secret generic datadog-secret --from-literal api-key=&lt;DATADOG_API_KEY&gt; --from-literal app-key=&lt;DATADOG_APP_KEY&gt;
+</code></pre>
+<p>Replace <code>&lt;DATADOG_API_KEY&gt;</code> and <code>&lt;DATADOG_APP_KEY&gt;</code> accordingly.</p>
+<p>Enable datadog reporting for the network:</p>
+<pre><code class="language-yaml"># small.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  datadog:
+    enabled: true
+    version: &quot;unique_value&quot;
+    profilingEnabled: true
+</code></pre>
+<pre><code class="language-shell">kubectl apply -f small.yaml
+</code></pre>
+<p>Telemetry data sent to datadog will have two properties to uniquely identifiy the data from other keramik networks.</p>
+<ul>
+<li><code>env</code> - this is set based on the namespace of the keramik network.</li>
+<li><code>version</code> - specified in the datadog config, may be any unique value.</li>
+</ul>
+<h2 id="cleanup"><a class="header" href="#cleanup">Cleanup</a></h2>
+<pre><code>kubectl delete datadogagent datadog
+helm delete my-datadog-operator
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h1>
+<p>For more advanced usage of keramik, please see</p>
+<ul>
+<li><a href="./custom_runner_image.html">Custom Runner Image</a></li>
+<li><a href="./advanced_configuration.html">Advanced CAS and Ceramic Configuration</a></li>
+<li><a href="./metrics.html">Metrics</a></li>
+<li><a href="./ipfs.html">IPFS</a></li>
+<li><a href="./secrets.html">Secrets</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="using-a-custom-runner-image"><a class="header" href="#using-a-custom-runner-image">Using a custom runner image</a></h1>
+<p>To use a custom runner image when you <a href="./setup_network.html">setup your network</a>, you will need to adjust the yaml you
+use to specify how to bootstrap the runner.</p>
 <pre><code class="language-yaml"># small.yaml
 ---
 apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
@@ -239,26 +441,146 @@ spec:
     image: keramik/runner:dev
     imagePullPolicy: IfNotPresent
 </code></pre>
-<p>You will then apply this to start the runner</p>
-<pre><code class="language-shell">kubectl apply -f small.yaml
-</code></pre>
-<h3 id="simulations"><a class="header" href="#simulations">Simulations</a></h3>
-<p>Simulations use the runner to run scenarios.
-Edit <code>basic.yaml</code> to configure the runner image for simulations.
-This will change the runner image for all jobs created by the simulation.</p>
-<pre><code class="language-yaml"># basic.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Simulation
+<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-cas-and-ceramic-configuration"><a class="header" href="#advanced-cas-and-ceramic-configuration">Advanced CAS and Ceramic Configuration</a></h1>
+<p>By default, Keramik will instantiate all the resources required for a functional CAS service, including a Ganache
+blockchain.</p>
+<p>You can configure the Ceramic nodes to use an external instance of the CAS instead of one inside the cluster. If using a
+CAS running in 3Box Labs infrastructure, you will also need to specify the Ceramic network type associated with the
+node, e.g. <code>dev-unstable</code>.</p>
+<p>In this case, the Ceramic network PubSub topic must be specified as an empty string in order to clear it from the
+Ceramic configuration. Ceramic nodes do not permit the PubSub topic to be specified for a network type that is not one
+of <code>local</code> or <code>inmemory</code>.</p>
+<p>You may also specify an Ethereum RPC endpoint for the Ceramic nodes to be able to verify anchors, or set it to an empty
+string to clear it from the Ceramic configuration. In the latter case, the Ceramic nodes will come up but will not be
+able to verify anchors.</p>
+<p>If left unspecified, <code>networkType</code> will default to <code>local</code>, <code>pubsubTopic</code> to <code>/ceramic/local-keramik</code>, <code>ethRpcUrl</code> to
+<code>http://ganache:8545</code>, and <code>casApiUrl</code> to <code>http://cas:8081</code>. These defaults point to an internal CAS using a local
+pubsub topic in a fully isolated network.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
 metadata:
-  name: basic
-  namespace: keramik-small
+  name: small
 spec:
-  scenario: ceramic-simple
-  users: 10
-  run_time: 4
-  image: keramik/runner:dev
-  imagePullPolicy: IfNotPresent
+  replicas: 2
+  ceramic:
+    privateKeySecret: &quot;small&quot;
+    networkType: &quot;dev-unstable&quot;
+    pubsubTopic: &quot;&quot;
+    ethRpcUrl: &quot;&quot;
+    casApiUrl: &quot;https://some-anchor-service.com&quot;
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="opentelemetry"><a class="header" href="#opentelemetry">Opentelemetry</a></h1>
+<p>To view the metrics and traces port-forward the services:</p>
+<pre><code>kubectl port-forward prometheus-0 9090
+kubectl port-forward jaeger-0 16686
+</code></pre>
+<p>Then navigate to http://localhost:9090 for metrics and http://localhost:16686 for traces.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="ipfs"><a class="header" href="#ipfs">IPFS</a></h1>
+<p>The IPFS behavior used by Ceramic can be customized.</p>
+<h2 id="rust-ipfs"><a class="header" href="#rust-ipfs">Rust IPFS</a></h2>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with its defaults.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-vanilla-ceramic-one
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      rust: {}
+</code></pre>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with a specific image.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-ceramic-one
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      rust:
+        image: rust-ceramic/ceramic-one:dev
+        imagePullPolicy: IfNotPresent
+</code></pre>
+<h2 id="kubo-ipfs"><a class="header" href="#kubo-ipfs">Kubo IPFS</a></h2>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with its defaults.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-vanilla-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      go: {}
+</code></pre>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with a specific image.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      go:
+        image: ceramicnetwork/go-ipfs-daemon:develop
+        imagePullPolicy: IfNotPresent
+</code></pre>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with extra configuration commands.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  ceramic:
+    ipfs:
+      go:
+        image: ceramicnetwork/go-ipfs-daemon:develop
+        imagePullPolicy: IfNotPresent
+        commands:
+          - ipfs config --json Swarm.RelayClient.Enabled false
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="specifying-a-ceramic-admin-secret"><a class="header" href="#specifying-a-ceramic-admin-secret">Specifying a Ceramic admin secret</a></h1>
+<p>You can choose to specify a private key for the Ceramic nodes to use as their admin secret. This will allow you to set
+up the corresponding DID with CAS Auth.</p>
+<p>Leaving the private key unspecified will cause a new key to be randomly generated. This can be fine for simulation runs
+against CAS/Ganache running locally within the cluster but not for simulations that hit CAS running behind the AWS API
+Gateway. Using an unauthorized DID in that case will prevent the Ceramic nodes from starting up.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    privateKeySecret: &quot;small&quot;
+</code></pre>
+<p>Note that <code>privateKeySecret</code> is the name of another k8s secret in the <code>keramik</code> namespace that has already been
+populated beforehand with the desired hex-encoded private key. This source secret MUST exist before it can be used to
+populate the Ceramic admin secret.</p>
+<pre><code class="language-shell">kubectl create secret generic small --from-literal=private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+</code></pre>
+<p>The secret can also be created from a file containing the private key.</p>
+<pre><code class="language-shell">kubectl create secret generic small --from-file=private-key=./my_secret
+</code></pre>
+<p>Here's an example of the contents of the <code>my_secret</code> file. Please make sure that there are no newlines at the end of
+the file.</p>
+<pre><code>0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
+</code></pre>
+<p>Alternatively, you can use a <code>kustomization.yml</code> file to create the secret from a file before creating the network, and
+using the name of the new secret in the network configuration.</p>
+<pre><code class="language-yaml">---
+namespace: keramik
+
+secretGenerator:
+- name: small
+  envs:
+  - .env.secret
+</code></pre>
+<p>Here's an example of the contents of the <code>.env.secret</code> file.</p>
+<pre><code>private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="operator-patterns"><a class="header" href="#operator-patterns">Operator Patterns</a></h1>
 <p>This document discusses some of the designs patterns of the operator.</p>
@@ -369,331 +691,6 @@ Assembly is more robust as it is explicit about node information.</p>
 The config map contains a key <code>peers.json</code> which is the JSON serialization of all ready peers with their p2p address and rpc address.
 It is expected that other systems consume that config map in order to learn about peers in the network.
 The <code>runner</code> does exactly this inorder to bootstrap the network.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="setting-up-a-network"><a class="header" href="#setting-up-a-network">Setting Up a Network</a></h1>
-<p>With the operator running we can now define a Ceramic network.</p>
-<p>Place the following network definition into the file <code>small.yaml</code>.</p>
-<pre><code class="language-yaml"># small.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: &lt;initials&gt;-small
-spec:
-  replicas: 2
-</code></pre>
-<p>Apply this network definition to the k8s cluster:</p>
-<pre><code class="language-shell">kubectl apply -f small.yaml
-</code></pre>
-<p>After a minute or two you should have a functioning Ceramic network.
-Check the status of the network:</p>
-<pre><code class="language-shell">export NETWORK_NAME=&lt;initials&gt;-small
-kubectl describe network $NETWORK_NAME
-</code></pre>
-<p>Keramik places each network into its own namespace named after the name of the network. You can default your context
-to this namespace using:</p>
-<pre><code class="language-shell">kubectl config set-context --current --namespace=keramik-$NETWORK_NAME
-</code></pre>
-<p>Inspect the pods within the network using:</p>
-<pre><code class="language-shell">kubectl get pods
-</code></pre>
-<blockquote>
-<p>HINT: Use tools like <a href="https://github.com/ahmetb/kubectx">kubectx</a> or <a href="https://github.com/sbstp/kubie">kubie</a> to work with multiple namespaces and contexts.</p>
-</blockquote>
-<p>When you're finished, you can tear down your network with the following command:</p>
-<pre><code class="language-shell">kubectl delete network $NETWORK_NAME
-</code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="simulation"><a class="header" href="#simulation">Simulation</a></h1>
-<p>To run a simulation, first define a simulation.</p>
-<pre><code class="language-yaml"># basic.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Simulation
-metadata:
-  name: basic
-  namespace: keramik-small
-spec:
-  scenario: ceramic-simple
-  users: 10
-  run_time: 4
-</code></pre>
-<p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the 
-namespace is set to the same network applied when <a href="./setup_network.html">the network was setup</a>.
-Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.</p>
-<p>Once ready, apply this simulation defintion to the k8s cluster:</p>
-<pre><code class="language-shell">kubectl apply -f basic.yaml
-</code></pre>
-<p>Keramik will first start all the metrics and tracing resources, once ready it will start the simulation by first starting the simulation manager and then all the workers.
-The manager and workers will stop once the simulation is complete.</p>
-<p>You can then <a href="analysis.html">analyze</a> the results of the simulation.</p>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="analysis"><a class="header" href="#analysis">Analysis</a></h2>
-<p>First you will need to install a few things:</p>
-<pre><code>pip install duckdb duckdb-engine pandas jupyter jupysql matplotlib
-</code></pre>
-<p>To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet file from the otel-0 pod.
-First restart opentelemetry-0 pod so it writes out the parquet file footer.</p>
-<pre><code>kubectl delete pod opentelemetry-0
-kubectl exec opentelemetry-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
-kubectl cp opentelemetry-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
-cd analyze
-</code></pre>
-<p>Use duckdb to examine the data:</p>
-<pre><code>duckdb
-&gt; SELECT * FROM 'metrics.parquet' LIMIT 10;
-</code></pre>
-<p>Alternatively start a jupyter notebook using <code>analyze/sim.ipynb</code>:</p>
-<pre><code>jupyter notebook
-</code></pre>
-<h2 id="comparing-simulation-runs"><a class="header" href="#comparing-simulation-runs">Comparing Simulation Runs</a></h2>
-<p>How do we conclude a simulation is better or worse that another run?</p>
-<p>Each simulation will likely be targeting a specific result however there are common results we should expect to see.</p>
-<p>Changes should not make correctness worse. Correctness is defined using two metrics:</p>
-<ul>
-<li>Percentage of events successfully persisted on the node that accepted the initial write.</li>
-<li>Percentage of events successfully replicated on nodes that observed the writes via the Ceramic protocol.</li>
-</ul>
-<p>Changes should not make performance worse. Performance is defined using these metrics:</p>
-<ul>
-<li>Writes/sec across all nodes in the cluster and by node</li>
-<li>p50,p90,p95,p99 and p99.9 of the duration of writes across all nodes in the cluster and by node</li>
-<li>Success/failure ratio of writes requests across all nodes in the cluster and by node</li>
-<li>p50,p90,p95,p99 and p99.9 of duration of time to become replicated. The time from when one node accepts the write to when another node has the same write available for read.</li>
-</ul>
-<p>For any simulation of the Ceramic protocol these metrics should apply. Any report about the results of a simulation should include these metrics and we compare them against the established a baseline.</p>
-<h2 id="performance-analysis"><a class="header" href="#performance-analysis">Performance Analysis</a></h2>
-<p>In addition to the above, we can also use <a href="./datadog.html">datadog</a> to dive further into performance.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="datadog"><a class="header" href="#datadog">Datadog</a></h1>
-<p>Keramik can also be configured to send metrics and telemetry data to datadog.</p>
-<p>We will be following these steps.</p>
-<ol start="0">
-<li>Setup Keramik network</li>
-<li>Install the operator</li>
-<li>Configure the operator</li>
-<li>Configure secrets for the operator</li>
-<li>Configure datadog within a Keramik network.</li>
-</ol>
-<p>The datadog operator needs to be installed into an existing Keramik network.
-Create Keramik network using <code>small.yaml</code> from <a href="setup_network.html">here</a>.</p>
-<pre><code>kubectl apply -f small.yaml
-</code></pre>
-<p>Install the datadog k8s operator into the network.
-This requires <a href="https://helm.sh/docs/intro/install/">installing</a> <code>helm</code>, there doesn't seem to be any other way to install the operator without first installing helm.
-However once the datadog operator is installed helm is no longer needed.</p>
-<pre><code>helm repo add datadog https://helm.datadoghq.com
-helm install -n keramik-small my-datadog-operator datadog/datadog-operator
-</code></pre>
-<p>Configure the datadog operator:</p>
-<pre><code class="language-yaml">#dd.yaml
----
-kind: DatadogAgent
-apiVersion: datadoghq.com/v2alpha1
-metadata:
-  name: datadog
-spec:
-  global:
-    kubelet:
-      tlsVerify: false
-    site: us3.datadoghq.com
-    credentials:
-      apiSecret:
-        secretName: datadog-secret
-        keyName: api-key
-      appSecret:
-        secretName: datadog-secret
-        keyName: app-key
-  override:
-    clusterAgent:
-      image:
-        name: gcr.io/datadoghq/cluster-agent:latest
-    nodeAgent:
-      image:
-        name: gcr.io/datadoghq/agent:latest
-  features:
-    npm:
-      enabled: true
-    apm:
-      enabled: true
-      hostPortConfig:
-        enabled: true
-</code></pre>
-<p>Apply this yaml file into the namespace of the network:</p>
-<pre><code>kubectl apply -n keramik-small -f dd.yaml
-</code></pre>
-<p>Setup secrets:</p>
-<pre><code>kubectl create secret generic datadog-secret --from-literal api-key=&lt;DATADOG_API_KEY&gt; --from-literal app-key=&lt;DATADOG_APP_KEY&gt;
-</code></pre>
-<p>Replace <code>&lt;DATADOG_API_KEY&gt;</code> and <code>&lt;DATADOG_APP_KEY&gt;</code> accordingly.</p>
-<p>Enable datadog reporting for the network:</p>
-<pre><code class="language-yaml"># small.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  datadog:
-    enabled: true
-    version: &quot;unique_value&quot;
-    profilingEnabled: true
-</code></pre>
-<pre><code>kubectl apply -f small.yaml
-</code></pre>
-<p>Telemetry data sent to datadog will have two properties to uniquely identifiy the data from other keramik networks.</p>
-<ul>
-<li><code>env</code> - this is set based on the namespace of the keramik network.</li>
-<li><code>version</code> - specified in the datadog config, may be any unique value.</li>
-</ul>
-<h2 id="cleanup"><a class="header" href="#cleanup">Cleanup</a></h2>
-<pre><code>kubectl delete datadogagent datadog
-helm delete my-datadog-operator
-</code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h1>
-<p>For more advanced usage of keramik, please see</p>
-<ul>
-<li><a href="./advanced_configuration.html">Advanced CAS and Ceramic Configuration</a></li>
-<li><a href="./metrics.html">Metrics</a></li>
-<li><a href="./ipfs.html">IPFS</a></li>
-<li><a href="./secrets.html">Secrets</a></li>
-</ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-cas-and-ceramic-configuration"><a class="header" href="#advanced-cas-and-ceramic-configuration">Advanced CAS and Ceramic Configuration</a></h1>
-<p>By default, Keramik will instantiate all the resources required for a functional CAS service, including a Ganache
-blockchain.</p>
-<p>You can configure the Ceramic nodes to use an external instance of the CAS instead of one inside the cluster. If using a
-CAS running in 3Box Labs infrastructure, you will also need to specify the Ceramic network type associated with the
-node, e.g. <code>dev-unstable</code>.</p>
-<p>In this case, the Ceramic network PubSub topic must be specified as an empty string in order to clear it from the
-Ceramic configuration. Ceramic nodes do not permit the PubSub topic to be specified for a network type that is not one
-of <code>local</code> or <code>inmemory</code>.</p>
-<p>You may also specify an Ethereum RPC endpoint for the Ceramic nodes to be able to verify anchors, or set it to an empty
-string to clear it from the Ceramic configuration. In the latter case, the Ceramic nodes will come up but will not be
-able to verify anchors.</p>
-<p>If left unspecified, <code>networkType</code> will default to <code>local</code>, <code>pubsubTopic</code> to <code>/ceramic/local-keramik</code>, <code>ethRpcUrl</code> to
-<code>http://ganache:8545</code>, and <code>casApiUrl</code> to <code>http://cas:8081</code>. These defaults point to an internal CAS using a local
-pubsub topic in a fully isolated network.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  ceramic:
-    privateKeySecret: &quot;small&quot;
-    networkType: &quot;dev-unstable&quot;
-    pubsubTopic: &quot;&quot;
-    ethRpcUrl: &quot;&quot;
-    casApiUrl: &quot;https://some-anchor-service.com&quot;
-</code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="opentelemetry"><a class="header" href="#opentelemetry">Opentelemetry</a></h1>
-<p>To view the metrics and traces port-forward the services:</p>
-<pre><code>kubectl port-forward prometheus-0 9090
-kubectl port-forward jaeger-0 16686
-</code></pre>
-<p>Then navigate to http://localhost:9090 for metrics and http://localhost:16686 for traces.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="ipfs"><a class="header" href="#ipfs">IPFS</a></h1>
-<p>The IPFS behavior used by Ceramic can be customized.</p>
-<h2 id="rust-ipfs"><a class="header" href="#rust-ipfs">Rust IPFS</a></h2>
-<p>Example network config that uses Rust based IPFS (i.e. ceramic-one) with its defaults.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: example-vanilla-ceramic-one
-spec:
-  replicas: 5
-  ceramic:
-    ipfs:
-      rust: {}
-</code></pre>
-<p>Example network config that uses Rust based IPFS (i.e. ceramic-one) with a specific image.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: example-custom-ceramic-one
-spec:
-  replicas: 5
-  ceramic:
-    ipfs:
-      rust:
-        image: rust-ceramic/ceramic-one:dev
-        imagePullPolicy: IfNotPresent
-</code></pre>
-<h2 id="kubo-ipfs"><a class="header" href="#kubo-ipfs">Kubo IPFS</a></h2>
-<p>Example network config that uses Go based IPFS (i.e. Kubo) with its defaults.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: example-vanilla-kubo
-spec:
-  replicas: 5
-  ceramic:
-    ipfs:
-      go: {}
-</code></pre>
-<p>Example network config that uses Go based IPFS (i.e. Kubo) with a specific image.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: example-custom-kubo
-spec:
-  replicas: 5
-  ceramic:
-    ipfs:
-      go:
-        image: ceramic/go-ipfs:dev-validator
-        imagePullPolicy: IfNotPresent
-</code></pre>
-<p>Example network config that uses Go based IPFS (i.e. Kubo) with extra configuration commands.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: example-custom-kubo
-spec:
-  replicas: 5
-  ceramic:
-    ipfs:
-      go:
-        commands:
-          - ipfs config --json Swarm.RelayClient.Enabled false
-</code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="specifying-a-ceramic-admin-secret"><a class="header" href="#specifying-a-ceramic-admin-secret">Specifying a Ceramic admin secret</a></h1>
-<p>You can choose to specify a private key for the Ceramic nodes to use as their admin secret. This will allow you to set
-up the corresponding DID with CAS Auth.</p>
-<p>Leaving the private key unspecified will cause a new key to be randomly generated. This can be fine for simulation runs
-against CAS/Ganache running locally within the cluster but not for simulations that hit CAS running behind the AWS API
-Gateway. Using an unauthorized DID in that case will prevent the Ceramic nodes from starting up.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  ceramic:
-    privateKeySecret: &quot;small&quot;
-</code></pre>
-<p>Note that <code>privateKeySecret</code> is the name of another k8s secret in the <code>keramik</code> namespace that has already been
-populated beforehand with the desired hex-encoded private key. This source secret MUST exist before it can be used to
-populate the Ceramic admin secret.</p>
-<pre><code class="language-shell">kubectl create secret generic small --from-literal=private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
-</code></pre>
-<p>The secret can also be created from a file containing the private key.</p>
-<pre><code class="language-shell">kubectl create secret generic small --from-file=private-key=./my_secret
-</code></pre>
-<p>Here's an example of the contents of the <code>my_secret</code> file. Please make sure that there are no newlines at the end of
-the file.</p>
-<pre><code>0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
-</code></pre>
-<p>Alternatively, you can use a <code>kustomization.yml</code> file to create the secret from a file before creating the network, and
-using the name of the new secret in the network configuration.</p>
-<pre><code class="language-yaml">---
-namespace: keramik
-
-secretGenerator:
-- name: small
-  envs:
-  - .env.secret
-</code></pre>
-<p>Here's an example of the contents of the <code>.env.secret</code> file.</p>
-<pre><code>private-key=0e3b57bb4d269b6707019f75fe82fe06b1180dd762f183e96cab634e38d6e57b
-</code></pre>
 
                     </main>
 

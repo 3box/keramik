@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li class="chapter-item expanded "><a href="deploy_images.html" class="active"><strong aria-hidden="true">3.</strong> Deploying Images</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">3.1.</strong> Operator Design</a></li></ol></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">4.</strong> Setup Network</a></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">5.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">6.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">6.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">7.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">7.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">7.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">7.4.</strong> Secrets</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html" class="active"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.6.</strong> Operator Design</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -161,7 +161,7 @@ kind load docker-image keramik/operator:dev
   - name: keramik/operator
     newTag: dev
 </code></pre>
-<p>Finally apply these changes:</p>
+<p>If you have already <a href="./create_cluster.html">created a cluster</a>, you will need to apply these changes:</p>
 <pre><code class="language-shell">kubectl apply -k ./k8s/operator/
 </code></pre>
 <p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
@@ -171,44 +171,8 @@ Any changes to the runner require that you rebuild it and load it into kind agai
 <pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
 kind load docker-image keramik/runner:dev
 </code></pre>
-<p>Now we need to tell any resources that use the running image to use this new version of the runner.</p>
-<h3 id="networks"><a class="header" href="#networks">Networks</a></h3>
-<p>Network resources use the runner to bootstrap peers.
-Edit <code>small.yaml</code> to configure the image of the bootstrap runner.</p>
-<pre><code class="language-yaml"># small.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  # Use custom runner image for bootstrapping
-  bootstrap:
-    image: keramik/runner:dev
-    imagePullPolicy: IfNotPresent
-</code></pre>
-<p>You will then apply this to start the runner</p>
-<pre><code class="language-shell">kubectl apply -f small.yaml
-</code></pre>
-<h3 id="simulations"><a class="header" href="#simulations">Simulations</a></h3>
-<p>Simulations use the runner to run scenarios.
-Edit <code>basic.yaml</code> to configure the runner image for simulations.
-This will change the runner image for all jobs created by the simulation.</p>
-<pre><code class="language-yaml"># basic.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Simulation
-metadata:
-  name: basic
-  namespace: keramik-small
-spec:
-  scenario: ceramic-simple
-  users: 10
-  run_time: 4
-  image: keramik/runner:dev
-  imagePullPolicy: IfNotPresent
-</code></pre>
+<p>Next you will <a href="./deploy_crds.html">deploy custom resource definitions</a> to the cluster. If you've already deployed CRDS and setup a network, you will 
+need to <a href="./setup_network.html">setup a network</a> again to use your new runner.</p>
 
                     </main>
 
@@ -218,7 +182,7 @@ spec:
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
-                                                    <a rel="next" href="operator.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                                    <a rel="next" href="deploy_crds.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -232,7 +196,7 @@ spec:
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
-                                    <a rel="next" href="operator.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                    <a rel="next" href="deploy_crds.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                             </nav>

@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">3.</strong> Deploying Images</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">3.1.</strong> Operator Design</a></li></ol></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">4.</strong> Setup Network</a></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">5.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">6.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">6.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">7.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">7.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">7.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html" class="active"><strong aria-hidden="true">7.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">7.4.</strong> Secrets</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html" class="active"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.6.</strong> Operator Design</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -146,7 +146,7 @@
                         <h1 id="ipfs"><a class="header" href="#ipfs">IPFS</a></h1>
 <p>The IPFS behavior used by Ceramic can be customized.</p>
 <h2 id="rust-ipfs"><a class="header" href="#rust-ipfs">Rust IPFS</a></h2>
-<p>Example network config that uses Rust based IPFS (i.e. ceramic-one) with its defaults.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with its defaults.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -157,7 +157,7 @@ spec:
     ipfs:
       rust: {}
 </code></pre>
-<p>Example network config that uses Rust based IPFS (i.e. ceramic-one) with a specific image.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with a specific image.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -171,7 +171,7 @@ spec:
         imagePullPolicy: IfNotPresent
 </code></pre>
 <h2 id="kubo-ipfs"><a class="header" href="#kubo-ipfs">Kubo IPFS</a></h2>
-<p>Example network config that uses Go based IPFS (i.e. Kubo) with its defaults.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with its defaults.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -182,7 +182,7 @@ spec:
     ipfs:
       go: {}
 </code></pre>
-<p>Example network config that uses Go based IPFS (i.e. Kubo) with a specific image.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with a specific image.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -192,10 +192,10 @@ spec:
   ceramic:
     ipfs:
       go:
-        image: ceramic/go-ipfs:dev-validator
+        image: ceramicnetwork/go-ipfs-daemon:develop
         imagePullPolicy: IfNotPresent
 </code></pre>
-<p>Example network config that uses Go based IPFS (i.e. Kubo) with extra configuration commands.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with extra configuration commands.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -205,6 +205,8 @@ spec:
   ceramic:
     ipfs:
       go:
+        image: ceramicnetwork/go-ipfs-daemon:develop
+        imagePullPolicy: IfNotPresent
         commands:
           - ipfs config --json Swarm.RelayClient.Enabled false
 </code></pre>

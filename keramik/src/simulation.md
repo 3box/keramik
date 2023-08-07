@@ -1,6 +1,13 @@
 # Simulation
 
-To run a simulation, first define a simulation.
+To run a simulation, first define a simulation. Available simulation types are
+- `ipfs-rpc` - A simple simulation that writes and reads to IPFS
+- `ceramic-simple` - A simple simulation that writes and reads events to two different streams, a small and large model
+- `ceramic-write-only` - A simulation that only performs updates on two different streams
+- `ceramic-new-streams` - A simulation that only creates new streams
+
+Using one of these scenarios, we can then define the configuration for that scenario:
+
 ```yaml
 # basic.yaml
 ---
@@ -28,5 +35,11 @@ Keramik will first start all the metrics and tracing resources, once ready it wi
 The manager and workers will stop once the simulation is complete.
 
 You can then [analyze](analysis.md) the results of the simulation.
+
+If you want to rerun a simulation with no changes, you can delete the simulation and reapply it.
+
+```shell
+kubectl delete -f basic.yaml
+```
 
 

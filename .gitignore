@@ -6,3 +6,4 @@ target/
 *.yml
 .env*
 /book
+.idea

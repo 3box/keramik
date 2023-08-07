@@ -2,30 +2,58 @@
 
 Keramik can also be configured to send metrics and telemetry data to datadog.
 
-We will be following these steps.
-
-0. Setup Keramik network
-1. Install the operator
-2. Configure the operator
-3. Configure secrets for the operator
-4. Configure datadog within a Keramik network.
-
-The datadog operator needs to be installed into an existing Keramik network.
-Create Keramik network using `small.yaml` from [here](setup_network.md).
-
-    kubectl apply -f small.yaml
-
-Install the datadog k8s operator into the network.
-This requires [installing](https://helm.sh/docs/intro/install/) `helm`, there doesn't seem to be any other way to install the operator without first installing helm.
-However once the datadog operator is installed helm is no longer needed.
-
-    helm repo add datadog https://helm.datadoghq.com
-    helm install -n keramik-small my-datadog-operator datadog/datadog-operator
-
-Configure the datadog operator:
+You will first need to [setup a barebones network](setup_network.md) that we can install the datadog operator
+into. An example barebones network from the above setup:
 
 ```yaml
-#dd.yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: <name of network>
+spec:
+  replicas: 1
+  datadog:
+    enabled: true
+    version: "unique_value"
+    profilingEnabled: true
+```
+
+You will need to install the datadog k8s operator into the network. This requires
+[installing](https://helm.sh/docs/intro/install/) `helm`, there doesn't seem to be any other way to install the operator
+without first installing helm. However once the datadog operator is installed helm is no longer needed.
+
+    helm repo add datadog https://helm.datadoghq.com
+    helm install my-datadog-operator datadog/datadog-operator
+
+Now we will use that barebones network to setup secrets for datadog, and the datadog agent. Adjust the previously 
+defined network definition to look like the following:
+
+```yaml
+# Network setup
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  datadog:
+    enabled: true
+    version: "unique_value"
+    profilingEnabled: true
+    
+# Secrets Setup
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datadog-secret
+type: Opaque
+stringData:
+  api-key: <Datadog API Key Secret>
+  app-key: <Datadog Application Key Secret>
+    
+# Datadog Agent setup
 ---
 kind: DatadogAgent
 apiVersion: datadoghq.com/v2alpha1
@@ -59,36 +87,24 @@ spec:
         enabled: true
 ```
 
-Apply this yaml file into the namespace of the network:
+The Datadog API Key is found at the organization level, and should be the secret associated with the API Key. The 
+Datadog application key can be found at the organization or user level, and should be the secret associated with the
+application key.
 
-    kubectl apply -n keramik-small -f dd.yaml
+You can now apply this with
 
-Setup secrets:
+    kubectl apply -f network.yaml
 
-    kubectl create secret generic datadog-secret --from-literal api-key=<DATADOG_API_KEY> --from-literal app-key=<DATADOG_APP_KEY>
+*Note* If you are running locally, you will need to restart your CAS and Ceramic pods using
 
-Replace `<DATADOG_API_KEY>` and `<DATADOG_APP_KEY>` accordingly.
+    kubectl delete pod ceramic-0 ceramic-1 cas-0
 
-Enable datadog reporting for the network:
+where the ceramic pods will depend on the replicas used. Make sure you delete all Ceramic and CAS pods. This only needs 
+to be done the 
 
-```yaml
-# small.yaml
----
-apiVersion: "keramik.3box.io/v1alpha1"
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  datadog:
-    enabled: true
-    version: "unique_value"
-    profilingEnabled: true
-```
+Anytime you need to change the network, change this file, then reapply it with
 
-```shell
-kubectl apply -f small.yaml
-```
+    kubectl apply -f network.yaml
 
 Telemetry data sent to datadog will have two properties to uniquely identifiy the data from other keramik networks.
 
@@ -97,7 +113,7 @@ Telemetry data sent to datadog will have two properties to uniquely identifiy th
 
 ## Cleanup
 
-    kubectl delete datadogagent datadog
+    kubectl delete -f network.yaml
     helm delete my-datadog-operator
 
 

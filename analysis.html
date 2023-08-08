@@ -143,14 +143,31 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h2 id="analysis"><a class="header" href="#analysis">Analysis</a></h2>
+                        <h1 id="analysis"><a class="header" href="#analysis">Analysis</a></h1>
+<p>Analysis of Keramik results depends on the purpose of the simulation. You may want to just see average latencies, or dive
+deeper into reported metrics. For profiling, you will want to use <a href="./datadog.html">datadog</a>.</p>
+<h2 id="quick-log-analysis"><a class="header" href="#quick-log-analysis">Quick Log Analysis</a></h2>
+<p>The simulation manager provides a very quick way to analyze the logs of a simulation run. You will need to know the name
+of the manager pod though. You will first need to see if the <code>simulate-manager</code> pod has completed, by running</p>
+<pre><code>kubectl get pods
+</code></pre>
+<p>If the pod has completed and is no longer in that list, you can see recently terminated pods using:</p>
+<pre><code>kubectl get event -o custom-columns=NAME:.metadata.name | cut -d &quot;.&quot; -f1
+</code></pre>
+<p>Once you have the name of the manager, you can retrieve its logs</p>
+<pre><code>kubectl logs simulate-manager-&lt;id&gt;
+</code></pre>
+<p>If the <code>simulate-manager</code> pod is not in your pod list, you may need to get logs with the <code>--previous</code> flag:</p>
+<pre><code>kubectl logs --previous simulate-manager-&lt;id&gt;
+</code></pre>
+<h2 id="analysis-with-duckdb-or-jupyter"><a class="header" href="#analysis-with-duckdb-or-jupyter">Analysis with DuckDB or Jupyter</a></h2>
 <p>First you will need to install a few things:</p>
 <pre><code>pip install duckdb duckdb-engine pandas jupyter jupysql matplotlib
 </code></pre>
 <p>To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet file from the otel-0 pod.
 First restart opentelemetry-0 pod so it writes out the parquet file footer.</p>
 <pre><code>kubectl delete pod opentelemetry-0
-sleep 5 # Give pod time to restart
+kubectl wait --for=condition=Ready pod/opentelemetry-0 # make sure pod has restarted
 kubectl exec opentelemetry-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
 kubectl cp opentelemetry-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
 cd analyze

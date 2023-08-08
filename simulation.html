@@ -144,7 +144,14 @@
                 <div id="content" class="content">
                     <main>
                         <h1 id="simulation"><a class="header" href="#simulation">Simulation</a></h1>
-<p>To run a simulation, first define a simulation.</p>
+<p>To run a simulation, first define a simulation. Available simulation types are</p>
+<ul>
+<li><code>ipfs-rpc</code> - A simple simulation that writes and reads to IPFS</li>
+<li><code>ceramic-simple</code> - A simple simulation that writes and reads events to two different streams, a small and large model</li>
+<li><code>ceramic-write-only</code> - A simulation that only performs updates on two different streams</li>
+<li><code>ceramic-new-streams</code> - A simulation that only creates new streams</li>
+</ul>
+<p>Using one of these scenarios, we can then define the configuration for that scenario:</p>
 <pre><code class="language-yaml"># basic.yaml
 ---
 apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
@@ -166,6 +173,9 @@ Additionally, you can define the scenario you want to run, the number of users, 
 <p>Keramik will first start all the metrics and tracing resources, once ready it will start the simulation by first starting the simulation manager and then all the workers.
 The manager and workers will stop once the simulation is complete.</p>
 <p>You can then <a href="analysis.html">analyze</a> the results of the simulation.</p>
+<p>If you want to rerun a simulation with no changes, you can delete the simulation and reapply it.</p>
+<pre><code class="language-shell">kubectl delete -f basic.yaml
+</code></pre>
 
                     </main>
 

@@ -271,7 +271,14 @@ to this namespace using:</p>
 <pre><code class="language-shell">kubectl delete network $NETWORK_NAME
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="simulation"><a class="header" href="#simulation">Simulation</a></h1>
-<p>To run a simulation, first define a simulation.</p>
+<p>To run a simulation, first define a simulation. Available simulation types are</p>
+<ul>
+<li><code>ipfs-rpc</code> - A simple simulation that writes and reads to IPFS</li>
+<li><code>ceramic-simple</code> - A simple simulation that writes and reads events to two different streams, a small and large model</li>
+<li><code>ceramic-write-only</code> - A simulation that only performs updates on two different streams</li>
+<li><code>ceramic-new-streams</code> - A simulation that only creates new streams</li>
+</ul>
+<p>Using one of these scenarios, we can then define the configuration for that scenario:</p>
 <pre><code class="language-yaml"># basic.yaml
 ---
 apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
@@ -293,14 +300,34 @@ Additionally, you can define the scenario you want to run, the number of users, 
 <p>Keramik will first start all the metrics and tracing resources, once ready it will start the simulation by first starting the simulation manager and then all the workers.
 The manager and workers will stop once the simulation is complete.</p>
 <p>You can then <a href="analysis.html">analyze</a> the results of the simulation.</p>
-<div style="break-before: page; page-break-before: always;"></div><h2 id="analysis"><a class="header" href="#analysis">Analysis</a></h2>
+<p>If you want to rerun a simulation with no changes, you can delete the simulation and reapply it.</p>
+<pre><code class="language-shell">kubectl delete -f basic.yaml
+</code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="analysis"><a class="header" href="#analysis">Analysis</a></h1>
+<p>Analysis of Keramik results depends on the purpose of the simulation. You may want to just see average latencies, or dive
+deeper into reported metrics. For profiling, you will want to use <a href="./datadog.html">datadog</a>.</p>
+<h2 id="quick-log-analysis"><a class="header" href="#quick-log-analysis">Quick Log Analysis</a></h2>
+<p>The simulation manager provides a very quick way to analyze the logs of a simulation run. You will need to know the name
+of the manager pod though. You will first need to see if the <code>simulate-manager</code> pod has completed, by running</p>
+<pre><code>kubectl get pods
+</code></pre>
+<p>If the pod has completed and is no longer in that list, you can see recently terminated pods using:</p>
+<pre><code>kubectl get event -o custom-columns=NAME:.metadata.name | cut -d &quot;.&quot; -f1
+</code></pre>
+<p>Once you have the name of the manager, you can retrieve its logs</p>
+<pre><code>kubectl logs simulate-manager-&lt;id&gt;
+</code></pre>
+<p>If the <code>simulate-manager</code> pod is not in your pod list, you may need to get logs with the <code>--previous</code> flag:</p>
+<pre><code>kubectl logs --previous simulate-manager-&lt;id&gt;
+</code></pre>
+<h2 id="analysis-with-duckdb-or-jupyter"><a class="header" href="#analysis-with-duckdb-or-jupyter">Analysis with DuckDB or Jupyter</a></h2>
 <p>First you will need to install a few things:</p>
 <pre><code>pip install duckdb duckdb-engine pandas jupyter jupysql matplotlib
 </code></pre>
 <p>To analyze the results of a simulation first copy the metrics-TIMESTAMP.parquet file from the otel-0 pod.
 First restart opentelemetry-0 pod so it writes out the parquet file footer.</p>
 <pre><code>kubectl delete pod opentelemetry-0
-sleep 5 # Give pod time to restart
+kubectl wait --for=condition=Ready pod/opentelemetry-0 # make sure pod has restarted
 kubectl exec opentelemetry-0 -- ls -la /data # List files in the directly find the TIMESTAMP you need
 kubectl cp opentelemetry-0:data/metrics-TIMESTAMP.parquet ./analyze/metrics.parquet
 cd analyze
@@ -332,26 +359,52 @@ cd analyze
 <p>In addition to the above, we can also use <a href="./datadog.html">datadog</a> to dive further into performance.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="datadog"><a class="header" href="#datadog">Datadog</a></h1>
 <p>Keramik can also be configured to send metrics and telemetry data to datadog.</p>
-<p>We will be following these steps.</p>
-<ol start="0">
-<li>Setup Keramik network</li>
-<li>Install the operator</li>
-<li>Configure the operator</li>
-<li>Configure secrets for the operator</li>
-<li>Configure datadog within a Keramik network.</li>
-</ol>
-<p>The datadog operator needs to be installed into an existing Keramik network.
-Create Keramik network using <code>small.yaml</code> from <a href="setup_network.html">here</a>.</p>
-<pre><code>kubectl apply -f small.yaml
+<p>You will first need to <a href="setup_network.html">setup a barebones network</a> that we can install the datadog operator
+into. An example barebones network from the above setup:</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: &lt;name of network&gt;
+spec:
+  replicas: 1
+  datadog:
+    enabled: true
+    version: &quot;unique_value&quot;
+    profilingEnabled: true
 </code></pre>
-<p>Install the datadog k8s operator into the network.
-This requires <a href="https://helm.sh/docs/intro/install/">installing</a> <code>helm</code>, there doesn't seem to be any other way to install the operator without first installing helm.
-However once the datadog operator is installed helm is no longer needed.</p>
+<p>You will need to install the datadog k8s operator into the network. This requires
+<a href="https://helm.sh/docs/intro/install/">installing</a> <code>helm</code>, there doesn't seem to be any other way to install the operator
+without first installing helm. However once the datadog operator is installed helm is no longer needed.</p>
 <pre><code>helm repo add datadog https://helm.datadoghq.com
-helm install -n keramik-small my-datadog-operator datadog/datadog-operator
+helm install my-datadog-operator datadog/datadog-operator
 </code></pre>
-<p>Configure the datadog operator:</p>
-<pre><code class="language-yaml">#dd.yaml
+<p>Now we will use that barebones network to setup secrets for datadog, and the datadog agent. Adjust the previously 
+defined network definition to look like the following:</p>
+<pre><code class="language-yaml"># Network setup
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  datadog:
+    enabled: true
+    version: &quot;unique_value&quot;
+    profilingEnabled: true
+    
+# Secrets Setup
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datadog-secret
+type: Opaque
+stringData:
+  api-key: &lt;Datadog API Key Secret&gt;
+  app-key: &lt;Datadog Application Key Secret&gt;
+    
+# Datadog Agent setup
 ---
 kind: DatadogAgent
 apiVersion: datadoghq.com/v2alpha1
@@ -384,28 +437,19 @@ spec:
       hostPortConfig:
         enabled: true
 </code></pre>
-<p>Apply this yaml file into the namespace of the network:</p>
-<pre><code>kubectl apply -n keramik-small -f dd.yaml
+<p>The Datadog API Key is found at the organization level, and should be the secret associated with the API Key. The 
+Datadog application key can be found at the organization or user level, and should be the secret associated with the
+application key.</p>
+<p>You can now apply this with</p>
+<pre><code>kubectl apply -f network.yaml
 </code></pre>
-<p>Setup secrets:</p>
-<pre><code>kubectl create secret generic datadog-secret --from-literal api-key=&lt;DATADOG_API_KEY&gt; --from-literal app-key=&lt;DATADOG_APP_KEY&gt;
+<p><em>Note</em> If you are running locally, you will need to restart your CAS and Ceramic pods using</p>
+<pre><code>kubectl delete pod ceramic-0 ceramic-1 cas-0
 </code></pre>
-<p>Replace <code>&lt;DATADOG_API_KEY&gt;</code> and <code>&lt;DATADOG_APP_KEY&gt;</code> accordingly.</p>
-<p>Enable datadog reporting for the network:</p>
-<pre><code class="language-yaml"># small.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  datadog:
-    enabled: true
-    version: &quot;unique_value&quot;
-    profilingEnabled: true
-</code></pre>
-<pre><code class="language-shell">kubectl apply -f small.yaml
+<p>where the ceramic pods will depend on the replicas used. Make sure you delete all Ceramic and CAS pods. This only needs 
+to be done the </p>
+<p>Anytime you need to change the network, change this file, then reapply it with</p>
+<pre><code>kubectl apply -f network.yaml
 </code></pre>
 <p>Telemetry data sent to datadog will have two properties to uniquely identifiy the data from other keramik networks.</p>
 <ul>
@@ -413,7 +457,7 @@ spec:
 <li><code>version</code> - specified in the datadog config, may be any unique value.</li>
 </ul>
 <h2 id="cleanup"><a class="header" href="#cleanup">Cleanup</a></h2>
-<pre><code>kubectl delete datadogagent datadog
+<pre><code>kubectl delete -f network.yaml
 helm delete my-datadog-operator
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h1>
@@ -456,7 +500,9 @@ able to verify anchors.</p>
 <p>If left unspecified, <code>networkType</code> will default to <code>local</code>, <code>pubsubTopic</code> to <code>/ceramic/local-keramik</code>, <code>ethRpcUrl</code> to
 <code>http://ganache:8545</code>, and <code>casApiUrl</code> to <code>http://cas:8081</code>. These defaults point to an internal CAS using a local
 pubsub topic in a fully isolated network.</p>
-<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+<pre><code class="language-yaml"># network configuration
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
   name: small
@@ -468,6 +514,70 @@ spec:
     pubsubTopic: &quot;&quot;
     ethRpcUrl: &quot;&quot;
     casApiUrl: &quot;https://some-anchor-service.com&quot;
+</code></pre>
+<h1 id="disabling-aws-functionality"><a class="header" href="#disabling-aws-functionality">Disabling AWS Functionality</a></h1>
+<p>Certain functionality in CAS depends on AWS services. If you are running Keramik in a non-AWS environment, you can
+disable this by editing the statefulset for CAS</p>
+<pre><code>kubectl edit statefulsets cas
+</code></pre>
+<p>and adding the following environment variables to the <code>spec/template/spec/containers/env</code> config:</p>
+<pre><code class="language-yaml">- name: SQS_QUEUE_URL
+  value: &quot;&quot;
+- name: MERKLE_CAR_STORAGE_MODE
+  value: disabled
+</code></pre>
+<p><em>Note</em> statefulsets must be edited every time the network is recreated.</p>
+<h1 id="image-resources"><a class="header" href="#image-resources">Image Resources</a></h1>
+<p>You can also use the <a href="./setup_network.html">network</a> specification to specify resources for the pods that are running</p>
+<pre><code class="language-yaml"># network configuration
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    resourceLimits:
+      cpu: &quot;4&quot;
+      memory: &quot;8Gi&quot;
+      storage: &quot;2Gi&quot;
+</code></pre>
+<p>The above yaml will provide each ceramic pod with 4 cpu cores, 8GB of memory, and 2GB of storage. Dependent on the system you 
+are running on you may run out of resources. You can check your resource usage with</p>
+<pre><code class="language-shell">kubectl describe nodes
+</code></pre>
+<p>You can also set resources for IPFS within ceramic similarly</p>
+<pre><code class="language-yaml"># network configuration
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    ipfs:
+      go:
+        resourceLimits:
+          cpu: &quot;4&quot;
+          memory: &quot;8Gi&quot;
+          storage: &quot;2Gi&quot;
+</code></pre>
+<p>Setting resources for CAS is slightly different, using <code>casResourceLimits</code> to set CAS resources</p>
+<pre><code class="language-yaml"># network configuration
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  cas:
+    image: ceramicnetwork/ceramic-anchor-service:latest
+    casResourceLimits:
+      cpu: &quot;250m&quot;
+      memory: &quot;1Gi&quot;
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="opentelemetry"><a class="header" href="#opentelemetry">Opentelemetry</a></h1>
 <p>To view the metrics and traces port-forward the services:</p>

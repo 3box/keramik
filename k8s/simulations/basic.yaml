@@ -1,8 +1,8 @@
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Simulation
 metadata:
-  name: basic
-  namespace: keramik-small
+  name: basic-golda-testing
+  namespace: keramik-gcp-testing-datadog-01
 spec:
   scenario: ceramic-write-only
   users: 100

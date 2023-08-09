@@ -2490,7 +2490,7 @@ mod tests {
                          }
                        },
                        "spec": {
-            @@ -79,6 +84,18 @@
+            @@ -79,6 +84,22 @@
                                {
                                  "name": "CERAMIC_LOG_LEVEL",
                                  "value": "2"
@@ -2502,6 +2502,10 @@ mod tests {
             +                        "fieldPath": "status.hostIP"
             +                      }
             +                    }
+            +                  },
+            +                  {
+            +                    "name": "DD_RUNTIME_METRICS_ENABLED",
+            +                    "value": "true"
             +                  },
             +                  {
             +                    "name": "DD_PROFILING_ENABLED",
@@ -2532,7 +2536,7 @@ mod tests {
                          }
                        },
                        "spec": {
-            @@ -120,6 +126,18 @@
+            @@ -120,6 +126,22 @@
                                      "name": "postgres-auth"
                                    }
                                  }
@@ -2544,6 +2548,10 @@ mod tests {
             +                        "fieldPath": "status.hostIP"
             +                      }
             +                    }
+            +                  },
+            +                  {
+            +                    "name": "DD_RUNTIME_METRICS_ENABLED",
+            +                    "value": "true"
             +                  },
             +                  {
             +                    "name": "DD_PROFILING_ENABLED",

@@ -8,5 +8,9 @@ images:
   - name: keramik/operator
     # newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
     # newTag: latest
+    newName: gcr.io/box-benchmarking-ipfs-testing/operator
     newTag: dev
 
+  - name: keramik/runner
+    newName: gcr.io/box-benchmarking-ipfs-testing/runner
+    newTag: dev

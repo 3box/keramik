@@ -61,6 +61,11 @@ impl DataDogConfig {
                 }),
                 ..Default::default()
             });
+            env.push(EnvVar {
+                name: "DD_RUNTIME_METRICS_ENABLED".to_owned(),
+                value: Some("true".to_owned()),
+                ..Default::default()
+            });
             if self.profiling_enabled {
                 env.push(EnvVar {
                     name: "DD_PROFILING_ENABLED".to_owned(),

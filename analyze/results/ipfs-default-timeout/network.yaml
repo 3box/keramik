@@ -1,0 +1,48 @@
+apiVersion: keramik.3box.io/v1alpha1
+kind: Network
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"keramik.3box.io/v1alpha1","kind":"Network","metadata":{"annotations":{},"name":"js-ceramic-ipfs-no-timeout"},"spec":{"ceramic":{"casApiUrl":"https://cas-dev.3boxlabs.com","ethRpcUrl":"","image":"ceramicnetwork/js-ceramic:develop","ipfs":{"go":{"image":"ceramicnetwork/go-ipfs-daemon:e4640917c2e2d9c7d7b9601e32719250159fb3d0","resourceLimits":{"cpu":"2","memory":"4Gi","storage":"1Gi"}}},"networkType":"dev-unstable","privateKeySecret":"small","pubsubTopic":"","resourceLimits":{"cpu":"2","memory":"4Gi","storage":"1Gi"}},"datadog":{"enabled":true,"profilingEnabled":true,"version":"0"},"replicas":1}}
+  creationTimestamp: "2023-08-09T20:04:00Z"
+  generation: 1
+  name: js-ceramic-ipfs-no-timeout
+  resourceVersion: "4395450"
+  uid: f938eecb-b91a-4b99-8e6a-aeef1fbe4882
+spec:
+  ceramic:
+    casApiUrl: https://cas-dev.3boxlabs.com
+    ethRpcUrl: ""
+    image: ceramicnetwork/js-ceramic:develop
+    ipfs:
+      go:
+        image: ceramicnetwork/go-ipfs-daemon:e4640917c2e2d9c7d7b9601e32719250159fb3d0
+        resourceLimits:
+          cpu: "2"
+          memory: 4Gi
+          storage: 1Gi
+    networkType: dev-unstable
+    privateKeySecret: small
+    pubsubTopic: ""
+    resourceLimits:
+      cpu: "2"
+      memory: 4Gi
+      storage: 1Gi
+  datadog:
+    enabled: true
+    profilingEnabled: true
+    version: "0"
+  replicas: 1
+status:
+  peers:
+  - ceramic:
+      ceramicAddr: http://ceramic-0.ceramic.keramik-js-ceramic-ipfs-no-timeout.svc.cluster.local:7007
+      index: 0
+      ipfsRpcAddr: http://ceramic-0.ceramic.keramik-js-ceramic-ipfs-no-timeout.svc.cluster.local:5001
+      p2pAddrs:
+      - /ip4/10.124.7.11/tcp/4001/p2p/QmZjL9xKtVp3zNQYGtQT4Cq3gHKYBaSFo3uLNgN1KP4KzQ/p2p/QmZjL9xKtVp3zNQYGtQT4Cq3gHKYBaSFo3uLNgN1KP4KzQ
+      - /ip4/10.124.7.11/tcp/8081/ws/p2p/QmZjL9xKtVp3zNQYGtQT4Cq3gHKYBaSFo3uLNgN1KP4KzQ/p2p/QmZjL9xKtVp3zNQYGtQT4Cq3gHKYBaSFo3uLNgN1KP4KzQ
+      - /ip4/34.171.194.184/tcp/4162/p2p/QmZjL9xKtVp3zNQYGtQT4Cq3gHKYBaSFo3uLNgN1KP4KzQ/p2p/QmZjL9xKtVp3zNQYGtQT4Cq3gHKYBaSFo3uLNgN1KP4KzQ
+      peerId: QmZjL9xKtVp3zNQYGtQT4Cq3gHKYBaSFo3uLNgN1KP4KzQ
+  readyReplicas: 1
+  replicas: 1

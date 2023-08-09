@@ -1,0 +1,18 @@
+apiVersion: keramik.3box.io/v1alpha1
+kind: Simulation
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"keramik.3box.io/v1alpha1","kind":"Simulation","metadata":{"annotations":{},"name":"js-ceramic-ipfs-timeout","namespace":"keramik-js-ceramic-ipfs-timeout"},"spec":{"run_time":15,"scenario":"ceramic-write-only","users":100}}
+  creationTimestamp: "2023-08-09T20:01:20Z"
+  generation: 1
+  name: js-ceramic-ipfs-timeout
+  namespace: keramik-js-ceramic-ipfs-timeout
+  resourceVersion: "4374601"
+  uid: b3cd04ce-3273-4689-be68-71817e77fc08
+spec:
+  run_time: 15
+  scenario: ceramic-write-only
+  users: 100
+status:
+  nonce: 2348447423

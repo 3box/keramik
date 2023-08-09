@@ -1,0 +1,78 @@
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  # this is what the label will be in datadog
+  # add the version of ceramic being tested here
+  name: golda-run-aug16-with-delay
+spec:
+  replicas: 1
+  datadog:
+    enabled: true
+    version: "normal-cas"
+    profilingEnabled: true
+  cas:
+    image: ceramicnetwork/ceramic-anchor-service:latest
+    casResourceLimits:
+      cpu: "2000m"
+      memory: "1Gi"
+  ceramic:
+    image: ceramicnetwork/js-ceramic:dev
+    imagePullPolicy: Always
+    resourceLimits:
+      cpu: "2000m"
+      memory: "1Gi"
+    ipfs:
+      go:
+        image: ceramicnetwork/go-ipfs-daemon:develop
+        imagePullPolicy: IfNotPresent
+        resourceLimits:
+          cpu: "1000m"
+          memory: "512M"
+        #commands:
+        # - ipfs config Routing.Type none
+
+# Datadog secret configuration
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: datadog-secret
+type: Opaque
+stringData:
+  api-key: ""
+  app-key: ""
+
+#datadog agaent configuration
+---
+kind: DatadogAgent
+apiVersion: datadoghq.com/v2alpha1
+metadata:
+  name: datadog
+spec:
+  global:
+    kubelet:
+      tlsVerify: false
+    site: us3.datadoghq.com
+    credentials:
+      apiSecret:
+        secretName: datadog-secret
+        keyName: api-key
+      appSecret:
+        secretName: datadog-secret
+        keyName: app-key
+  override:
+    clusterAgent:
+      image:
+        name: gcr.io/datadoghq/cluster-agent:latest
+    nodeAgent:
+      image:
+        name: gcr.io/datadoghq/agent:latest
+  features:
+    npm:
+      enabled: true
+    apm:
+      enabled: true
+      hostPortConfig:
+        enabled: true

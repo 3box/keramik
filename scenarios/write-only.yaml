@@ -1,9 +1,9 @@
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Simulation
 metadata:
-  name: basic-golda-testing
-  namespace: keramik-gcp-testing-datadog-01
+  name: golda-unresponsive-cas-aug14
+  namespace: keramik-db
 spec:
   scenario: ceramic-write-only
-  users: 100
-  run_time: 100
+  users: 2000
+  run_time: 15

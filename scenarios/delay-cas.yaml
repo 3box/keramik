@@ -1,0 +1,20 @@
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: delay-cas
+spec:
+  hosts:
+  # verify the service name via `kubectl get svc cas`
+  - cas.default.svc.cluster.local
+  http:
+  - match:
+    - sourceLabels:
+        # verify the label via `kubectl get pods -l app=ceramic -o=jsonpath='{.items[*].metadata.labels}'`
+        app: ceramic 
+    fault:
+      delay:
+        percent: 100
+        fixedDelay: 5s  # Introducing a 5 second delay
+    route:
+    - destination:
+        host: cas.default.svc.cluster.local

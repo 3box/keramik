@@ -1,0 +1,48 @@
+apiVersion: keramik.3box.io/v1alpha1
+kind: Network
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"keramik.3box.io/v1alpha1","kind":"Network","metadata":{"annotations":{},"name":"js-ceramic-2-35-0"},"spec":{"ceramic":{"casApiUrl":"https://cas-dev.3boxlabs.com","ethRpcUrl":"","image":"ceramicnetwork/js-ceramic:2.35.0","ipfs":{"go":{"image":"ceramicnetwork/go-ipfs-daemon:e4640917c2e2d9c7d7b9601e32719250159fb3d0","resourceLimits":{"cpu":"2","memory":"4Gi","storage":"1Gi"}}},"networkType":"dev-unstable","privateKeySecret":"small","pubsubTopic":"","resourceLimits":{"cpu":"2","memory":"4Gi","storage":"1Gi"}},"datadog":{"enabled":true,"profilingEnabled":true,"version":"0"},"replicas":1}}
+  creationTimestamp: "2023-08-09T01:14:51Z"
+  generation: 1
+  name: js-ceramic-2-35-0
+  resourceVersion: "4169631"
+  uid: a29a7029-0443-439e-bc3f-9c7971877276
+spec:
+  ceramic:
+    casApiUrl: https://cas-dev.3boxlabs.com
+    ethRpcUrl: ""
+    image: ceramicnetwork/js-ceramic:2.35.0
+    ipfs:
+      go:
+        image: ceramicnetwork/go-ipfs-daemon:e4640917c2e2d9c7d7b9601e32719250159fb3d0
+        resourceLimits:
+          cpu: "2"
+          memory: 4Gi
+          storage: 1Gi
+    networkType: dev-unstable
+    privateKeySecret: small
+    pubsubTopic: ""
+    resourceLimits:
+      cpu: "2"
+      memory: 4Gi
+      storage: 1Gi
+  datadog:
+    enabled: true
+    profilingEnabled: true
+    version: "0"
+  replicas: 1
+status:
+  peers:
+  - ceramic:
+      ceramicAddr: http://ceramic-0.ceramic.keramik-js-ceramic-2-35-0.svc.cluster.local:7007
+      index: 0
+      ipfsRpcAddr: http://ceramic-0.ceramic.keramik-js-ceramic-2-35-0.svc.cluster.local:5001
+      p2pAddrs:
+      - /ip4/10.124.2.193/tcp/4001/p2p/QmWihDoJ8ji6t7pYtZwqxDaAeHT2g6hLwZoqRMcxvhu1P9/p2p/QmWihDoJ8ji6t7pYtZwqxDaAeHT2g6hLwZoqRMcxvhu1P9
+      - /ip4/10.124.2.193/tcp/8081/ws/p2p/QmWihDoJ8ji6t7pYtZwqxDaAeHT2g6hLwZoqRMcxvhu1P9/p2p/QmWihDoJ8ji6t7pYtZwqxDaAeHT2g6hLwZoqRMcxvhu1P9
+      - /ip4/34.132.137.226/tcp/61896/p2p/QmWihDoJ8ji6t7pYtZwqxDaAeHT2g6hLwZoqRMcxvhu1P9/p2p/QmWihDoJ8ji6t7pYtZwqxDaAeHT2g6hLwZoqRMcxvhu1P9
+      peerId: QmWihDoJ8ji6t7pYtZwqxDaAeHT2g6hLwZoqRMcxvhu1P9
+  readyReplicas: 1
+  replicas: 1

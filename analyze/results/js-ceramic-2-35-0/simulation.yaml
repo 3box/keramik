@@ -1,0 +1,18 @@
+apiVersion: keramik.3box.io/v1alpha1
+kind: Simulation
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"keramik.3box.io/v1alpha1","kind":"Simulation","metadata":{"annotations":{},"name":"js-ceramic-2-35-0-sim","namespace":"keramik-js-ceramic-2-35-0"},"spec":{"run_time":60,"scenario":"ceramic-write-only","users":2000}}
+  creationTimestamp: "2023-08-09T01:28:16Z"
+  generation: 1
+  name: js-ceramic-2-35-0-sim
+  namespace: keramik-js-ceramic-2-35-0
+  resourceVersion: "3795682"
+  uid: d4e4b831-aac7-4006-b1e2-4290371209ac
+spec:
+  run_time: 60
+  scenario: ceramic-write-only
+  users: 2000
+status:
+  nonce: 2483679121

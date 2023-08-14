@@ -1,0 +1,33 @@
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: db
+  namespace: keramik
+spec:
+  replicas: 2
+  datadog:
+    enabled: true
+    version: "db-unresponsive-cas2"
+    profilingEnabled: true
+  cas:
+    image: ceramicnetwork/ceramic-anchor-service:latest
+    casResourceLimits:
+      cpu: "250m"
+      memory: "1Gi"
+  ceramic:
+    image: ceramicnetwork/js-ceramic:2.34.0
+    resourceLimits:
+      cpu: "2000m"
+      memory: "1Gi"
+    ipfs:
+      go:
+        image: ceramicnetwork/go-ipfs-daemon:develop
+        imagePullPolicy: IfNotPresent
+        resourceLimits:
+          cpu: "1000m"
+          memory: "512M"
+        #commands:
+        # - ipfs config Routing.Type none
+

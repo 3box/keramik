@@ -1,0 +1,9 @@
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Simulation
+metadata:
+  name: run-with-small-cas-and-2.34.0
+  namespace: keramik-db
+spec:
+  scenario: ceramic-write-only
+  users: 2000
+  run_time: 15

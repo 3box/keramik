@@ -2,8 +2,6 @@ target/
 *.parquet
 .vscode
 /analyze
-*.yaml
-*.yml
 .env*
 /book
 .idea

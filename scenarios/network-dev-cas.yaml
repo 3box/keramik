@@ -1,0 +1,30 @@
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: golda-test1-db
+spec:
+  replicas: 1
+  datadog:
+    enabled: true
+    version: "1"
+    profilingEnabled: true
+  ceramic:
+    image: ceramicnetwork/js-ceramic:2.35.0
+    resourceLimits:
+      cpu: "2"
+      memory: "4Gi"
+      storage: "1Gi"
+    ipfs:
+      go:
+        image: public.ecr.aws/r5b3e0r5/3box/kubo:latest
+        resourceLimits:
+          cpu: "2"
+          memory: "4Gi"
+          storage: "1Gi"
+    privateKeySecret: "small"
+    networkType: "dev-unstable"
+    pubsubTopic: ""
+    ethRpcUrl: ""
+    casApiUrl: "https://cas-dev.3boxlabs.com"

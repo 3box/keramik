@@ -1,0 +1,9 @@
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Simulation
+metadata:
+  name: golda-test1-db-sim
+  namespace: keramik-golda-test1-db
+spec:
+  scenario: ceramic-write-only
+  users: 2000
+  run_time: 15

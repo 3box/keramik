@@ -1,8 +1,8 @@
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Simulation
 metadata:
-  name: golda-test1-db-sim
-  namespace: keramik-golda-test1-db
+  name: golda-unresponsive-cas-aug14
+  namespace: keramik-db
 spec:
   scenario: ceramic-write-only
   users: 2000

@@ -79,7 +79,8 @@ r#"{
         "pubsub-topic": "${CERAMIC_NETWORK_TOPIC}"
     },
     "node": {
-        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}"
+        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}",
+        "recon-url": "${RECON}"
     },
     "state-store": {
         "mode": "fs",
@@ -110,6 +111,12 @@ pub fn service_spec() -> ServiceSpec {
             ServicePort {
                 port: CERAMIC_SERVICE_IPFS_PORT,
                 name: Some("ipfs".to_owned()),
+                protocol: Some("TCP".to_owned()),
+                ..Default::default()
+            },
+            ServicePort {
+                port: 6001,
+                name: Some("recon".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
@@ -152,6 +159,10 @@ pub struct CeramicSpec {
     pub eth_rpc_url: Option<String>,
     /// URL for Ceramic Anchor Service (CAS)
     pub cas_api_url: Option<String>,
+    /// Enable Recon API, and use in js-ceramic
+    pub recon: Option<bool>,
+    /// Disable PubSub Updates 
+    pub disable_pubsub_updates: Option<bool>
 }
 
 /// Describes how the IPFS node for a peer should behave.
@@ -191,6 +202,8 @@ pub struct CeramicConfig {
     pub pubsub_topic: String,
     pub eth_rpc_url: String,
     pub cas_api_url: String,
+    pub recon: String,
+    pub disable_pubsub_updates: bool
 }
 
 pub enum IpfsConfig {
@@ -308,6 +321,8 @@ impl Default for CeramicConfig {
             pubsub_topic: "/ceramic/local-keramik".to_owned(),
             eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
             cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
+            recon: "".to_owned(),
+            disable_pubsub_updates: false
         }
     }
 }
@@ -323,6 +338,11 @@ impl From<Option<CeramicSpec>> for CeramicConfig {
 impl From<CeramicSpec> for CeramicConfig {
     fn from(value: CeramicSpec) -> Self {
         let default = Self::default();
+        let recon = if value.recon.unwrap_or(false) {
+            "".to_owned()
+        } else {
+            "http://localhost:6001".to_owned()
+        };
         Self {
             init_config_map: value.init_config_map.unwrap_or(default.init_config_map),
             image: value.image.unwrap_or(default.image),
@@ -336,6 +356,8 @@ impl From<CeramicSpec> for CeramicConfig {
             pubsub_topic: value.pubsub_topic.unwrap_or(default.pubsub_topic),
             eth_rpc_url: value.eth_rpc_url.unwrap_or(default.eth_rpc_url),
             cas_api_url: value.cas_api_url.unwrap_or(default.cas_api_url),
+            recon: recon,
+            disable_pubsub_updates: value.disable_pubsub_updates.unwrap_or(default.disable_pubsub_updates)
         }
     }
 }
@@ -397,6 +419,12 @@ impl RustIpfsConfig {
                 ContainerPort {
                     container_port: CERAMIC_SERVICE_IPFS_PORT,
                     name: Some("rpc".to_owned()),
+                    protocol: Some("TCP".to_owned()),
+                    ..Default::default()
+                },
+                ContainerPort {
+                    container_port: 6001,
+                    name: Some("recon".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
                 },
@@ -583,6 +611,16 @@ pub fn stateful_set_spec(
         EnvVar {
             name: "CERAMIC_LOG_LEVEL".to_owned(),
             value: Some("2".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "CERAMIC_DISABLE_PUBSUB_UPDATES".to_owned(),
+            value: Some(config.disable_pubsub_updates.to_string()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "RECON".to_owned(),
+            value: Some(config.recon),
             ..Default::default()
         },
     ];

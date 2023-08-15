@@ -214,42 +214,64 @@ pub fn config_map_data() -> BTreeMap<String, String> {
       prometheus:
         config:
           scrape_configs:
-            - job_name: 'kubernetes-service-endpoints'
-              scrape_interval: 10s
-              scrape_timeout: 1s
-    
+            - job_name: "ipfs-service-endpoints"
               kubernetes_sd_configs:
-              - role: pod
-    
-              # Only container ports named `metrics` will be considered valid targets.
-              #
-              # Setup relabel rules to give meaning to the following k8s annotations:
-              #   prometheus/path - URL path of the metrics endpoint
-              #
-              # Example:
-              #   annotations:
-              #      prometheus/path: "/api/v0/metrics"
+                - role: pod
+                  namespaces:
+                    own_namespace: True
               relabel_configs:
-              - source_labels: [__meta_kubernetes_pod_container_port_name]
-                action: keep
-                regex: "metrics"
-              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
-                action: replace
-                target_label: __metrics_path__
-                regex: (.+)
-              - source_labels: [__meta_kubernetes_namespace]
-                action: replace
-                target_label: kubernetes_namespace
-              - source_labels: [__meta_kubernetes_pod_name]
-                action: replace
-                target_label: kubernetes_pod
-              - source_labels: [__meta_kubernetes_pod_container_name]
-                action: replace
-                target_label: kubernetes_container
-    
+              # Only scrape ipfs containers, port 5001
+                - source_labels: [__meta_kubernetes_pod_container_name]
+                  action: keep
+                  regex: ipfs
+                - source_labels: [__meta_kubernetes_pod_container_port_number]
+                  action: keep
+                  regex: 5001
+              # Set path and add labels
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  replacement: /debug/metrics/prometheus
+                - source_labels: [__meta_kubernetes_namespace]
+                  action: replace
+                  target_label: kubernetes_namespace
+                - source_labels: [__meta_kubernetes_pod_name]
+                  action: replace
+                  target_label: kubernetes_pod
+                - source_labels: [__meta_kubernetes_pod_container_name]
+                  action: replace
+                  target_label: kubernetes_container
+            - job_name: "ceramic-service-endpoints"
+              kubernetes_sd_configs:
+                - role: pod
+                  namespaces:
+                    own_namespace: True
+              relabel_configs:
+              # Only scrape ceramic containers, port 9464
+                - source_labels: [__meta_kubernetes_pod_container_name]
+                  action: keep
+                  regex: ceramic
+                - source_labels: [__meta_kubernetes_pod_container_port_number]
+                  action: keep
+                  regex: 9464
+              # Set path and add labels
+                - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
+                  action: replace
+                  target_label: __metrics_path__
+                  replacement: /debug/metrics/prometheus
+                - source_labels: [__meta_kubernetes_namespace]
+                  action: replace
+                  target_label: kubernetes_namespace
+                - source_labels: [__meta_kubernetes_pod_name]
+                  action: replace
+                  target_label: kubernetes_pod
+                - source_labels: [__meta_kubernetes_pod_container_name]
+                  action: replace
+                  target_label: kubernetes_container
+
     processors:
       batch:
-    
+
     exporters:
       # This is unused but can be easily added for debugging.
       logging:
@@ -267,7 +289,7 @@ pub fn config_map_data() -> BTreeMap<String, String> {
         # Keep stale metrics around for 1h before dropping
         # This helps as simulation metrics are stale once the simulation stops.
         metric_expiration: 1h
-        resource_to_telemetry_conversion: 
+        resource_to_telemetry_conversion:
           enabled: true
       parquet:
         path: /data/
@@ -282,13 +304,13 @@ pub fn config_map_data() -> BTreeMap<String, String> {
       #  auth:
       #    authenticator: basicauth/grafana
       #  endpoint: https://otlp-gateway-prod-us-central-0.grafana.net/otlp
-    
+
             #extensions:
             #  basicauth/grafana:
             #    client_auth:
             #      username: "user" # replace with Grafana instance id
             #      password: "password" # replace with Grafana API token (via a secret)
-    
+
     service:
       #extensions: [basicauth/grafana]
       pipelines:

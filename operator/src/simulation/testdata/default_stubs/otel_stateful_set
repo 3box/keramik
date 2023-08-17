@@ -36,6 +36,17 @@ Request {
                   "/otelcol-custom",
                   "--config=/config/otel-config.yaml"
                 ],
+                "env": [
+                  {
+                    "name": "DD_API_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "api-key",
+                        "name": "datadog-secret"
+                      }
+                    }
+                  }
+                ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/otelcol",
                 "name": "opentelemetry",
                 "ports": [

@@ -67,6 +67,8 @@ pub enum Scenario {
     CeramicWriteOnly,
     /// New Streams Ceramic Scenario
     CeramicNewStreams,
+    /// Simple Query Scenario
+    CeramicQuery,
 }
 
 impl Scenario {
@@ -76,13 +78,17 @@ impl Scenario {
             Scenario::CeramicSimple => "ceramic_simple",
             Scenario::CeramicWriteOnly => "ceramic_write_only",
             Scenario::CeramicNewStreams => "ceramic_new_streams",
+            Scenario::CeramicQuery => "ceramic_query",
         }
     }
 
     fn target_addr(&self, peer: &Peer) -> Result<String> {
         match self {
             Self::IpfsRpc => Ok(peer.ipfs_rpc_addr().to_owned()),
-            Self::CeramicSimple | Self::CeramicWriteOnly | Self::CeramicNewStreams => match peer {
+            Self::CeramicSimple
+            | Self::CeramicWriteOnly
+            | Self::CeramicNewStreams
+            | Self::CeramicQuery => match peer {
                 Peer::Ceramic(peer) => Ok(peer.ceramic_addr.clone()),
                 Peer::Ipfs(_) => Err(anyhow!(
                     "cannot use non ceramic peer as target for simulation {}",
@@ -116,9 +122,10 @@ pub async fn simulate(opts: Opts) -> Result<()> {
 
     let scenario = match opts.scenario {
         Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
-        Scenario::CeramicSimple => ceramic::scenario()?,
-        Scenario::CeramicWriteOnly => ceramic::write_only::scenario()?,
-        Scenario::CeramicNewStreams => ceramic::new_streams::scenario()?,
+        Scenario::CeramicSimple => ceramic::scenario().await?,
+        Scenario::CeramicWriteOnly => ceramic::write_only::scenario().await?,
+        Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
+        Scenario::CeramicQuery => ceramic::query::scenario().await?,
     };
     let config = if opts.manager {
         manager_config(peers.len(), opts.users, opts.run_time)

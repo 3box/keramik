@@ -1,14 +1,16 @@
+use crate::goose_try;
 use ceramic_http_client::CeramicHttpClient;
 use goose::prelude::*;
 use std::{sync::Arc, time::Duration};
 
+use crate::scenario::ceramic::util::goose_error;
 use crate::scenario::ceramic::{
     models, setup, Credentials, LoadTestUserData, RandomModelInstance, StreamsResponseOrError,
 };
 
-pub fn scenario() -> Result<Scenario, GooseError> {
-    let creds = Credentials::new();
-    let cli = CeramicHttpClient::new(creds.signer, &creds.private_key);
+pub async fn scenario() -> Result<Scenario, GooseError> {
+    let creds = Credentials::from_env().await.map_err(goose_error)?;
+    let cli = CeramicHttpClient::new(creds.signer);
 
     let setup_cli = cli;
     let test_start = Transaction::new(Arc::new(move |user| {
@@ -33,20 +35,27 @@ async fn instantiate_small_model(user: &mut GooseUser) -> TransactionResult {
     let user_data: &LoadTestUserData = user.get_session_data_unchecked();
     let model = user_data.small_model_id.clone();
     let cli = &user_data.cli;
-    let url = user.build_url(cli.streams_endpoint())?;
     let req = cli
         .create_list_instance_request(&model, &models::SmallModel::random())
         .await
         .unwrap();
-    let req = user.client.post(url).json(&req);
     let req = GooseRequest::builder()
         .method(GooseMethod::Post)
-        .set_request_builder(req)
+        .set_request_builder(
+            user.client
+                .post(user.build_url(cli.streams_endpoint())?)
+                .json(&req),
+        )
         .expect_status_code(200)
         .build();
-    let resp = user.request(req).await?;
-    let resp: StreamsResponseOrError = resp.response?.json().await?;
-    resp.resolve("instantiate_small_model").unwrap();
+    let mut goose = user.request(req).await?;
+    let resp: StreamsResponseOrError = goose.response?.json().await?;
+    goose_try!(
+        user,
+        "create_instance",
+        &mut goose.request,
+        resp.resolve("instantiate_small_model")
+    )?;
     Ok(())
 }
 
@@ -65,8 +74,13 @@ async fn instantiate_large_model(user: &mut GooseUser) -> TransactionResult {
         .set_request_builder(req)
         .expect_status_code(200)
         .build();
-    let resp = user.request(req).await?;
-    let resp: StreamsResponseOrError = resp.response?.json().await?;
-    resp.resolve("instantiate_large_model").unwrap();
+    let mut goose = user.request(req).await?;
+    let resp: StreamsResponseOrError = goose.response?.json().await?;
+    goose_try!(
+        user,
+        "create_instance",
+        &mut goose.request,
+        resp.resolve("instantiate_large_model")
+    )?;
     Ok(())
 }

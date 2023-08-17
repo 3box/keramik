@@ -35,10 +35,10 @@ impl RandomModelInstance for SmallModel {
 #[derive(Deserialize, JsonSchema, Serialize)]
 #[schemars(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LargeModel {
-    creator: String,
-    name: String,
-    description: String,
-    tpe: i64,
+    pub creator: String,
+    pub name: String,
+    pub description: String,
+    pub tpe: i64,
 }
 
 impl GetRootSchema for LargeModel {}

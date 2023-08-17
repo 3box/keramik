@@ -1,45 +1,46 @@
 mod models;
 pub mod new_streams;
+pub mod query;
+mod util;
 pub mod write_only;
 
+use crate::goose_try;
+use crate::scenario::ceramic::util::{goose_error, setup_model, setup_model_instance};
 use ceramic_http_client::api::StreamsResponseOrError;
-use ceramic_http_client::ceramic_event::{DidDocument, StreamId};
+use ceramic_http_client::ceramic_event::{DidDocument, JwkSigner, StreamId};
 use ceramic_http_client::{CeramicHttpClient, ModelAccountRelation, ModelDefinition};
 use goose::prelude::*;
 use models::RandomModelInstance;
-use serde::Serialize;
 use std::{sync::Arc, time::Duration};
-use tracing::{debug, instrument};
+use tracing::instrument;
 
-#[derive(Clone)]
+pub type CeramicClient = CeramicHttpClient<JwkSigner>;
+
 pub struct Credentials {
-    pub signer: DidDocument,
-    pub private_key: String,
+    pub signer: JwkSigner,
+    pub did: DidDocument,
 }
 
 impl Credentials {
-    fn new() -> Self {
-        let signer = DidDocument::new(&std::env::var("DID_KEY").unwrap());
+    pub async fn from_env() -> Result<Self, anyhow::Error> {
+        let did = DidDocument::new(&std::env::var("DID_KEY").unwrap());
         let private_key = std::env::var("DID_PRIVATE_KEY").unwrap();
-        Self {
-            signer,
-            private_key,
-        }
+        let signer = JwkSigner::new(did.clone(), &private_key).await?;
+        Ok(Self { signer, did })
     }
 }
 
-#[derive(Clone, Debug)]
 pub struct LoadTestUserData {
-    cli: CeramicHttpClient,
+    cli: CeramicClient,
     small_model_id: StreamId,
     small_model_instance_id: StreamId,
     large_model_id: StreamId,
     large_model_instance_id: StreamId,
 }
 
-pub fn scenario() -> Result<Scenario, GooseError> {
-    let creds = Credentials::new();
-    let cli = CeramicHttpClient::new(creds.signer, &creds.private_key);
+pub async fn scenario() -> Result<Scenario, GooseError> {
+    let creds = Credentials::from_env().await.map_err(goose_error)?;
+    let cli = CeramicHttpClient::new(creds.signer);
 
     let setup_cli = cli;
     let test_start = Transaction::new(Arc::new(move |user| {
@@ -67,7 +68,7 @@ pub fn scenario() -> Result<Scenario, GooseError> {
 }
 
 #[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
-async fn setup(user: &mut GooseUser, cli: CeramicHttpClient) -> TransactionResult {
+async fn setup(user: &mut GooseUser, cli: CeramicClient) -> TransactionResult {
     let small_model = ModelDefinition::new::<models::SmallModel>(
         "load_test_small_model",
         ModelAccountRelation::List,
@@ -92,7 +93,6 @@ async fn setup(user: &mut GooseUser, cli: CeramicHttpClient) -> TransactionResul
         large_model_id,
         large_model_instance_id,
     };
-    debug!(?user_data, "user data");
 
     user.set_session_data(user_data);
 
@@ -130,28 +130,41 @@ async fn update_small_model(user: &mut GooseUser) -> TransactionResult {
             .unwrap()
     };
     let req = user.client.post(url).json(&req);
-    let req = GooseRequest::builder()
-        .method(GooseMethod::Post)
-        .set_request_builder(req)
-        .expect_status_code(200)
-        .build();
-    let resp = user.request(req).await?;
-    let resp: StreamsResponseOrError = resp.response?.json().await?;
-    resp.resolve("update_small_model").unwrap();
+    let mut goose = user
+        .request(
+            GooseRequest::builder()
+                .method(GooseMethod::Post)
+                .set_request_builder(req)
+                .expect_status_code(200)
+                .build(),
+        )
+        .await?;
+    let resp: StreamsResponseOrError = goose.response?.json().await?;
+    goose_try!(
+        user,
+        "update",
+        &mut goose.request,
+        resp.resolve("update_small_model")
+    )?;
     Ok(())
 }
 
 async fn get_small_model(user: &mut GooseUser) -> TransactionResult {
     let user_data: &LoadTestUserData = user.get_session_data_unchecked();
-    let cli: &CeramicHttpClient = &user_data.cli;
+    let cli: &CeramicClient = &user_data.cli;
     let url = user.build_url(&format!(
         "{}/{}",
         cli.streams_endpoint(),
         user_data.small_model_instance_id
     ))?;
-    let resp = user.get(&url).await?;
-    let resp: StreamsResponseOrError = resp.response?.json().await?;
-    resp.resolve("get_small_model").unwrap();
+    let mut goose = user.get(&url).await?;
+    let resp: StreamsResponseOrError = goose.response?.json().await?;
+    goose_try!(
+        user,
+        "get",
+        &mut goose.request,
+        resp.resolve("get_small_instance")
+    )?;
     Ok(())
 }
 
@@ -173,9 +186,11 @@ async fn update_large_model(user: &mut GooseUser) -> TransactionResult {
         let commits_url = user.build_url(cli.commits_endpoint())?;
         (model, commits_url, req)
     };
-    let resp = user.request(req).await?;
-    let resp: StreamsResponseOrError = resp.response?.json().await?;
-    let resp = resp.resolve("update_large_model_get").unwrap();
+    let mut goose = user.request(req).await?;
+    let resp: StreamsResponseOrError = goose.response?.json().await?;
+    let resp = goose_try!(user, "update", &mut goose.request, {
+        resp.resolve("update_large_model_get")
+    })?;
 
     let req = {
         let user_data: &LoadTestUserData = user.get_session_data_unchecked();
@@ -191,59 +206,32 @@ async fn update_large_model(user: &mut GooseUser) -> TransactionResult {
         .set_request_builder(req)
         .expect_status_code(200)
         .build();
-    let result = user.request(req).await?;
-    let resp: StreamsResponseOrError = result.response?.json().await?;
-    resp.resolve("update_large_model").unwrap();
+    let mut goose = user.request(req).await?;
+    let resp: StreamsResponseOrError = goose.response?.json().await?;
+    goose_try!(
+        user,
+        "update",
+        &mut goose.request,
+        resp.resolve("update_large_model")
+    )?;
     Ok(())
 }
 
 async fn get_large_model(user: &mut GooseUser) -> TransactionResult {
     let user_data: &LoadTestUserData = user.get_session_data_unchecked();
-    let cli: &CeramicHttpClient = &user_data.cli;
+    let cli: &CeramicClient = &user_data.cli;
     let url = user.build_url(&format!(
         "{}/{}",
         cli.streams_endpoint(),
         user_data.large_model_instance_id
     ))?;
-    let resp = user.get(&url).await?;
-    let resp: StreamsResponseOrError = resp.response?.json().await?;
-    resp.resolve("get_large_model").unwrap();
+    let mut goose = user.get(&url).await?;
+    let resp: StreamsResponseOrError = goose.response?.json().await?;
+    goose_try!(
+        user,
+        "get",
+        &mut goose.request,
+        resp.resolve("get_large_instance")
+    )?;
     Ok(())
-}
-
-pub async fn setup_model(
-    user: &mut GooseUser,
-    cli: &CeramicHttpClient,
-    model: ModelDefinition,
-) -> Result<StreamId, TransactionError> {
-    let url = user.build_url(cli.streams_endpoint())?;
-    let req = cli.create_model_request(&model).await.unwrap();
-    let req = user.client.post(url).json(&req);
-    let req = GooseRequest::builder()
-        .method(GooseMethod::Post)
-        .set_request_builder(req)
-        .expect_status_code(200)
-        .build();
-    let result = user.request(req).await?;
-    let resp: StreamsResponseOrError = result.response?.json().await?;
-    Ok(resp.resolve("setup_model").unwrap().stream_id)
-}
-
-pub async fn setup_model_instance<T: Serialize>(
-    user: &mut GooseUser,
-    cli: &CeramicHttpClient,
-    model: &StreamId,
-    data: &T,
-) -> Result<StreamId, TransactionError> {
-    let url = user.build_url(cli.streams_endpoint())?;
-    let req = cli.create_list_instance_request(model, data).await.unwrap();
-    let req = user.client.post(url).json(&req);
-    let req = GooseRequest::builder()
-        .method(GooseMethod::Post)
-        .set_request_builder(req)
-        .expect_status_code(200)
-        .build();
-    let result = user.request(req).await?;
-    let resp: StreamsResponseOrError = result.response?.json().await?;
-    Ok(resp.resolve("setup_model").unwrap().stream_id)
 }

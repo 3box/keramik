@@ -34,11 +34,11 @@ gcloud config set project box-benchmarking-ipfs-testing
 
 gcloud config set compute/zone us-central1-c
 
-gcloud container node-pools create e2-standard-4 --cluster load-testing-golda \
+gcloud container node-pools create e2-standard-4 --cluster [your cluster] \
  --machine-type=e2-standard-4 --num-nodes=3
 
 # one time get credentials into kubectl
-gcloud container clusters get-credentials load-testing-golda
+gcloud container clusters get-credentials [your cluster]
 
 # and datadog creds
 kubectl create secret generic datadog-secret --from-literal api-key=[API_KEY] --from-literal app-key=[APP_KEY]

@@ -56,4 +56,12 @@ kubectl create secret generic datadog-secret --from-literal api-key=[API_KEY] --
 # install istio virtual network overlay
 istioctl install --set profile=demo
 
+# set up namespace for datadog
+kubectl create ns datadog-operator
+helm install -n datadog-operator datadog-operator datadog/datadog-operator
+kubectl create secret generic datadog-secret --from-literal=api-key=<YOUR APIP-KEY> \
+  --from-literal=app-key=<YOUR APP-KEY> -n datadog-operator
+
+kubectl apply -f datadogAgent.yaml  -n datadog-operator
+
 ```

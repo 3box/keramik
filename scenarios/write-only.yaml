@@ -1,8 +1,8 @@
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Simulation
 metadata:
-  name: golda-unresponsive-cas-aug14
-  namespace: keramik-db
+  name: golda-cas-with-delay-aug-17
+  namespace: keramik-golda-run-aug17-with-delay
 spec:
   scenario: ceramic-write-only
   users: 2000

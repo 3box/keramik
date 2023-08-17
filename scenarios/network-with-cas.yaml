@@ -3,17 +3,19 @@
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
-  name: db
+  # this is what the label will be in datadog
+  # add the version of ceramic being tested here
+  name: golda-run-aug16-with-delay
 spec:
-  replicas: 2
+  replicas: 1
   datadog:
     enabled: true
-    version: "db-unresponsive-cas2"
+    version: "normal-cas"
     profilingEnabled: true
   cas:
     image: ceramicnetwork/ceramic-anchor-service:latest
     casResourceLimits:
-      cpu: "250m"
+      cpu: "2000m"
       memory: "1Gi"
   ceramic:
     image: ceramicnetwork/js-ceramic:dev

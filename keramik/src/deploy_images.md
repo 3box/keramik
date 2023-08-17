@@ -30,15 +30,5 @@ kubectl apply -k ./k8s/operator/
 
 See the [operator background](./operator.md) for details on certain design patterns of the operator.
 
-## Runner
-
-The `runner` is a utility for running various jobs to initialize the network and run workloads against it.
-Any changes to the runner require that you rebuild it and load it into kind again.
-
-```shell
-docker buildx build --load -t keramik/runner:dev --target runner .
-kind load docker-image keramik/runner:dev
-```
-
 Next you will [deploy custom resource definitions](./deploy_crds.md) to the cluster. If you've already deployed CRDS and setup a network, you will 
 need to [setup a network](./setup_network.md) again to use your new runner.

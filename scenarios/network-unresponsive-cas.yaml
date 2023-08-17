@@ -39,8 +39,8 @@ metadata:
   name: datadog-secret
 type: Opaque
 stringData:
-  api-key: "1196bb4bb87a822584de597c9a824cd5"
-  app-key: "158dfe22a705b323768069dbc05fb7a682f0e821"
+  api-key: ""
+  app-key: ""
 
 #datadog agaent configuration
 ---

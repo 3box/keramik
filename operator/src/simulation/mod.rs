@@ -24,6 +24,7 @@ use rand::random;
     derive = "PartialEq",
     namespaced
 )]
+#[serde(rename_all = "camelCase")]
 pub struct SimulationSpec {
     /// Simulation runner scenario
     pub scenario: String,

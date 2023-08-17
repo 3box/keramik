@@ -17,6 +17,7 @@ kc label namespace keramik-[your label] istio-injection=enabled
 
 kc apply -f delay-cas.yaml
 
+# edit write-only.yaml to match the namespace
 kc apply -f write-only.yaml  # runs the simulation
 
 ```

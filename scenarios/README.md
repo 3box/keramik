@@ -41,7 +41,7 @@ gcloud container node-pools create e2-standard-4 --cluster load-testing-golda \
 gcloud container clusters get-credentials load-testing-golda
 
 # and datadog creds
-kubectl create secret generic datadog-secret --from-literal api-key=695ce3ba-d73c-41f6-9a97-6ea9ddb662f2 --from-literal app-key=9757fdf4ff254ef93caaa0db71c7c215ec711e38
+kubectl create secret generic datadog-secret --from-literal api-key=[API_KEY] --from-literal app-key=[APP_KEY]
 
 # install istio virtual network overlay
 istioctl install --set profile=demo

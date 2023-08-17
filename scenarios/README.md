@@ -64,4 +64,9 @@ kubectl create secret generic datadog-secret --from-literal=api-key=<YOUR APIP-K
 
 kubectl apply -f datadogAgent.yaml  -n datadog-operator
 
+# set up keramik
+kubectl create ns keramik
+cargo run --bin crdgen | kubectl create -f -
+kubectl apply -k k8s/operator/
+
 ```

@@ -5,12 +5,15 @@ In order to use these scenarios follow the docbook, also set up your gcloud clus
 ## Once your cluster is set up
 
 ```
-kc config set-context --current --namespace=[descriptive-name-with-version]
+kc config set-context --current --namespace=keramik
 
+# edit the network-with-cas.yaml to specify the desired image
+# edit the meta tag accordingly
 kc apply -f network-with-cas.yaml    # defines the ceramic version
 
-# optionally, with delay - must have istio in your test cluster
-kc label namespace [your namespace] istio-injection=enabled
+kc config set-context --current --namespace=keramic-[your label]
+kc label namespace keramik-[your label] istio-injection=enabled
+
 kc apply -f delay-cas.yaml
 
 kc apply -f write-only.yaml  # runs the simulation

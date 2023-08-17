@@ -7,7 +7,7 @@ use k8s_openapi::{
             ConfigMapVolumeSource, Container, ContainerPort, PersistentVolumeClaim,
             PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, PodSecurityContext,
             PodSpec, PodTemplateSpec, ResourceRequirements, ServicePort, ServiceSpec, Volume,
-            VolumeMount,
+            VolumeMount, EnvVar, EnvVarSource, SecretKeySelector,
         },
         rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject},
     },
@@ -27,12 +27,19 @@ pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![
             ServicePort {
-                name: Some("otlp-receiver".to_owned()),
+                name: Some("otlp-grpc-receiver".to_owned()),
                 port: 4317,
                 protocol: Some("TCP".to_owned()),
                 target_port: Some(IntOrString::Int(4317)),
                 ..Default::default()
             },
+            ServicePort {
+              name: Some("otlp-http-receiver".to_owned()),
+              port: 4318,
+              protocol: Some("TCP".to_owned()),
+              target_port: Some(IntOrString::Int(4318)),
+              ..Default::default()
+          },
             ServicePort {
                 name: Some("prom-metrics".to_owned()),
                 port: 9090,
@@ -111,6 +118,20 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         ])),
                         ..Default::default()
                     }),
+                    env: Some(vec![
+                      EnvVar {
+                        name: "DD_API_KEY".to_owned(),
+                        value_from: Some(EnvVarSource {
+                            secret_key_ref: Some(SecretKeySelector {
+                                key: "api-key".to_owned(),
+                                name: Some("datadog-secret".to_owned()),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }
+                    ]),
                     volume_mounts: Some(vec![
                         VolumeMount {
                             mount_path: "/config".to_owned(),
@@ -210,6 +231,8 @@ pub fn config_map_data() -> BTreeMap<String, String> {
         protocols:
           grpc:
             endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
       # Pull based metrics
       prometheus:
         config:
@@ -291,6 +314,10 @@ pub fn config_map_data() -> BTreeMap<String, String> {
         metric_expiration: 1h
         resource_to_telemetry_conversion:
           enabled: true
+      datadog:
+        api:
+          site: "us3.datadoghq.com"
+          key: "${env:DD_API_KEY}"
       parquet:
         path: /data/
       # Grafana Cloud export
@@ -321,7 +348,7 @@ pub fn config_map_data() -> BTreeMap<String, String> {
         metrics:
           receivers: [otlp,prometheus]
           processors: [batch]
-          exporters: [parquet, prometheus]
+          exporters: [parquet, prometheus, datadog]
       # Enable telemetry on the collector itself
       telemetry:
         logs:

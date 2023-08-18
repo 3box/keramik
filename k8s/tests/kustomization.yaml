@@ -1,0 +1,10 @@
+---
+namespace: keramik-migration-tests
+
+resources:
+  - ./manifests/tests.yaml
+
+images:
+  - name: migration-tests
+    newName: public.ecr.aws/r5b3e0r5/3box/rust-ceramic-migration-tests
+    newTag: latest

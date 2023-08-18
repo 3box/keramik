@@ -52,9 +52,6 @@ gcloud container node-pools create e2-standard-4 --cluster [your cluster] \
 # one time get credentials into kubectl
 gcloud container clusters get-credentials [your cluster]
 
-# and datadog creds
-kubectl create secret generic datadog-secret --from-literal api-key=[API_KEY] --from-literal app-key=[APP_KEY]
-
 # if not already installed, see https://istio.io/
 # curl -L https://istio.io/downloadIstio | sh -
 
@@ -64,6 +61,7 @@ istioctl install --set profile=demo
 # set up namespace for datadog
 kubectl create ns datadog-operator
 helm install -n datadog-operator datadog-operator datadog/datadog-operator
+# add the creds to the datadog namespace
 kubectl create secret generic datadog-secret --from-literal=api-key=<YOUR APIP-KEY> \
   --from-literal=app-key=<YOUR APP-KEY> -n datadog-operator
 

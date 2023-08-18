@@ -55,6 +55,9 @@ gcloud container clusters get-credentials [your cluster]
 # and datadog creds
 kubectl create secret generic datadog-secret --from-literal api-key=[API_KEY] --from-literal app-key=[APP_KEY]
 
+# if not already installed, see https://istio.io/
+# curl -L https://istio.io/downloadIstio | sh -
+
 # install istio virtual network overlay
 istioctl install --set profile=demo
 

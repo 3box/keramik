@@ -44,6 +44,8 @@ gcloud config set project box-benchmarking-ipfs-testing
 
 gcloud config set compute/zone us-central1-c
 
+gcloud container clusters create [your cluster]
+
 gcloud container node-pools create e2-standard-4 --cluster [your cluster] \
  --machine-type=e2-standard-4 --num-nodes=3
 

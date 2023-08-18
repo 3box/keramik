@@ -1,0 +1,76 @@
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: migration-tests
+spec:
+  replicas: 2
+  ceramic:
+    ipfs:
+      rust: {}
+
+---
+kind: Job
+apiVersion: batch/v1
+metadata:
+  name: migration-tests
+  namespace: keramik-migration-tests
+  labels:
+    app: migration-tests
+spec:
+  template:
+    metadata:
+      labels:
+        app: migration-tests
+    spec:
+      initContainers:
+        - name: init-tests
+          image: stedolan/jq
+          resources:
+            limits:
+              cpu: 250m
+              ephemeral-storage: 1Gi
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              ephemeral-storage: 1Gi
+              memory: 512Mi
+          command:
+            - "/bin/bash"
+            - "-c"
+            - "mkdir /config/env && CERAMIC_URLS=$(cat /peers/peers.json | jq -j '[.[].ceramic.ceramicAddr] | join(\",\")') && echo \"CERAMIC_URLS=$CERAMIC_URLS\" > /config/.env"
+          volumeMounts:
+            - name: peers-volume
+              mountPath: /peers
+            - name: config-volume
+              mountPath: /config
+          envFrom:
+            - configMapRef:
+                name: keramik-peers
+      restartPolicy: Never
+      containers:
+        - name: migration-tests
+          image: migration-tests
+          imagePullPolicy: Always
+          resources:
+            limits:
+              cpu: 250m
+              ephemeral-storage: 1Gi
+              memory: 512Mi
+            requests:
+              cpu: 250m
+              ephemeral-storage: 1Gi
+              memory: 512Mi
+          volumeMounts:
+            - name: config-volume
+              mountPath: /config
+          env:
+            - name: ENV_PATH
+              value: "/config/.env"
+          args: ["test", "--show-output"]
+      volumes:
+        - name: peers-volume
+          configMap:
+            name: keramik-peers
+        - name: config-volume
+          emptyDir: {}

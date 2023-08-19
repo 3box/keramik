@@ -1,0 +1,9 @@
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Simulation
+metadata:
+  name: ceramic-write-only-simulation
+  namespace: keramik-load-with-delay-for-2-37-0-rc-1
+spec:
+  scenario: ceramic-write-only
+  users: 3000
+  run_time: 15

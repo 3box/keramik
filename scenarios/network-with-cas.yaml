@@ -1,0 +1,34 @@
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  # this is what the label will be in datadog
+  # add the version of ceramic being tested here
+  name: load-with-delay-for-2-37-0-rc-1
+spec:
+  replicas: 1
+  datadog:
+    enabled: true
+    version: "normal-cas"
+    profilingEnabled: true
+  cas:
+    image: ceramicnetwork/ceramic-anchor-service:latest
+    casResourceLimits:
+      cpu: "2000m"
+      memory: "1Gi"
+  ceramic:
+    image: ceramicnetwork/js-ceramic:2.37.0-rc.1
+    imagePullPolicy: Always
+    resourceLimits:
+      cpu: "2000m"
+      memory: "2Gi"
+    ipfs:
+      go:
+        image: ceramicnetwork/go-ipfs-daemon:develop
+        imagePullPolicy: IfNotPresent
+        resourceLimits:
+          cpu: "1000m"
+          memory: "512M"
+        #commands:
+        # - ipfs config Routing.Type none

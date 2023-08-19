@@ -57,8 +57,8 @@ os.system('kubectl label namespace keramik-{} istio-injection=enabled'.format(la
 
 os.system('kubectl apply -f delay-cas.yaml')
 
-# pause to let network exist
-sleep(3)
+# sleep after pods start to avoid initialization issues
+sleep(30)
 
 os.system('kubectl apply -f write-only.yaml')
 

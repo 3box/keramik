@@ -14,7 +14,7 @@ spec:
     fault:
       delay:
         percent: 100
-        fixedDelay: 5s  # Introducing a 5 second delay
+        fixedDelay: 10s  # Introducing a 10 second delay
     route:
     - destination:
         host: cas.default.svc.cluster.local

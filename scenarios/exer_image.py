@@ -1,6 +1,7 @@
 import os
 import sys
 import re
+from time import sleep
 
 
 try:
@@ -55,6 +56,9 @@ os.system(do_edit)
 os.system('kubectl label namespace keramik-{} istio-injection=enabled'.format(label))
 
 os.system('kubectl apply -f delay-cas.yaml')
+
+# pause to let network exist
+sleep(3)
 
 os.system('kubectl apply -f write-only.yaml')
 

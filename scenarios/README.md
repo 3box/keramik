@@ -4,6 +4,12 @@ In order to use these scenarios follow the docbook, also set up your gcloud clus
 
 ## Once your cluster is set up
 
+Option 1: Run script on public tag
+
+`exer_image.py [js ceramic tag]`
+
+Option 2: Run the workflow manually
+
 ```
 kc config set-context --current --namespace=keramik
 

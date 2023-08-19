@@ -5,7 +5,7 @@ kind: Network
 metadata:
   # this is what the label will be in datadog
   # add the version of ceramic being tested here
-  name: load-with-delay-for-2-36-1
+  name: load-with-network-errors-for-2-36-1
 spec:
   replicas: 1
   datadog:

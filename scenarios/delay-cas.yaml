@@ -4,17 +4,14 @@ metadata:
   name: delay-cas
 spec:
   hosts:
-  # verify the service name via `kubectl get svc cas`
-  - cas.default.svc.cluster.local
+  - cas.keramik-load-with-network-errors-for-2-36-1.svc.cluster.local
   http:
   - match:
-    - sourceLabels:
-        # verify the label via `kubectl get pods -l app=ceramic -o=jsonpath='{.items[*].metadata.labels}'`
-        app: ceramic 
+    - port: 8081
     fault:
       delay:
         percent: 100
-        fixedDelay: 10s  # Introducing a 10 second delay
+        fixedDelay: 10s
     route:
     - destination:
-        host: cas.default.svc.cluster.local
+        host: cas.keramik-load-with-network-errors-for-2-36-1.svc.cluster.local

@@ -1,6 +1,6 @@
 # Custom cluster testing
 
-In order to use these scenarios follow the docbook, also set up your gcloud cluster as follows:
+These scenarios require the gcloud cluster to be already set up, see below if your cluster is not set up yet or see if there is already a cluster in place with istio installed.
 
 ## Once your cluster is set up
 

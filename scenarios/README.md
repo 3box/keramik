@@ -17,10 +17,10 @@ kc config set-context --current --namespace=keramic-[your label]
 kc edit statefulsets cas
 
 ####### add 
-      - name: SQS_QUEUE_URL
-        value: ""
-      - name: MERKLE_CAR_STORAGE_MODE
-        value: disabled
+        - name: SQS_QUEUE_URL
+          value: ""
+        - name: MERKLE_CAR_STORAGE_MODE
+          value: disabled
 ###########
 
 kc label namespace keramik-[your label] istio-injection=enabled

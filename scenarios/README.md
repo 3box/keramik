@@ -9,7 +9,6 @@ kc config set-context --current --namespace=keramik
 
 # edit the network-with-cas.yaml to specify the desired image
 # edit the meta tag accordingly
-# add Datadog API key that you do not check in
 kc apply -f network-with-cas.yaml    # defines the ceramic version
 
 kc config set-context --current --namespace=keramic-[your label]

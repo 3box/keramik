@@ -4,7 +4,7 @@ metadata:
   name: delay-cas
 spec:
   hosts:
-  - cas.keramik-load-with-network-errors-for-2-36-1.svc.cluster.local
+  - cas.keramik-load-with-network-errors-for-2-34-0.svc.cluster.local
   http:
   - match:
     - port: 8081
@@ -12,6 +12,10 @@ spec:
       delay:
         percent: 100
         fixedDelay: 10s
+      abort:
+        httpStatus: 500
+        percentage:
+          value: 10
     route:
     - destination:
-        host: cas.keramik-load-with-network-errors-for-2-36-1.svc.cluster.local
+        host: cas.keramik-load-with-network-errors-for-2-34-0.svc.cluster.local

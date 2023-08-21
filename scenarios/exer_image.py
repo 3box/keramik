@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 import re
 from time import sleep
@@ -12,7 +13,7 @@ except:
   print("Choose an available tag from https://hub.docker.com/r/ceramicnetwork/js-ceramic/tags")
   exit(0)
 
-label = 'load-with-network-delay-for-' + img_tag
+label = 'load-with-network-errors-for-' + img_tag
 
 # replace for valid chars only
 label = re.sub(r'\.', '-', label)
@@ -65,27 +66,30 @@ os.system('kubectl delete pod ceramic-0 -n keramik-{}'.format(label))
 os.system('kubectl delete pod cas-0 -n keramik-{}'.format(label))
 
 # sleep after pods start to avoid initialization issues
-sleep(30)
+sleep(90)
 
 os.system('kubectl apply -f write-only.yaml')
 
-sleep(10)
+sleep(60)
 
 # check for errors, restart if needed
-def get_error_pod():
-    command = "kc get pods | grep 'simulate-manager' | grep 'Error' | awk '{print $1}'"
+def get_good_pod():
+    command = "kubectl get pods | grep 'simulate-manager' | grep -v 'Error' | awk '{print $1}'"
     pod_name = subprocess.check_output(command, shell=True).decode('utf-8').strip()
     return pod_name
 
-err_pod = get_error_pod()
-if err_pod:
+pod_name = get_good_pod()
+num_errors = 0
+while not pod_name:
+    num_errors += 1
     print("Restarting simulation, error")
     os.system('kubectl delete -f write-only.yaml')
-    sleep(10)
+    sleep(30)
     os.system('kubectl apply -f write-only.yaml')
-    sleep(10)
-    err_pod = get_error_pod()
-    if err_pod:
+    sleep(60)
+    pod_name = get_good_pod()
+    
+    if not pod_name and num_errors > 3:
         print("Too many errors, Terminating run for " + label)
         exit(0)
 

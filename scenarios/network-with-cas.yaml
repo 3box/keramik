@@ -5,9 +5,9 @@ kind: Network
 metadata:
   # this is what the label will be in datadog
   # add the version of ceramic being tested here
-  name: load-with-network-errors-for-2-36-1
+  name: load-with-network-errors-for-2-34-0
 spec:
-  replicas: 1
+  replicas: 3
   datadog:
     enabled: true
     version: "normal-cas"
@@ -18,7 +18,7 @@ spec:
       cpu: "2000m"
       memory: "1Gi"
   ceramic:
-    image: ceramicnetwork/js-ceramic:2.36.1
+    image: ceramicnetwork/js-ceramic:2.34.0
     imagePullPolicy: Always
     resourceLimits:
       cpu: "2000m"

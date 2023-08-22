@@ -208,12 +208,6 @@ kind load docker-image keramik/operator:dev
 <pre><code class="language-shell">kubectl apply -k ./k8s/operator/
 </code></pre>
 <p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
-<h2 id="runner"><a class="header" href="#runner">Runner</a></h2>
-<p>The <code>runner</code> is a utility for running various jobs to initialize the network and run workloads against it.
-Any changes to the runner require that you rebuild it and load it into kind again.</p>
-<pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
-kind load docker-image keramik/runner:dev
-</code></pre>
 <p>Next you will <a href="./deploy_crds.html">deploy custom resource definitions</a> to the cluster. If you've already deployed CRDS and setup a network, you will 
 need to <a href="./setup_network.html">setup a network</a> again to use your new runner.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="deploy-keramik"><a class="header" href="#deploy-keramik">Deploy Keramik</a></h1>
@@ -470,6 +464,13 @@ helm delete my-datadog-operator
 <li><a href="./secrets.html">Secrets</a></li>
 </ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="using-a-custom-runner-image"><a class="header" href="#using-a-custom-runner-image">Using a custom runner image</a></h1>
+<h2 id="load-the-runner-image"><a class="header" href="#load-the-runner-image">Load the Runner Image</a></h2>
+<p>The <code>runner</code> is a utility for running various jobs to initialize the network and run workloads against it.
+Any changes to the runner require that you rebuild it and load it into kind again.</p>
+<pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
+kind load docker-image keramik/runner:dev
+</code></pre>
+<h2 id="setup-network-with-runner-image"><a class="header" href="#setup-network-with-runner-image">Setup network with Runner Image</a></h2>
 <p>To use a custom runner image when you <a href="./setup_network.html">setup your network</a>, you will need to adjust the yaml you
 use to specify how to bootstrap the runner.</p>
 <pre><code class="language-yaml"># small.yaml
@@ -484,6 +485,22 @@ spec:
   bootstrap:
     image: keramik/runner:dev
     imagePullPolicy: IfNotPresent
+</code></pre>
+<h2 id="setup-simulation-with-runner-image"><a class="header" href="#setup-simulation-with-runner-image">Setup simulation with Runner Image</a></h2>
+<p>You will also need to specify the image in your <a href="./simulation.html">simulation</a> yaml.</p>
+<pre><code class="language-yaml"># Custom runner
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Simulation
+metadata:
+  name: basic
+  namespace: keramik-small
+spec:
+  scenario: ceramic-simple
+  users: 10
+  run_time: 4
+  image: keramik/runner:dev
+  imagePullPolicy: IfNotPresent
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-cas-and-ceramic-configuration"><a class="header" href="#advanced-cas-and-ceramic-configuration">Advanced CAS and Ceramic Configuration</a></h1>
 <p>By default, Keramik will instantiate all the resources required for a functional CAS service, including a Ganache

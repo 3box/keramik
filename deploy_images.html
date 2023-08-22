@@ -165,12 +165,6 @@ kind load docker-image keramik/operator:dev
 <pre><code class="language-shell">kubectl apply -k ./k8s/operator/
 </code></pre>
 <p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
-<h2 id="runner"><a class="header" href="#runner">Runner</a></h2>
-<p>The <code>runner</code> is a utility for running various jobs to initialize the network and run workloads against it.
-Any changes to the runner require that you rebuild it and load it into kind again.</p>
-<pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
-kind load docker-image keramik/runner:dev
-</code></pre>
 <p>Next you will <a href="./deploy_crds.html">deploy custom resource definitions</a> to the cluster. If you've already deployed CRDS and setup a network, you will 
 need to <a href="./setup_network.html">setup a network</a> again to use your new runner.</p>
 

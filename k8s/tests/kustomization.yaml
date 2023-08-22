@@ -4,7 +4,15 @@ namespace: keramik-migration-tests
 resources:
   - ./manifests/tests.yaml
 
+configMapGenerator:
+  - name: check-network
+    files:
+      - check-network.sh
+
 images:
   - name: migration-tests
     newName: public.ecr.aws/r5b3e0r5/3box/rust-ceramic-migration-tests
     newTag: latest
+  - name: kubectl
+    newName: linkyard/kubectl@sha256
+    newTag: 14d0fa56b6041b466a9fb8d027108bfede72d9a192d940f9c5bef5aed073982f

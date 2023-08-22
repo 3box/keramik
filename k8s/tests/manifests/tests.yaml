@@ -1,4 +1,46 @@
 ---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: keramik-migration-tests
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: keramik-migration-tests
+  labels:
+    app: keramik-migration-tests
+    app.kubernetes.io/name: keramik-migration-tests
+    app.kubernetes.io/version: "0.12.5"
+  namespace: keramik-migration-tests
+automountServiceAccountToken: true
+
+---
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: keramik-migration-tests
+rules:
+  - apiGroups: ["keramik.3box.io"]
+    resources: ["networks/status"]
+    verbs: ["get"]
+
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: keramik-migration-tests
+subjects:
+  - kind: ServiceAccount
+    namespace: keramik-migration-tests
+    name: keramik-migration-tests
+roleRef:
+  kind: ClusterRole
+  name: keramik-migration-tests
+  apiGroup: rbac.authorization.k8s.io
+
+---
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
@@ -23,23 +65,17 @@ spec:
       labels:
         app: migration-tests
     spec:
+      serviceAccountName: keramik-migration-tests
       initContainers:
         - name: init-tests
-          image: stedolan/jq
-          resources:
-            limits:
-              cpu: 250m
-              ephemeral-storage: 1Gi
-              memory: 512Mi
-            requests:
-              cpu: 250m
-              ephemeral-storage: 1Gi
-              memory: 512Mi
+          image: kubectl
           command:
             - "/bin/bash"
             - "-c"
-            - "mkdir /config/env && CERAMIC_URLS=$(cat /peers/peers.json | jq -j '[.[].ceramic.ceramicAddr] | join(\",\")') && echo \"CERAMIC_URLS=$CERAMIC_URLS\" > /config/.env"
+            - "/network/check-network.sh"
           volumeMounts:
+            - name: check-network
+              mountPath: /network
             - name: peers-volume
               mountPath: /peers
             - name: config-volume
@@ -69,6 +105,11 @@ spec:
               value: "/config/.env"
           args: ["test", "--show-output"]
       volumes:
+        - name: check-network
+          configMap:
+            name: check-network
+            defaultMode:
+              0755
         - name: peers-volume
           configMap:
             name: keramik-peers

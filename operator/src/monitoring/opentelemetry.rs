@@ -4,10 +4,10 @@ use k8s_openapi::{
     api::{
         apps::v1::StatefulSetSpec,
         core::v1::{
-            ConfigMapVolumeSource, Container, ContainerPort, PersistentVolumeClaim,
-            PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, PodSecurityContext,
-            PodSpec, PodTemplateSpec, ResourceRequirements, ServicePort, ServiceSpec, Volume,
-            VolumeMount,
+            ConfigMapVolumeSource, Container, ContainerPort, EnvVar, EnvVarSource,
+            PersistentVolumeClaim, PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource,
+            PodSecurityContext, PodSpec, PodTemplateSpec, ResourceRequirements, SecretKeySelector,
+            ServicePort, ServiceSpec, Volume, VolumeMount,
         },
         rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject},
     },
@@ -16,6 +16,8 @@ use k8s_openapi::{
         util::intstr::IntOrString,
     },
 };
+use serde::{Deserialize, Serialize};
+use serde_yaml::Value;
 
 use crate::utils::selector_labels;
 
@@ -95,6 +97,25 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         ContainerPort {
                             container_port: 8888,
                             name: Some("self-metrics".to_owned()),
+                            ..Default::default()
+                        },
+                    ]),
+                    env: Some(vec![
+                        EnvVar {
+                            name: "DD_API_KEY".to_owned(),
+                            value_from: Some(EnvVarSource {
+                                secret_key_ref: Some(SecretKeySelector {
+                                    key: "api-key".to_owned(),
+                                    name: Some("datadog-secret".to_owned()),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
+                        EnvVar {
+                            name: "DD_SITE".to_owned(),
+                            value: Some("us3.datadoghq.com".to_owned()),
                             ..Default::default()
                         },
                     ]),
@@ -200,113 +221,188 @@ pub fn cluster_role_binding(ns: &str) -> ClusterRoleBinding {
     }
 }
 
+#[derive(Serialize, Deserialize)]
+struct Config {
+    receivers: BTreeMap<String, Value>,
+    processors: BTreeMap<String, Value>,
+    exporters: BTreeMap<String, Value>,
+    service: BTreeMap<String, Value>,
+}
+
 pub fn config_map_data() -> BTreeMap<String, String> {
-    BTreeMap::from_iter(vec![(
-        "otel-config.yaml".to_owned(),
-        r#"
-    receivers:
-      # Push based metrics
-      otlp:
-        protocols:
-          grpc:
-            endpoint: 0.0.0.0:4317
-      # Pull based metrics
-      prometheus:
-        config:
-          scrape_configs:
-            - job_name: 'kubernetes-service-endpoints'
-              scrape_interval: 10s
-              scrape_timeout: 1s
-    
-              kubernetes_sd_configs:
-              - role: pod
-    
-              # Only container ports named `metrics` will be considered valid targets.
-              #
-              # Setup relabel rules to give meaning to the following k8s annotations:
-              #   prometheus/path - URL path of the metrics endpoint
-              #
-              # Example:
-              #   annotations:
-              #      prometheus/path: "/api/v0/metrics"
-              relabel_configs:
-              - source_labels: [__meta_kubernetes_pod_container_port_name]
-                action: keep
-                regex: "metrics"
-              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
-                action: replace
-                target_label: __metrics_path__
-                regex: (.+)
-              - source_labels: [__meta_kubernetes_namespace]
-                action: replace
-                target_label: kubernetes_namespace
-              - source_labels: [__meta_kubernetes_pod_name]
-                action: replace
-                target_label: kubernetes_pod
-              - source_labels: [__meta_kubernetes_pod_container_name]
-                action: replace
-                target_label: kubernetes_container
-    
-    processors:
-      batch:
-    
-    exporters:
-      # This is unused but can be easily added for debugging.
-      logging:
-        # can be one of detailed | normal | basic
-        verbosity: detailed
-        # Log all messages, do not sample
-        sampling_initial: 1
-        sampling_thereafter: 1
-      otlp/jaeger:
-        endpoint: jaeger:4317
-        tls:
-          insecure: true
-      prometheus:
-        endpoint: 0.0.0.0:9090
-        # Keep stale metrics around for 1h before dropping
-        # This helps as simulation metrics are stale once the simulation stops.
-        metric_expiration: 1h
-        resource_to_telemetry_conversion: 
-          enabled: true
-      parquet:
-        path: /data/
-      # Grafana Cloud export
-      # TODO: Remove, this work however its not possible to
-      # namespace the metrics from other Grafana metrics which makes
-      # it hard to consume and polutes the normal metrics namespace.
-      #
-      # For now leaving this here as an example of how to enable,
-      # but will rely on local prometheus metrics in the short term.
-      #otlphttp/grafana:
-      #  auth:
-      #    authenticator: basicauth/grafana
-      #  endpoint: https://otlp-gateway-prod-us-central-0.grafana.net/otlp
-    
-            #extensions:
-            #  basicauth/grafana:
-            #    client_auth:
-            #      username: "user" # replace with Grafana instance id
-            #      password: "password" # replace with Grafana API token (via a secret)
-    
-    service:
-      #extensions: [basicauth/grafana]
-      pipelines:
-        traces:
-          receivers: [otlp]
-          processors: [batch]
-          exporters: [otlp/jaeger]
-        metrics:
-          receivers: [otlp,prometheus]
-          processors: [batch]
-          exporters: [parquet, prometheus]
-      # Enable telemetry on the collector itself
-      telemetry:
-        logs:
-          level: info
-        metrics:
-          level: detailed
-          address: 0.0.0.0:8888"#
-            .to_owned(),
-    )])
+    let mut config = Config {
+        receivers: BTreeMap::new(),
+        processors: BTreeMap::new(),
+        exporters: BTreeMap::new(),
+        service: BTreeMap::new(),
+    };
+
+    let otel_receivers: Value = serde_yaml::from_str::<Value>(
+        r#"{
+            "protocols": {
+                "grpc": {
+                    "endpoint": "0.0.0.0:4317"
+                },
+                "http": {
+                    "endpoint": "0.0.0.0:4318"
+                }
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let prometheus_receivers: Value = serde_yaml::from_str::<Value>(
+        r#"{
+        "config": {
+          "scrape_configs": [
+            {
+              "job_name": "ceramic-service-endpoints",
+              "kubernetes_sd_configs": [
+                {
+                  "role": "pod",
+                  "namespaces": {
+                    "own_namespace": true
+                  }
+                }
+              ],
+              "relabel_configs": [
+                {
+                  "source_labels": [
+                    "__meta_kubernetes_pod_container_name"
+                  ],
+                  "action": "keep",
+                  "regex": "ceramic"
+                },
+                {
+                  "source_labels": [
+                    "__meta_kubernetes_pod_container_port_number"
+                  ],
+                  "action": "keep",
+                  "regex": "9464"
+                },
+                {
+                  "source_labels": [
+                    "__meta_kubernetes_pod_annotation_prometheus_path"
+                  ],
+                  "action": "replace",
+                  "target_label": "__metrics_path__",
+                  "replacement": "/debug/metrics/prometheus"
+                },
+                {
+                  "source_labels": [
+                    "__meta_kubernetes_namespace"
+                  ],
+                  "action": "replace",
+                  "target_label": "kubernetes_namespace"
+                },
+                {
+                  "source_labels": [
+                    "__meta_kubernetes_pod_name"
+                  ],
+                  "action": "replace",
+                  "target_label": "kubernetes_pod"
+                },
+                {
+                  "source_labels": [
+                    "__meta_kubernetes_pod_container_name"
+                  ],
+                  "action": "replace",
+                  "target_label": "kubernetes_container"
+                }
+              ]
+            }
+          ]
+        }
+      }
+      "#,
+    )
+    .unwrap();
+
+    config.receivers.insert("otlp".to_owned(), otel_receivers);
+    config
+        .receivers
+        .insert("prometheus".to_owned(), prometheus_receivers);
+
+    config.processors.insert("batch".to_owned(), Value::Null);
+
+    let datadog_exporter = serde_yaml::from_str::<Value>(
+        r#"{
+            "api": {
+              "key": "${env:DD_API_KEY}",
+              "site": "${env:DD_SITE}"
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let logging_exporter = serde_yaml::from_str::<Value>(
+        r#"{
+              "verbosity": "detailed",
+              "sampling_initial": 1,
+              "sampling_thereafter": 1
+        }"#,
+    )
+    .unwrap();
+
+    let prometheus_exporter = serde_yaml::from_str::<Value>(
+        r#"{
+              "endpoint": "0.0.0.0:9090"
+        }"#,
+    )
+    .unwrap();
+
+    let parquet_exporter: Value = serde_yaml::from_str::<Value>(
+        r#"{
+              "path": "/data/"
+        }"#,
+    )
+    .unwrap();
+
+    config
+        .exporters
+        .insert("datadog".to_owned(), datadog_exporter);
+    config
+        .exporters
+        .insert("logging".to_owned(), logging_exporter);
+    config
+        .exporters
+        .insert("prometheus".to_owned(), prometheus_exporter);
+    config
+        .exporters
+        .insert("parquet".to_owned(), parquet_exporter);
+
+    let pipelines_service: Value = serde_yaml::from_str::<Value>(
+        r#"{
+            "metrics": {
+              "receivers": ["otlp"],
+              "processors": ["batch"],
+              "exporters": ["datadog", "prometheus", "parquet"]
+            }
+        }"#,
+    )
+    .unwrap();
+
+    let telemetry_service: Value = serde_yaml::from_str::<Value>(
+        r#"{
+            "logs": {
+                "level": "info"
+            },
+            "metrics": {
+                "level": "detailed",
+                "address": "0.0.0.0:8888"
+            }
+        }"#,
+    )
+    .unwrap();
+
+    config
+        .service
+        .insert("pipelines".to_owned(), pipelines_service);
+    config
+        .service
+        .insert("telemetry".to_owned(), telemetry_service);
+
+    let yaml = serde_yaml::to_string(&config).unwrap();
+
+    BTreeMap::from_iter(vec![("otel-config.yaml".to_owned(), yaml)])
 }

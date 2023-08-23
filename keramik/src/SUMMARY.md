@@ -15,3 +15,4 @@
   - [IPFS](./ipfs.md)
   - [Secrets](./secrets.md)
   - [Operator Design](./operator.md)
+  - [Migration Tests](./migration.md)

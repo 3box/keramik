@@ -1,7 +1,7 @@
-use std::{collections::BTreeMap, path::Path};
+use std::path::Path;
 
 use anyhow::{bail, Result};
-use keramik_common::peer_info::{Peer, PeerIdx};
+use keramik_common::peer_info::Peer;
 use tokio::{fs::File, io::AsyncReadExt};
 use tracing::debug;
 
@@ -46,12 +46,9 @@ pub async fn connect_peers(peer: &Peer, other: &Peer) -> Result<()> {
 }
 
 /// Parse the peers info file.
-pub async fn parse_peers_info(path: impl AsRef<Path>) -> Result<BTreeMap<PeerIdx, Peer>> {
+pub async fn parse_peers_info(path: impl AsRef<Path>) -> Result<Vec<Peer>> {
     let mut f = File::open(path).await?;
     let mut peers_json = String::new();
     f.read_to_string(&mut peers_json).await?;
-    let peers: Vec<Peer> = serde_json::from_str(&peers_json)?;
-    Ok(BTreeMap::from_iter(
-        peers.into_iter().map(|info| (info.index(), info)),
-    ))
+    Ok(serde_json::from_str(&peers_json)?)
 }

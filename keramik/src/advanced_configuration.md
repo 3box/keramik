@@ -28,12 +28,11 @@ metadata:
   name: small
 spec:
   replicas: 2
-  ceramic:
-    privateKeySecret: "small"
-    networkType: "dev-unstable"
-    pubsubTopic: ""
-    ethRpcUrl: ""
-    casApiUrl: "https://some-anchor-service.com"
+  privateKeySecret: "small"
+  networkType: "dev-unstable"
+  pubsubTopic: ""
+  ethRpcUrl: ""
+  casApiUrl: "https://some-anchor-service.com"
 ```
 
 # Disabling AWS Functionality
@@ -66,10 +65,10 @@ metadata:
 spec:
   replicas: 2
   ceramic:
-    resourceLimits:
-      cpu: "4"
-      memory: "8Gi"
-      storage: "2Gi"
+    - resourceLimits:
+        cpu: "4"
+        memory: "8Gi"
+        storage: "2Gi"
 ```
 
 The above yaml will provide each ceramic pod with 4 cpu cores, 8GB of memory, and 2GB of storage. Dependent on the system you 
@@ -91,12 +90,12 @@ metadata:
 spec:
   replicas: 2
   ceramic:
-    ipfs:
-      go:
-        resourceLimits:
-          cpu: "4"
-          memory: "8Gi"
-          storage: "2Gi"
+    - ipfs:
+       go:
+         resourceLimits:
+           cpu: "4"
+           memory: "8Gi"
+           storage: "2Gi"
 ```
 
 Setting resources for CAS is slightly different, using `casResourceLimits` to set CAS resources

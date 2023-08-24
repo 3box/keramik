@@ -1,0 +1,75 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/batch/v1/namespaces/keramik-test/jobs/bootstrap?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "batch/v1",
+      "kind": "Job",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "bootstrap",
+        "ownerReferences": []
+      },
+      "spec": {
+        "backoffLimit": 4,
+        "template": {
+          "spec": {
+            "containers": [
+              {
+                "command": [
+                  "/usr/bin/keramik-runner",
+                  "bootstrap"
+                ],
+                "env": [
+                  {
+                    "name": "RUNNER_OTLP_ENDPOINT",
+                    "value": "http://otel:4317"
+                  },
+                  {
+                    "name": "RUST_LOG",
+                    "value": "info,keramik_runner=debug"
+                  },
+                  {
+                    "name": "BOOTSTRAP_METHOD",
+                    "value": "sentinel"
+                  },
+                  {
+                    "name": "BOOTSTRAP_N",
+                    "value": "3"
+                  },
+                  {
+                    "name": "BOOTSTRAP_PEERS_PATH",
+                    "value": "/keramik-peers/peers.json"
+                  }
+                ],
+                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner",
+                "imagePullPolicy": "Always",
+                "name": "bootstrap",
+                "volumeMounts": [
+                  {
+                    "mountPath": "/keramik-peers",
+                    "name": "keramik-peers"
+                  }
+                ]
+              }
+            ],
+            "restartPolicy": "Never",
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 493,
+                  "name": "keramik-peers"
+                },
+                "name": "keramik-peers"
+              }
+            ]
+          }
+        }
+      }
+    },
+}

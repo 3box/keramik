@@ -436,6 +436,7 @@ mod tests {
     use super::{reconcile, Simulation};
 
     use crate::{
+        network::utils::tests::MockIpfsRpcClientTest,
         simulation::{stub::Stub, SimulationSpec},
         utils::{test::ApiServerVerifier, Context},
     };
@@ -447,7 +448,6 @@ mod tests {
     use keramik_common::peer_info::{CeramicPeerInfo, Peer};
     use std::{collections::BTreeMap, sync::Arc};
     use tracing_test::traced_test;
-    use unimock::Unimock;
 
     // This tests defines the default stubs,
     // meaning the default stubs are the request response pairs
@@ -455,7 +455,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn reconcile_from_empty() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test();
@@ -470,7 +470,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn reconcile_scenario() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test().with_spec(SimulationSpec {
@@ -526,7 +526,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn reconcile_user_count() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test().with_spec(SimulationSpec {
@@ -556,7 +556,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn reconcile_run_time() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test().with_spec(SimulationSpec {
@@ -586,7 +586,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn reconcile_three_peers() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test().with_spec(SimulationSpec {
@@ -596,21 +596,18 @@ mod tests {
         stub.peers_config_map.1 = {
             let peers = vec![
                 Peer::Ceramic(CeramicPeerInfo {
-                    index: 0,
                     peer_id: "0".to_owned(),
                     ipfs_rpc_addr: "ipfs_rpc_addr_0".to_owned(),
                     ceramic_addr: "ceramic_addr_0".to_owned(),
                     p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
                 }),
                 Peer::Ceramic(CeramicPeerInfo {
-                    index: 1,
                     peer_id: "1".to_owned(),
                     ipfs_rpc_addr: "ipfs_rpc_addr_1".to_owned(),
                     ceramic_addr: "ceramic_addr_1".to_owned(),
                     p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
                 }),
                 Peer::Ceramic(CeramicPeerInfo {
-                    index: 2,
                     peer_id: "2".to_owned(),
                     ipfs_rpc_addr: "ipfs_rpc_addr_2".to_owned(),
                     ceramic_addr: "ceramic_addr_2".to_owned(),
@@ -637,7 +634,7 @@ mod tests {
     #[tokio::test]
     #[traced_test]
     async fn reconcile_scenario_custom_images() {
-        let mock_rpc_client = Unimock::new(());
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test().with_spec(SimulationSpec {

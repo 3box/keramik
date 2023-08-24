@@ -20,8 +20,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::network::{
     controller::{
-        CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_LOCAL_NETWORK_TYPE, CERAMIC_SERVICE_API_PORT,
-        CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME, GANACHE_SERVICE_NAME,
+        NetworkConfig, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
         INIT_CONFIG_MAP_NAME,
     },
     datadog::DataDogConfig,
@@ -33,7 +32,10 @@ use crate::utils::{managed_labels, selector_labels};
 const IPFS_CONTAINER_NAME: &str = "ipfs";
 const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
 
-pub fn config_maps(config: &CeramicConfig) -> BTreeMap<String, BTreeMap<String, String>> {
+pub fn config_maps(
+    info: &CeramicInfo,
+    config: &CeramicConfig,
+) -> BTreeMap<String, BTreeMap<String, String>> {
     let mut config_maps = BTreeMap::new();
     if config.init_config_map == INIT_CONFIG_MAP_NAME {
         config_maps.insert(INIT_CONFIG_MAP_NAME.to_owned(),
@@ -94,7 +96,7 @@ r#"{
 }"#.to_owned()),
 ]));
     }
-    config_maps.append(&mut config.ipfs.config_maps());
+    config_maps.append(&mut config.ipfs.config_maps(info));
     config_maps
 }
 
@@ -131,6 +133,8 @@ pub fn service_spec() -> ServiceSpec {
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CeramicSpec {
+    /// Relative weight of the spec compared to others.
+    pub weight: Option<i32>,
     /// Name of a config map with a ceramic-init.sh script that runs as an initialization step.
     pub init_config_map: Option<String>,
     /// Image of the ceramic container.
@@ -141,17 +145,6 @@ pub struct CeramicSpec {
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for ceramic nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
-    /// Name of secret containing the private key used for signing anchor requests and generating
-    /// the Admin DID.
-    pub private_key_secret: Option<String>,
-    /// Ceramic network type
-    pub network_type: Option<String>,
-    /// PubSub topic for Ceramic nodes to use
-    pub pubsub_topic: Option<String>,
-    /// Ethereum RPC URL for Ceramic nodes to use for verifying anchors
-    pub eth_rpc_url: Option<String>,
-    /// URL for Ceramic Anchor Service (CAS)
-    pub cas_api_url: Option<String>,
 }
 
 /// Describes how the IPFS node for a peer should behave.
@@ -182,15 +175,63 @@ pub struct GoIpfsSpec {
 }
 
 pub struct CeramicConfig {
+    pub weight: i32,
     pub init_config_map: String,
     pub image: String,
     pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
-    pub network_type: String,
-    pub pubsub_topic: String,
-    pub eth_rpc_url: String,
-    pub cas_api_url: String,
+}
+
+/// Bundles all relevant config for a ceramic spec.
+pub struct CeramicBundle<'a> {
+    pub info: CeramicInfo,
+    pub config: &'a CeramicConfig,
+    pub net_config: &'a NetworkConfig,
+    pub datadog: &'a DataDogConfig,
+}
+
+/// Unique identifying information about this ceramic spec.
+#[derive(Debug)]
+pub struct CeramicInfo {
+    pub replicas: i32,
+    pub stateful_set: String,
+    pub service: String,
+
+    suffix: String,
+}
+
+impl CeramicInfo {
+    pub fn new(suffix: &str, replicas: i32) -> Self {
+        Self {
+            replicas,
+            suffix: suffix.to_owned(),
+            stateful_set: format!("ceramic-{suffix}"),
+            service: format!("ceramic-{suffix}"),
+        }
+    }
+}
+
+impl CeramicInfo {
+    /// Generate a new uninque name for this ceramic spec
+    /// Generated name is deterministic for a given input name.
+    pub fn new_name(&self, name: &str) -> String {
+        format!("{name}-{}", self.suffix)
+    }
+    /// Determine the IPFS RPC address of a Ceramic peer
+    pub fn ipfs_rpc_addr(&self, ns: &str, peer: i32) -> String {
+        format!(
+            "http://{}-{peer}.{}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_IPFS_PORT}",
+            self.stateful_set, self.service
+        )
+    }
+    /// Determine the Ceramic address of a Ceramic peer
+    pub fn ceramic_addr(&self, ns: &str, peer: i32) -> String {
+        format!(
+            "http://{}-{peer}.{}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_API_PORT}",
+            self.stateful_set, self.service
+        )
+    }
 }
 
 pub enum IpfsConfig {
@@ -204,22 +245,22 @@ impl Default for IpfsConfig {
     }
 }
 impl IpfsConfig {
-    fn config_maps(&self) -> BTreeMap<String, BTreeMap<String, String>> {
+    fn config_maps(&self, info: &CeramicInfo) -> BTreeMap<String, BTreeMap<String, String>> {
         match self {
             IpfsConfig::Rust(_) => BTreeMap::new(),
-            IpfsConfig::Go(config) => config.config_maps(),
+            IpfsConfig::Go(config) => config.config_maps(info),
         }
     }
-    fn into_container(self) -> Container {
+    fn container(&self, info: &CeramicInfo) -> Container {
         match self {
-            IpfsConfig::Rust(config) => config.into_container(),
-            IpfsConfig::Go(config) => config.into_container(),
+            IpfsConfig::Rust(config) => config.container(),
+            IpfsConfig::Go(config) => config.container(info),
         }
     }
-    fn volumes(&self) -> Vec<Volume> {
+    fn volumes(&self, info: &CeramicInfo) -> Vec<Volume> {
         match self {
             IpfsConfig::Rust(_) => Vec::new(),
-            IpfsConfig::Go(config) => config.volumes(),
+            IpfsConfig::Go(config) => config.volumes(info),
         }
     }
 }
@@ -295,6 +336,7 @@ impl From<GoIpfsSpec> for GoIpfsConfig {
 impl Default for CeramicConfig {
     fn default() -> Self {
         Self {
+            weight: 1,
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
             image: "ceramicnetwork/composedb:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
@@ -304,18 +346,18 @@ impl Default for CeramicConfig {
                 memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
-            network_type: CERAMIC_LOCAL_NETWORK_TYPE.to_owned(),
-            pubsub_topic: "/ceramic/local-keramik".to_owned(),
-            eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
-            cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
         }
     }
 }
-impl From<Option<CeramicSpec>> for CeramicConfig {
-    fn from(value: Option<CeramicSpec>) -> Self {
-        match value {
-            Some(spec) => spec.into(),
-            None => CeramicConfig::default(),
+
+pub struct CeramicConfigs(pub Vec<CeramicConfig>);
+
+impl From<Vec<CeramicSpec>> for CeramicConfigs {
+    fn from(value: Vec<CeramicSpec>) -> Self {
+        if value.is_empty() {
+            Self(vec![CeramicConfig::default()])
+        } else {
+            Self(value.into_iter().map(CeramicConfig::from).collect())
         }
     }
 }
@@ -324,6 +366,7 @@ impl From<CeramicSpec> for CeramicConfig {
     fn from(value: CeramicSpec) -> Self {
         let default = Self::default();
         Self {
+            weight: value.weight.unwrap_or(default.weight),
             init_config_map: value.init_config_map.unwrap_or(default.init_config_map),
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
@@ -332,10 +375,6 @@ impl From<CeramicSpec> for CeramicConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
-            network_type: value.network_type.unwrap_or(default.network_type),
-            pubsub_topic: value.pubsub_topic.unwrap_or(default.pubsub_topic),
-            eth_rpc_url: value.eth_rpc_url.unwrap_or(default.eth_rpc_url),
-            cas_api_url: value.cas_api_url.unwrap_or(default.cas_api_url),
         }
     }
 }
@@ -350,7 +389,7 @@ impl From<IpfsSpec> for IpfsConfig {
 }
 
 impl RustIpfsConfig {
-    fn into_container(self) -> Container {
+    fn container(&self) -> Container {
         Container {
             env: Some(vec![
                 EnvVar {
@@ -384,8 +423,8 @@ impl RustIpfsConfig {
                     ..Default::default()
                 },
             ]),
-            image: Some(self.image),
-            image_pull_policy: Some(self.image_pull_policy),
+            image: Some(self.image.to_owned()),
+            image_pull_policy: Some(self.image_pull_policy.to_owned()),
             name: IPFS_CONTAINER_NAME.to_owned(),
             ports: Some(vec![
                 ContainerPort {
@@ -409,7 +448,7 @@ impl RustIpfsConfig {
             ]),
             resources: Some(ResourceRequirements {
                 limits: Some(self.resource_limits.clone().into()),
-                requests: Some(self.resource_limits.into()),
+                requests: Some(self.resource_limits.clone().into()),
                 ..Default::default()
             }),
             volume_mounts: Some(vec![VolumeMount {
@@ -423,7 +462,7 @@ impl RustIpfsConfig {
 }
 
 impl GoIpfsConfig {
-    fn config_maps(&self) -> BTreeMap<String, BTreeMap<String, String>> {
+    fn config_maps(&self, info: &CeramicInfo) -> BTreeMap<String, BTreeMap<String, String>> {
         let mut ipfs_config = vec![(
             "001-config.sh".to_owned(),
             r#"#!/bin/sh
@@ -458,11 +497,11 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
             ));
         }
         BTreeMap::from_iter(vec![(
-            "ipfs-container-init".to_owned(),
+            info.new_name("ipfs-container-init"),
             BTreeMap::from_iter(ipfs_config),
         )])
     }
-    fn into_container(self) -> Container {
+    fn container(&self, info: &CeramicInfo) -> Container {
         let mut volume_mounts = vec![
             VolumeMount {
                 mount_path: "/data/ipfs".to_owned(),
@@ -471,7 +510,7 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
             },
             VolumeMount {
                 mount_path: "/container-init.d/001-config.sh".to_owned(),
-                name: "ipfs-container-init".to_owned(),
+                name: info.new_name("ipfs-container-init"),
                 // Use an explict subpath otherwise, k8s uses symlinks which breaks
                 // kubo's init logic.
                 sub_path: Some("001-config.sh".to_owned()),
@@ -481,14 +520,14 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
         if !self.commands.is_empty() {
             volume_mounts.push(VolumeMount {
                 mount_path: "/container-init.d/002-config.sh".to_owned(),
-                name: "ipfs-container-init".to_owned(),
+                name: info.new_name("ipfs-container-init"),
                 sub_path: Some("002-config.sh".to_owned()),
                 ..Default::default()
             })
         }
         Container {
-            image: Some(self.image),
-            image_pull_policy: Some(self.image_pull_policy),
+            image: Some(self.image.to_owned()),
+            image_pull_policy: Some(self.image_pull_policy.to_owned()),
             name: IPFS_CONTAINER_NAME.to_owned(),
             ports: Some(vec![
                 ContainerPort {
@@ -512,19 +551,19 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
             ]),
             resources: Some(ResourceRequirements {
                 limits: Some(self.resource_limits.clone().into()),
-                requests: Some(self.resource_limits.into()),
+                requests: Some(self.resource_limits.clone().into()),
                 ..Default::default()
             }),
             volume_mounts: Some(volume_mounts),
             ..Default::default()
         }
     }
-    fn volumes(&self) -> Vec<Volume> {
+    fn volumes(&self, info: &CeramicInfo) -> Vec<Volume> {
         vec![Volume {
-            name: "ipfs-container-init".to_owned(),
+            name: info.new_name("ipfs-container-init"),
             config_map: Some(ConfigMapVolumeSource {
                 default_mode: Some(0o755),
-                name: Some("ipfs-container-init".to_owned()),
+                name: Some(info.new_name("ipfs-container-init")),
                 ..Default::default()
             }),
             ..Default::default()
@@ -532,32 +571,26 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
     }
 }
 
-pub fn stateful_set_spec(
-    ns: &str,
-    replicas: i32,
-    config: impl Into<CeramicConfig>,
-    datadog: &DataDogConfig,
-) -> StatefulSetSpec {
-    let config = config.into();
+pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpec {
     let mut ceramic_env = vec![
         EnvVar {
             name: "CERAMIC_NETWORK".to_owned(),
-            value: Some(config.network_type),
+            value: Some(bundle.net_config.network_type.to_owned()),
             ..Default::default()
         },
         EnvVar {
             name: "CERAMIC_NETWORK_TOPIC".to_owned(),
-            value: Some(config.pubsub_topic),
+            value: Some(bundle.net_config.pubsub_topic.to_owned()),
             ..Default::default()
         },
         EnvVar {
             name: "ETH_RPC_URL".to_owned(),
-            value: Some(config.eth_rpc_url),
+            value: Some(bundle.net_config.eth_rpc_url.to_owned()),
             ..Default::default()
         },
         EnvVar {
             name: "CAS_API_URL".to_owned(),
-            value: Some(config.cas_api_url),
+            value: Some(bundle.net_config.cas_api_url.to_owned()),
             ..Default::default()
         },
         EnvVar {
@@ -601,7 +634,7 @@ pub fn stateful_set_spec(
     }];
     init_env.append(&mut ceramic_env.clone());
 
-    datadog.inject_env(&mut ceramic_env);
+    bundle.datadog.inject_env(&mut ceramic_env);
 
     let mut volumes = vec![
         Volume {
@@ -612,7 +645,7 @@ pub fn stateful_set_spec(
         Volume {
             config_map: Some(ConfigMapVolumeSource {
                 default_mode: Some(0o755),
-                name: Some(config.init_config_map),
+                name: Some(bundle.config.init_config_map.to_owned()),
                 ..Default::default()
             }),
             name: "ceramic-init".to_owned(),
@@ -636,16 +669,16 @@ pub fn stateful_set_spec(
         },
     ];
 
-    volumes.append(&mut config.ipfs.volumes());
+    volumes.append(&mut bundle.config.ipfs.volumes(&bundle.info));
 
     StatefulSetSpec {
         pod_management_policy: Some("Parallel".to_owned()),
-        replicas: Some(replicas),
+        replicas: Some(bundle.info.replicas),
         selector: LabelSelector {
             match_labels: selector_labels(CERAMIC_APP),
             ..Default::default()
         },
-        service_name: CERAMIC_SERVICE_NAME.to_owned(),
+        service_name: bundle.info.service.clone(),
         template: PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 annotations: Some(BTreeMap::from_iter(vec![(
@@ -653,13 +686,15 @@ pub fn stateful_set_spec(
                     "/metrics".to_owned(),
                 )]))
                 .map(|mut annotations| {
-                    datadog.inject_annotations(&mut annotations);
+                    bundle.datadog.inject_annotations(&mut annotations);
                     annotations
                 }),
 
                 labels: selector_labels(CERAMIC_APP).map(|mut lbls| {
                     lbls.append(&mut managed_labels().unwrap());
-                    datadog.inject_labels(&mut lbls, ns.to_owned(), "ceramic".to_owned());
+                    bundle
+                        .datadog
+                        .inject_labels(&mut lbls, ns.to_owned(), "ceramic".to_owned());
                     lbls
                 }),
                 ..Default::default()
@@ -674,8 +709,8 @@ pub fn stateful_set_spec(
                             "/config/daemon-config.json".to_owned(),
                         ]),
                         env: Some(ceramic_env),
-                        image: Some(config.image.clone()),
-                        image_pull_policy: Some(config.image_pull_policy.clone()),
+                        image: Some(bundle.config.image.clone()),
+                        image_pull_policy: Some(bundle.config.image_pull_policy.clone()),
                         name: "ceramic".to_owned(),
                         ports: Some(vec![
                             ContainerPort {
@@ -714,8 +749,8 @@ pub fn stateful_set_spec(
                         }),
 
                         resources: Some(ResourceRequirements {
-                            limits: Some(config.resource_limits.clone().into()),
-                            requests: Some(config.resource_limits.clone().into()),
+                            limits: Some(bundle.config.resource_limits.clone().into()),
+                            requests: Some(bundle.config.resource_limits.clone().into()),
                             ..Default::default()
                         }),
                         volume_mounts: Some(vec![
@@ -732,7 +767,7 @@ pub fn stateful_set_spec(
                         ]),
                         ..Default::default()
                     },
-                    config.ipfs.into_container(),
+                    bundle.config.ipfs.container(&bundle.info),
                 ],
                 init_containers: Some(vec![Container {
                     command: Some(vec![
@@ -741,12 +776,12 @@ pub fn stateful_set_spec(
                         "/ceramic-init/ceramic-init.sh".to_owned(),
                     ]),
                     env: Some(init_env),
-                    image: Some(config.image),
-                    image_pull_policy: Some(config.image_pull_policy),
+                    image: Some(bundle.config.image.to_owned()),
+                    image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
                     name: "init-ceramic-config".to_owned(),
                     resources: Some(ResourceRequirements {
-                        limits: Some(config.resource_limits.clone().into()),
-                        requests: Some(config.resource_limits.into()),
+                        limits: Some(bundle.config.resource_limits.clone().into()),
+                        requests: Some(bundle.config.resource_limits.clone().into()),
                         ..Default::default()
                     }),
                     volume_mounts: Some(vec![

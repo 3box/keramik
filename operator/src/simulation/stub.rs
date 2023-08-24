@@ -93,14 +93,12 @@ impl Default for Stub {
                 {
                     let peers = vec![
                         Peer::Ceramic(CeramicPeerInfo {
-                            index: 0,
                             peer_id: "0".to_owned(),
                             ipfs_rpc_addr: "ipfs_rpc_addr_0".to_owned(),
                             ceramic_addr: "ceramic_addr_0".to_owned(),
                             p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
                         }),
                         Peer::Ceramic(CeramicPeerInfo {
-                            index: 1,
                             peer_id: "1".to_owned(),
                             ipfs_rpc_addr: "ipfs_rpc_addr_1".to_owned(),
                             ceramic_addr: "ceramic_addr_1".to_owned(),

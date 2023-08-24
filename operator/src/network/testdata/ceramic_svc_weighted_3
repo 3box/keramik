@@ -1,0 +1,43 @@
+Request {
+    method: "PATCH",
+    uri: "/api/v1/namespaces/keramik-test/services/ceramic-3?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "v1",
+      "kind": "Service",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "ceramic-3",
+        "ownerReferences": []
+      },
+      "spec": {
+        "clusterIP": "None",
+        "ports": [
+          {
+            "name": "api",
+            "port": 7007,
+            "protocol": "TCP"
+          },
+          {
+            "name": "ipfs",
+            "port": 5001,
+            "protocol": "TCP"
+          },
+          {
+            "name": "swarm-tcp",
+            "port": 4001,
+            "protocol": "TCP"
+          }
+        ],
+        "selector": {
+          "app": "ceramic"
+        },
+        "type": "ClusterIP"
+      }
+    },
+}

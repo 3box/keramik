@@ -1,6 +1,6 @@
 Request {
     method: "PATCH",
-    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/ceramic?&fieldManager=keramik",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/ceramic-0?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
@@ -12,7 +12,7 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "ceramic",
+        "name": "ceramic-0",
         "ownerReferences": []
       },
       "spec": {
@@ -23,7 +23,7 @@ Request {
             "app": "ceramic"
           }
         },
-        "serviceName": "ceramic",
+        "serviceName": "ceramic-0",
         "template": {
           "metadata": {
             "annotations": {

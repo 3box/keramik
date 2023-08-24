@@ -14,8 +14,8 @@ metadata:
 spec:
   replicas: 5
   ceramic:
-    ipfs:
-      rust: {}
+    - ipfs:
+        rust: {}
 ```
 
 Example [network config](./setup_network.md) that uses Rust based IPFS (i.e. ceramic-one) with a specific image.
@@ -28,10 +28,10 @@ metadata:
 spec:
   replicas: 5
   ceramic:
-    ipfs:
-      rust:
-        image: rust-ceramic/ceramic-one:dev
-        imagePullPolicy: IfNotPresent
+    - ipfs:
+       rust:
+         image: rust-ceramic/ceramic-one:dev
+         imagePullPolicy: IfNotPresent
 ```
 
 ## Kubo IPFS
@@ -46,8 +46,8 @@ metadata:
 spec:
   replicas: 5
   ceramic:
-    ipfs:
-      go: {}
+    - ipfs:
+        go: {}
 ```
 
 Example [network config](./setup_network.md) that uses Go based IPFS (i.e. Kubo) with a specific image.
@@ -60,10 +60,10 @@ metadata:
 spec:
   replicas: 5
   ceramic:
-    ipfs:
-      go:
-        image: ceramicnetwork/go-ipfs-daemon:develop
-        imagePullPolicy: IfNotPresent
+    - ipfs:
+       go:
+         image: ceramicnetwork/go-ipfs-daemon:develop
+         imagePullPolicy: IfNotPresent
 ```
 
 Example [network config](./setup_network.md) that uses Go based IPFS (i.e. Kubo) with extra configuration commands.
@@ -76,10 +76,10 @@ metadata:
 spec:
   replicas: 5
   ceramic:
-    ipfs:
-      go:
-        image: ceramicnetwork/go-ipfs-daemon:develop
-        imagePullPolicy: IfNotPresent
-        commands:
-          - ipfs config --json Swarm.RelayClient.Enabled false
+    - ipfs:
+       go:
+         image: ceramicnetwork/go-ipfs-daemon:develop
+         imagePullPolicy: IfNotPresent
+         commands:
+           - ipfs config --json Swarm.RelayClient.Enabled false
 ```

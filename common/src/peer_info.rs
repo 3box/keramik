@@ -2,9 +2,6 @@
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
-/// Peers are identified via a total ordering.
-pub type PeerIdx = i32;
-
 /// P2p peer id generated via libp2p.
 pub type PeerId = String;
 
@@ -19,11 +16,11 @@ pub enum Peer {
 }
 
 impl Peer {
-    /// Report the index of the peer within the total order.
-    pub fn index(&self) -> PeerIdx {
+    /// Report the Peer ID of the peer.
+    pub fn id(&self) -> &PeerId {
         match self {
-            Peer::Ceramic(p) => p.index,
-            Peer::Ipfs(p) => p.index,
+            Peer::Ceramic(p) => &p.peer_id,
+            Peer::Ipfs(p) => &p.peer_id,
         }
     }
     /// Report address of the IPFS RPC endpoint
@@ -46,8 +43,6 @@ impl Peer {
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CeramicPeerInfo {
-    /// The index of the peer within the total order.
-    pub index: PeerIdx,
     /// The public ID of the peer.
     pub peer_id: PeerId,
     /// RPC address of the peer.
@@ -62,8 +57,6 @@ pub struct CeramicPeerInfo {
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct IpfsPeerInfo {
-    /// The index of the peer within the total order.
-    pub index: PeerIdx,
     /// The public ID of the peer.
     pub peer_id: PeerId,
     /// RPC address of the peer.

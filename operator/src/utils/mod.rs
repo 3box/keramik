@@ -19,7 +19,7 @@ use k8s_openapi::{
 use crate::network::utils::IpfsRpcClient;
 
 use kube::{
-    api::{Patch, PatchParams},
+    api::{DeleteParams, Patch, PatchParams},
     client::Client,
     core::ObjectMeta,
     Api,
@@ -102,6 +102,20 @@ pub async fn apply_service(
         .await?;
     Ok(service.status)
 }
+/// Delete a service in namespace
+pub async fn delete_service(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    ns: &str,
+    name: &str,
+) -> Result<(), kube::error::Error> {
+    let services: Api<Service> = Api::namespaced(cx.k_client.clone(), ns);
+
+    match services.delete(name, &DeleteParams::default()).await {
+        Ok(_) => Ok(()),
+        Err(kube::Error::Api(err)) if err.reason == "NotFound" => Ok(()),
+        Err(e) => Err(e),
+    }
+}
 
 /// Apply a Job
 pub async fn apply_job(
@@ -155,6 +169,21 @@ pub async fn apply_stateful_set(
         .patch(name, &serverside, &Patch::Apply(stateful_set))
         .await?;
     Ok(stateful_set.status)
+}
+
+/// Delete a stateful set in namespace
+pub async fn delete_stateful_set(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    ns: &str,
+    name: &str,
+) -> Result<(), kube::error::Error> {
+    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
+
+    match stateful_sets.delete(name, &DeleteParams::default()).await {
+        Ok(_) => Ok(()),
+        Err(kube::Error::Api(err)) if err.reason == "NotFound" => Ok(()),
+        Err(e) => Err(e),
+    }
 }
 
 /// Apply account in namespace

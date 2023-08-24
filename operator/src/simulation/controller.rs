@@ -26,8 +26,8 @@ use rand::RngCore;
 use tracing::{debug, error};
 
 use crate::simulation::{
-    manager, manager::ManagerConfig, worker, worker::WorkerConfig, JobImageConfig, Simulation,
-    SimulationStatus,
+    datadog::DataDogConfig, manager, manager::ManagerConfig, worker, worker::WorkerConfig,
+    JobImageConfig, Simulation, SimulationStatus,
 };
 
 use crate::monitoring::{jaeger, opentelemetry, prometheus};
@@ -141,10 +141,11 @@ async fn reconcile(
 
     let ns = simulation.namespace().unwrap();
     let num_peers = get_num_peers(cx.clone(), &ns).await?;
+    let datadog = DataDogConfig::from(&spec.datadog);
 
     apply_jaeger(cx.clone(), &ns, simulation.clone()).await?;
     apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
-    apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
+    apply_opentelemetry(cx.clone(), &ns, simulation.clone(), &datadog).await?;
 
     let ready = monitoring_ready(cx.clone(), &ns).await?;
 
@@ -381,6 +382,7 @@ async fn apply_opentelemetry(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
     simulation: Arc<Simulation>,
+    datadog: &DataDogConfig,
 ) -> Result<(), kube::error::Error> {
     let orefs = simulation
         .controller_owner_ref(&())
@@ -408,7 +410,7 @@ async fn apply_opentelemetry(
         ns,
         orefs.clone(),
         OTEL_CONFIG_MAP_NAME,
-        opentelemetry::config_map_data(),
+        opentelemetry::config_map_data(datadog),
     )
     .await?;
     apply_service(
@@ -424,7 +426,7 @@ async fn apply_opentelemetry(
         ns,
         orefs.clone(),
         "opentelemetry",
-        opentelemetry::stateful_set_spec(),
+        opentelemetry::stateful_set_spec(datadog),
     )
     .await?;
 

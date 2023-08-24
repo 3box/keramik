@@ -4,6 +4,7 @@ pub(crate) mod manager;
 #[cfg(test)]
 pub mod stub;
 pub(crate) mod worker;
+pub(crate) mod datadog;
 
 pub use controller::run;
 
@@ -12,6 +13,8 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use rand::random;
+
+use crate::simulation::datadog::DataDogSpec;
 
 /// Primary CRD for creating and managing a Ceramic Simulation.
 #[derive(CustomResource, Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
@@ -35,6 +38,8 @@ pub struct SimulationSpec {
     pub image: Option<String>,
     /// Pull policy for image.
     pub image_pull_policy: Option<String>,
+    /// DataDog telemetry configuration
+    pub datadog: Option<DataDogSpec>,
 }
 
 /// Current status of a simulation.

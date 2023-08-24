@@ -22,6 +22,7 @@ use serde_yaml::Value;
 use crate::utils::selector_labels;
 
 use crate::simulation::controller::{OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME, OTEL_CR};
+use crate::simulation::datadog::DataDogConfig;
 
 pub const OTEL_APP: &str = "otel";
 
@@ -56,7 +57,7 @@ pub fn service_spec() -> ServiceSpec {
     }
 }
 
-pub fn stateful_set_spec() -> StatefulSetSpec {
+pub fn stateful_set_spec(datadog: &DataDogConfig) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
         service_name: OTEL_APP.to_owned(),
@@ -100,7 +101,7 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                             ..Default::default()
                         },
                     ]),
-                    env: Some(vec![
+                    env: if datadog.enabled{ Some(vec![
                         EnvVar {
                             name: "DD_API_KEY".to_owned(),
                             value_from: Some(EnvVarSource {
@@ -118,7 +119,7 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                             value: Some("us3.datadoghq.com".to_owned()),
                             ..Default::default()
                         },
-                    ]),
+                    ]) } else { None },
                     resources: Some(ResourceRequirements {
                         limits: Some(BTreeMap::from_iter(vec![
                             ("cpu".to_owned(), Quantity("250m".to_owned())),
@@ -229,7 +230,7 @@ struct Config {
     service: BTreeMap<String, Value>,
 }
 
-pub fn config_map_data() -> BTreeMap<String, String> {
+pub fn config_map_data(datadog: &DataDogConfig) -> BTreeMap<String, String> {
     let mut config = Config {
         receivers: BTreeMap::new(),
         processors: BTreeMap::new(),
@@ -251,70 +252,8 @@ pub fn config_map_data() -> BTreeMap<String, String> {
     )
     .unwrap();
 
-    let prometheus_receivers: Value = serde_yaml::from_str::<Value>(
-        r#"{
-        "config": {
-          "scrape_configs": [
-            {
-              "job_name": "ceramic-service-endpoints",
-              "kubernetes_sd_configs": [
-                {
-                  "role": "pod",
-                  "namespaces": {
-                    "own_namespace": true
-                  }
-                }
-              ],
-              "relabel_configs": [
-                {
-                  "source_labels": [
-                    "__meta_kubernetes_pod_container_name"
-                  ],
-                  "action": "keep",
-                  "regex": "ceramic"
-                },
-                {
-                  "source_labels": [
-                    "__meta_kubernetes_pod_container_port_number"
-                  ],
-                  "action": "keep",
-                  "regex": "9464"
-                },
-                {
-                  "source_labels": [
-                    "__meta_kubernetes_pod_annotation_prometheus_path"
-                  ],
-                  "action": "replace",
-                  "target_label": "__metrics_path__",
-                  "replacement": "/debug/metrics/prometheus"
-                },
-                {
-                  "source_labels": [
-                    "__meta_kubernetes_namespace"
-                  ],
-                  "action": "replace",
-                  "target_label": "kubernetes_namespace"
-                },
-                {
-                  "source_labels": [
-                    "__meta_kubernetes_pod_name"
-                  ],
-                  "action": "replace",
-                  "target_label": "kubernetes_pod"
-                },
-                {
-                  "source_labels": [
-                    "__meta_kubernetes_pod_container_name"
-                  ],
-                  "action": "replace",
-                  "target_label": "kubernetes_container"
-                }
-              ]
-            }
-          ]
-        }
-      }
-      "#,
+    let prometheus_receivers: Value = serde_yaml::from_slice::<Value>(
+        include_bytes!("./prometheus_receivers.json"),
     )
     .unwrap();
 
@@ -358,9 +297,11 @@ pub fn config_map_data() -> BTreeMap<String, String> {
     )
     .unwrap();
 
-    config
-        .exporters
-        .insert("datadog".to_owned(), datadog_exporter);
+    if datadog.enabled {
+        config
+            .exporters
+            .insert("datadog".to_owned(), datadog_exporter);
+    }
     config
         .exporters
         .insert("logging".to_owned(), logging_exporter);

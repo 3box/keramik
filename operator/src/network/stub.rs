@@ -2,7 +2,7 @@
 
 use expect_patch::ExpectPatch;
 use expect_test::{expect_file, ExpectFile};
-use k8s_openapi::api::{batch::v1::Job, core::v1::Secret};
+use k8s_openapi::api::{apps::v1::StatefulSetSpec, batch::v1::Job, core::v1::Secret};
 
 use crate::{
     network::{Network, NetworkSpec, NetworkStatus},
@@ -55,8 +55,9 @@ pub struct Stub {
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
     pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
     pub ceramic_admin_secret: Option<(ExpectPatch<ExpectFile>, Option<Secret>)>,
-    pub ceramic_stateful_set: ExpectPatch<ExpectFile>,
+    pub ceramic_deletes: Vec<ExpectPatch<ExpectFile>>,
     pub keramik_peers_configmap: ExpectPatch<ExpectFile>,
+    pub ceramics: Vec<CeramicStub>,
     pub cas_service: ExpectPatch<ExpectFile>,
     pub cas_ipfs_service: ExpectPatch<ExpectFile>,
     pub ganache_service: ExpectPatch<ExpectFile>,
@@ -65,9 +66,14 @@ pub struct Stub {
     pub cas_ipfs_stateful_set: ExpectPatch<ExpectFile>,
     pub ganache_stateful_set: ExpectPatch<ExpectFile>,
     pub cas_postgres_stateful_set: ExpectPatch<ExpectFile>,
-    pub ceramic_configmaps: Vec<ExpectPatch<ExpectFile>>,
-    pub ceramic_service: ExpectPatch<ExpectFile>,
     pub bootstrap_job: Vec<(ExpectFile, Option<Job>)>,
+}
+
+#[derive(Debug)]
+pub struct CeramicStub {
+    pub configmaps: Vec<ExpectPatch<ExpectFile>>,
+    pub stateful_set: ExpectPatch<ExpectFile>,
+    pub service: ExpectPatch<ExpectFile>,
 }
 
 impl Default for Stub {
@@ -101,8 +107,33 @@ impl Default for Stub {
             ),
             ceramic_admin_secret_source: None,
             ceramic_admin_secret: None,
-            ceramic_stateful_set: expect_file!["./testdata/default_stubs/ceramic_stateful_set"]
-                .into(),
+            ceramic_deletes: vec![
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_1"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_1"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_2"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_2"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_3"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_3"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_4"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_4"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_5"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_5"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_6"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_6"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_7"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_7"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_8"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_8"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_ss_9"].into(),
+                expect_file!["./testdata/default_stubs/delete_ceramic_svc_9"].into(),
+            ],
+            ceramics: vec![CeramicStub {
+                configmaps: vec![
+                    expect_file!["./testdata/default_stubs/ceramic_init_configmap"].into(),
+                ],
+                stateful_set: expect_file!["./testdata/default_stubs/ceramic_stateful_set"].into(),
+                service: expect_file!["./testdata/default_stubs/ceramic_service"].into(),
+            }],
             keramik_peers_configmap: expect_file![
                 "./testdata/default_stubs/keramik_peers_configmap"
             ]
@@ -121,11 +152,6 @@ impl Default for Stub {
                 "./testdata/default_stubs/cas_postgres_stateful_set"
             ]
             .into(),
-            ceramic_configmaps: vec![expect_file![
-                "./testdata/default_stubs/ceramic_init_configmap"
-            ]
-            .into()],
-            ceramic_service: expect_file!["./testdata/default_stubs/ceramic_service"].into(),
             bootstrap_job: vec![],
         }
     }
@@ -220,20 +246,28 @@ impl Stub {
                 .await
                 .expect("ceramic-admin secret should be created");
         }
-        for cm in self.ceramic_configmaps {
+        for ceramic_delete in self.ceramic_deletes {
             fakeserver
-                .handle_apply(cm)
+                .handle_request_response(ceramic_delete, None::<&StatefulSetSpec>)
                 .await
-                .expect("ceramic configmap should apply");
+                .expect("ceramic should delete");
         }
-        fakeserver
-            .handle_apply(self.ceramic_service)
-            .await
-            .expect("ceramic service should apply");
-        fakeserver
-            .handle_apply(self.ceramic_stateful_set)
-            .await
-            .expect("ceramic stateful set should apply");
+        for c in self.ceramics {
+            for cm in c.configmaps {
+                fakeserver
+                    .handle_apply(cm)
+                    .await
+                    .expect("ceramic configmap should apply");
+            }
+            fakeserver
+                .handle_apply(c.service)
+                .await
+                .expect("ceramic service should apply");
+            fakeserver
+                .handle_apply(c.stateful_set)
+                .await
+                .expect("ceramic stateful set should apply");
+        }
         fakeserver
             .handle_apply(self.keramik_peers_configmap)
             .await

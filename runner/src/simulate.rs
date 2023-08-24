@@ -1,5 +1,4 @@
 use std::{
-    collections::BTreeMap,
     path::PathBuf,
     sync::{Arc, Mutex},
 };
@@ -7,7 +6,7 @@ use std::{
 use anyhow::{anyhow, bail, Result};
 use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
-use keramik_common::peer_info::{Peer, PeerIdx};
+use keramik_common::peer_info::Peer;
 use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
 use tracing::error;
 
@@ -27,7 +26,7 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_MANAGER")]
     manager: bool,
 
-    /// Id of the peer to target.
+    /// Index into peers list of the peer to target.
     #[arg(long, env = "SIMULATE_TARGET_PEER")]
     target_peer: usize,
 
@@ -103,10 +102,10 @@ impl Scenario {
 pub async fn simulate(opts: Opts) -> Result<()> {
     let mut metrics = Metrics::init(&opts)?;
 
-    let peers: BTreeMap<PeerIdx, Peer> = parse_peers_info(opts.peers)
+    let peers: Vec<Peer> = parse_peers_info(opts.peers)
         .await?
         .into_iter()
-        .filter(|(_, peer)| matches!(peer, Peer::Ceramic(_)))
+        .filter(|peer| matches!(peer, Peer::Ceramic(_)))
         .collect();
 
     if opts.manager && opts.users % peers.len() != 0 {
@@ -131,8 +130,11 @@ pub async fn simulate(opts: Opts) -> Result<()> {
         manager_config(peers.len(), opts.users, opts.run_time)
     } else {
         worker_config(
-            opts.scenario
-                .target_addr(&peers[&(opts.target_peer as PeerIdx)])?,
+            opts.scenario.target_addr(
+                peers
+                    .get(opts.target_peer)
+                    .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
+            )?,
         )
     };
 

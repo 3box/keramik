@@ -13,6 +13,7 @@
   - [Advanced CAS and Ceramic Configuration](./advanced_configuration.md)
   - [Metrics](./metrics.md)
   - [IPFS](./ipfs.md)
+  - [Mixed Networks](./mixed_networks.md)
   - [Secrets](./secrets.md)
   - [Operator Design](./operator.md)
   - [Migration Tests](./migration.md)

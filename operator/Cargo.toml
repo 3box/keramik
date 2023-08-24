@@ -46,7 +46,6 @@ tracing.workspace = true
 tracing-log.workspace = true
 tracing-opentelemetry.workspace = true
 tracing-subscriber.workspace = true
-unimock = "0.4"
 
 
 [dev-dependencies]
@@ -54,5 +53,6 @@ expect-patch.workspace = true
 expect-test = "1"
 http = "0.2.9"
 hyper = "0.14.26"
+mockall = "0.11.4"
 tower-test = "0.4.0"
 tracing-test = "0.2"

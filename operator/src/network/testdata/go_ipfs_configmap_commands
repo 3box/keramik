@@ -1,6 +1,6 @@
 Request {
     method: "PATCH",
-    uri: "/api/v1/namespaces/keramik-test/configmaps/ipfs-container-init?&fieldManager=keramik",
+    uri: "/api/v1/namespaces/keramik-test/configmaps/ipfs-container-init-0?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
@@ -16,7 +16,7 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "ipfs-container-init",
+        "name": "ipfs-container-init-0",
         "ownerReferences": []
       }
     },

@@ -10,15 +10,14 @@ spec:
     version: "testing"
     profilingEnabled: true
   ceramic:
-    resourceLimits:
-      storage: 3Gi
-    image: ceramicnetwork/js-ceramic:latest
-    imagePullPolicy: IfNotPresent
-    ipfs:
-      kind: go
-      image: ceramicnetwork/go-ipfs-daemon:latest
-      imagePullPolicy: Always
-
+    - resourceLimits:
+        storage: 3Gi
+      image: ceramicnetwork/js-ceramic:latest
+      imagePullPolicy: IfNotPresent
+      ipfs:
+        kind: go
+        image: ceramicnetwork/go-ipfs-daemon:latest
+        imagePullPolicy: Always
   # Use custom runner image for bootstrapping
   bootstrap:
     image: keramik/runner:dev

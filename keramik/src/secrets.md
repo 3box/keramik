@@ -14,8 +14,7 @@ metadata:
   name: small
 spec:
   replicas: 2
-  ceramic:
-    privateKeySecret: "small"
+  privateKeySecret: "small"
 ```
 
 Note that `privateKeySecret` is the name of another k8s secret in the `keramik` namespace that has already been

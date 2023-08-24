@@ -3,17 +3,11 @@ use std::collections::BTreeMap;
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
-use keramik_common::peer_info::{IpfsPeerInfo, PeerIdx};
+use keramik_common::peer_info::IpfsPeerInfo;
 use multiaddr::{Multiaddr, Protocol};
 use multihash::Multihash;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use unimock::unimock;
-
-use crate::network::controller::{
-    CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_NAME,
-    CERAMIC_STATEFUL_SET_NAME,
-};
 
 #[derive(serde::Deserialize)]
 struct ErrorResponse {
@@ -22,15 +16,14 @@ struct ErrorResponse {
 }
 
 /// Define the behavior we consume from the IPFS RPC API.
-#[unimock(api=IpfsRpcClientMock)]
 #[async_trait]
 pub trait IpfsRpcClient {
-    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo>;
+    async fn peer_info(&self, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo>;
     async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus>;
 }
 
 /// Status of the current peer
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PeerStatus {
     /// Number of connected peers
     pub connected_peers: i32,
@@ -38,18 +31,9 @@ pub struct PeerStatus {
 
 pub struct HttpRpcClient;
 
-/// Determine the IPFS RPC address of a Ceramic peer
-pub fn ceramic_peer_ipfs_rpc_addr(ns: &str, peer: PeerIdx) -> String {
-    format!("http://{CERAMIC_STATEFUL_SET_NAME}-{peer}.{CERAMIC_SERVICE_NAME}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_IPFS_PORT}")
-}
-// Determine the Ceramic addres of a Ceramic peer
-pub fn ceramic_addr(ns: &str, peer: PeerIdx) -> String {
-    format!("http://{CERAMIC_STATEFUL_SET_NAME}-{peer}.{CERAMIC_SERVICE_NAME}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_API_PORT}")
-}
-
 #[async_trait]
 impl IpfsRpcClient for HttpRpcClient {
-    async fn peer_info(&self, index: PeerIdx, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo> {
+    async fn peer_info(&self, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo> {
         let client = reqwest::Client::new();
         let resp = client
             .post(format!("{}/api/v0/id", ipfs_rpc_addr))
@@ -93,15 +77,13 @@ impl IpfsRpcClient for HttpRpcClient {
 
         if !p2p_addrs.is_empty() {
             Ok(IpfsPeerInfo {
-                index,
                 peer_id: data.id,
                 ipfs_rpc_addr: ipfs_rpc_addr.to_owned(),
                 p2p_addrs,
             })
         } else {
             Err(anyhow!(
-                "peer {} does not have any valid non loopback addresses",
-                index
+                "peer {ipfs_rpc_addr} does not have any valid non loopback addresses",
             ))
         }
     }
@@ -175,5 +157,21 @@ impl From<ResourceLimitsConfig> for BTreeMap<String, Quantity> {
             ("ephemeral-storage".to_owned(), value.storage),
             ("memory".to_owned(), value.memory),
         ])
+    }
+}
+
+#[cfg(test)]
+pub(crate) mod tests {
+    use super::*;
+
+    use mockall::mock;
+
+    mock! {
+        pub IpfsRpcClientTest {}
+        #[async_trait]
+        impl IpfsRpcClient for IpfsRpcClientTest {
+            async fn peer_info(&self, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo>;
+            async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus>;
+        }
     }
 }

@@ -1,0 +1,8 @@
+Request {
+    method: "DELETE",
+    uri: "/api/v1/namespaces/keramik-test/services/ceramic-7?",
+    headers: {
+        "content-type": "application/json",
+    },
+    body: {},
+}

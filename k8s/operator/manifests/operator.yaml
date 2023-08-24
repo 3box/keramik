@@ -18,11 +18,14 @@ metadata:
   name: keramik-operator
 rules:
   - apiGroups: [""]
-    resources: ["namespaces","services","configmaps","secrets","pods", "serviceaccounts"]
+    resources: ["namespaces","configmaps","secrets","pods", "serviceaccounts"]
     verbs: ["create", "get", "list", "watch", "patch"]
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["create", "get", "list", "watch", "patch","delete"]
   - apiGroups: ["apps"]
     resources: ["statefulsets", "statefulsets/status"]
-    verbs: ["create", "get", "list", "watch", "patch"]
+    verbs: ["create", "get", "list", "watch", "patch","delete"]
   - apiGroups: ["batch"]
     resources: ["jobs", "jobs/status"]
     verbs: ["create", "delete", "get", "list", "watch", "patch"]

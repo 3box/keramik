@@ -40,7 +40,22 @@ pub struct NetworkSpec {
     ///  Describes how new peers in the network should be bootstrapped.
     pub bootstrap: Option<BootstrapSpec>,
     /// Describes how each peer should behave.
-    pub ceramic: Option<CeramicSpec>,
+    /// Multiple ceramic specs can be defined.
+    /// Total replicas will be split across each ceramic spec according to relative weights.
+    /// It is possible that if the weight is small enough compared to others that a single spec
+    /// will be assigned zero replicas.
+    pub ceramic: Vec<CeramicSpec>,
+    /// Name of secret containing the private key used for signing anchor requests and generating
+    /// the Admin DID.
+    pub private_key_secret: Option<String>,
+    /// Ceramic network type
+    pub network_type: Option<String>,
+    /// PubSub topic for Ceramic nodes to use
+    pub pubsub_topic: Option<String>,
+    /// Ethereum RPC URL for Ceramic nodes to use for verifying anchors
+    pub eth_rpc_url: Option<String>,
+    /// URL for Ceramic Anchor Service (CAS)
+    pub cas_api_url: Option<String>,
     /// Describes how CAS should be deployed.
     pub cas: Option<CasSpec>,
     /// Descibes if/how datadog should be deployed.

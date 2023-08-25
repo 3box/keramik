@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Deploying Images - Keramik</title>
+        <title>Mixed Networks - Keramik</title>
                 
 
         <!-- Custom HTML head -->
@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html" class="active"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">5.5.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.6.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.7.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">5.8.</strong> Migration Tests</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html" class="active"><strong aria-hidden="true">5.5.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.6.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.7.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">5.8.</strong> Migration Tests</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -143,40 +143,101 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="deploying-images"><a class="header" href="#deploying-images">Deploying Images</a></h1>
-<p>There are two images that need to be deployed to the cluster if using a <a href="./environment.html#local-environment">local environment</a>
-or if you are trying to develop functionality or <a href="./developing-scenarios.html">scenarios</a>. These images are</p>
-<ul>
-<li><a href="#operator">Operator</a> - long lived process that manages the network custom resource.</li>
-<li><a href="#runner">Runner</a> - short lived process that performs various tasks within the network (i.e. bootstrapping)</li>
-</ul>
-<h2 id="operator"><a class="header" href="#operator">Operator</a></h2>
-<p>The <code>operator</code> automates creating and manipulating networks via custom resource definition.
-Any changes to the operator require that you rebuild it and load it into kind again.</p>
-<pre><code class="language-shell">docker buildx build --load -t keramik/operator:dev --target operator .
-kind load docker-image keramik/operator:dev
+                        <h1 id="mixed-networks"><a class="header" href="#mixed-networks">Mixed Networks</a></h1>
+<p>It is possible to configure multiple sets of Ceramic nodes that different from one another.
+For example a network where half of the nodes are running a different version of js-ceramic or IPFS.</p>
+<h2 id="examples"><a class="header" href="#examples">Examples</a></h2>
+<h3 id="mixed-ipfs"><a class="header" href="#mixed-ipfs">Mixed IPFS</a></h3>
+<p>The following config creates a network with half of the nodes running Rust based IPFS and the other half Go.</p>
+<pre><code class="language-yaml">---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: mixed
+spec:
+  replicas: 5
+  ceramic:
+    - ipfs:
+        rust: {}
+    - ipfs:
+        go: {}
 </code></pre>
-<p>Next edit <code>./k8s/operator/kustomization.yaml</code> to use the <code>dev</code> tag</p>
-<pre><code class="language-yaml">images:
-  - name: keramik/operator
-    newTag: dev
+<h3 id="mixed-js-ceramic"><a class="header" href="#mixed-js-ceramic">Mixed js-ceramic</a></h3>
+<p>The following config creates a network with half of the nodes running a <code>dev-0</code> of js-ceramic and the other half <code>dev-1</code>.</p>
+<pre><code class="language-yaml">---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: mixed
+spec:
+  replicas: 5
+  ceramic:
+    - image: ceramicnetwork/composedb:dev-0
+    - image: ceramicnetwork/composedb:dev-1
 </code></pre>
-<p>If you have already <a href="./create_cluster.html">created a cluster</a>, you will need to apply these changes:</p>
-<pre><code class="language-shell">kubectl apply -k ./k8s/operator/
+<h2 id="weights"><a class="header" href="#weights">Weights</a></h2>
+<p>Weights can be used to determine how many replicas of each Ceramic spec are created.
+The total network replicas are spread across each Ceramic spec according to its relative weight.</p>
+<p>The default <code>weight</code> is <code>1</code>.
+The simplist way to get exact replica counts is to have the weights sum to the replica count.
+Then each Ceramic spec will have a number of replicas equal to its weight.
+However it can be tedious to ensure weights always add up to the replica count so this is not required.</p>
+<p>The total replicas all Ceramic specs will always sum to the configured replica count.
+As such some rounding will be applied to get a good approximation of the relative weights.</p>
+<h3 id="examples-1"><a class="header" href="#examples-1">Examples</a></h3>
+<p>Create 2/3rd nodes with <code>dev-0</code> and 1/3rd with <code>dev-1</code>.</p>
+<pre><code class="language-yaml">---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: mixed
+spec:
+  replicas: 3
+  ceramic:
+    - weight: 2
+      image: ceramicnetwork/composedb:dev-0 # 2 replicas
+    - image: ceramicnetwork/composedb:dev-1 # 1 replica
 </code></pre>
-<p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
-<p>Next you will <a href="./deploy_crds.html">deploy custom resource definitions</a> to the cluster. If you've already deployed CRDS and setup a network, you will 
-need to <a href="./setup_network.html">setup a network</a> again to use your new runner.</p>
+<p>Create 3/4ths nodes with <code>dev-0</code> and 1/4rd with <code>dev-1</code>.</p>
+<pre><code class="language-yaml">---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: mixed
+spec:
+  replicas: 24
+  ceramic:
+    - weight: 3
+      image: ceramicnetwork/composedb:dev-0 # 18 replicas
+    - image: ceramicnetwork/composedb:dev-1 #  6 replicas
+</code></pre>
+<p>Create three different version each having half the previous.
+In this case weights do not devide evenly so a close approximation is achived.</p>
+<pre><code class="language-yaml">---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: mixed
+spec:
+  replicas: 16
+  ceramic:
+    - weight: 4
+      image: ceramicnetwork/composedb:dev-0 # 10 replicas
+    - weight: 2
+      image: ceramicnetwork/composedb:dev-1 # 4 replicas
+    - weight: 1
+      image: ceramicnetwork/composedb:dev-2 # 2 replicas
+</code></pre>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                                                    <a rel="prev" href="create_cluster.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                                    <a rel="prev" href="ipfs.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
-                                                    <a rel="next" href="deploy_crds.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                                    <a rel="next" href="secrets.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -186,11 +247,11 @@ need to <a href="./setup_network.html">setup a network</a> again to use your new
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                                    <a rel="prev" href="create_cluster.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                    <a rel="prev" href="ipfs.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
-                                    <a rel="next" href="deploy_crds.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                    <a rel="next" href="secrets.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                             </nav>

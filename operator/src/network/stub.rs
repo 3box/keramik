@@ -66,6 +66,8 @@ pub struct Stub {
     pub cas_ipfs_stateful_set: ExpectPatch<ExpectFile>,
     pub ganache_stateful_set: ExpectPatch<ExpectFile>,
     pub cas_postgres_stateful_set: ExpectPatch<ExpectFile>,
+    pub ceramic_configmaps: Vec<ExpectPatch<ExpectFile>>,
+    pub ceramic_service: ExpectPatch<ExpectFile>,
     pub bootstrap_job: Vec<(ExpectFile, Option<Job>)>,
 }
 
@@ -152,6 +154,11 @@ impl Default for Stub {
                 "./testdata/default_stubs/cas_postgres_stateful_set"
             ]
             .into(),
+            ceramic_configmaps: vec![expect_file![
+                "./testdata/default_stubs/ceramic_init_configmap"
+            ]
+            .into()],
+            ceramic_service: expect_file!["./testdata/default_stubs/ceramic_service"].into(),
             bootstrap_job: vec![],
         }
     }

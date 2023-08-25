@@ -26,8 +26,8 @@ use rand::RngCore;
 use tracing::{debug, error};
 
 use crate::simulation::{
-    manager, manager::ManagerConfig, worker, worker::WorkerConfig, JobImageConfig, Simulation,
-    SimulationStatus,
+    manager, manager::ManagerConfig, redis, worker, worker::WorkerConfig, JobImageConfig,
+    Simulation, SimulationStatus,
 };
 
 use crate::monitoring::{jaeger, opentelemetry, prometheus};
@@ -152,6 +152,12 @@ async fn reconcile(
         return Ok(Action::requeue(Duration::from_secs(10)));
     }
 
+    apply_redis(cx.clone(), &ns, simulation.clone()).await?;
+    let ready = redis_ready(cx.clone(), &ns).await?;
+    if !ready {
+        return Ok(Action::requeue(Duration::from_secs(10)));
+    }
+
     let job_image_config = JobImageConfig::from(spec);
 
     let manager_config = ManagerConfig {
@@ -258,6 +264,21 @@ async fn get_num_peers(
     Ok(peers.len() as u32)
 }
 
+async fn redis_ready(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    ns: &str,
+) -> Result<bool, kube::error::Error> {
+    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
+    let redis = stateful_sets.get_status("redis").await?;
+
+    let redis_ready = redis
+        .status
+        .map(|status| status.ready_replicas.unwrap_or_default() > 0)
+        .unwrap_or_default();
+
+    Ok(redis_ready)
+}
+
 async fn monitoring_ready(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     ns: &str,
@@ -314,6 +335,36 @@ async fn apply_n_workers(
         )
         .await?;
     }
+
+    Ok(())
+}
+
+async fn apply_redis(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    ns: &str,
+    simulation: Arc<Simulation>,
+) -> Result<(), kube::error::Error> {
+    let orefs: Vec<_> = simulation
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
+
+    apply_service(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        "redis",
+        redis::service_spec(),
+    )
+    .await?;
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        "redis",
+        redis::stateful_set_spec(),
+    )
+    .await?;
 
     Ok(())
 }
@@ -494,7 +545,7 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -45,7 +45,7 @@
+            @@ -49,7 +49,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -507,7 +558,7 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -45,7 +45,7 @@
+            @@ -49,7 +49,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -671,7 +722,7 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -45,7 +45,7 @@
+            @@ -49,7 +49,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -680,7 +731,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -68,8 +68,8 @@
+            @@ -72,8 +72,8 @@
                                  "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
                                }
                              ],
@@ -695,7 +746,7 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -45,7 +45,7 @@
+            @@ -49,7 +49,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -704,7 +755,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -68,8 +68,8 @@
+            @@ -72,8 +72,8 @@
                                  "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
                                }
                              ],

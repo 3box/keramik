@@ -73,6 +73,10 @@ pub struct Stub {
     pub prom_status: (ExpectPatch<ExpectFile>, StatefulSet),
     pub otel_status: (ExpectPatch<ExpectFile>, StatefulSet),
 
+    pub redis_service: ExpectPatch<ExpectFile>,
+    pub redis_stateful_set: ExpectPatch<ExpectFile>,
+    pub redis_status: (ExpectPatch<ExpectFile>, StatefulSet),
+
     pub goose_service: ExpectPatch<ExpectFile>,
     pub manager_job: ExpectPatch<ExpectFile>,
 
@@ -119,6 +123,8 @@ impl Default for Stub {
                 .into(),
             prom_config: expect_file!["./testdata/default_stubs/prom_config"].into(),
             prom_stateful_set: expect_file!["./testdata/default_stubs/prom_stateful_set"].into(),
+            redis_service: expect_file!["./testdata/default_stubs/redis_service"].into(),
+            redis_stateful_set: expect_file!["./testdata/default_stubs/redis_stateful_set"].into(),
             monitoring_service_account: expect_file![
                 "./testdata/default_stubs/monitoring_service_account"
             ]
@@ -156,6 +162,16 @@ impl Default for Stub {
             ),
             otel_status: (
                 expect_file!["./testdata/default_stubs/otel_status"].into(),
+                StatefulSet {
+                    status: Some(StatefulSetStatus {
+                        ready_replicas: Some(1),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                },
+            ),
+            redis_status: (
+                expect_file!["./testdata/default_stubs/redis_status"].into(),
                 StatefulSet {
                     status: Some(StatefulSetStatus {
                         ready_replicas: Some(1),
@@ -263,6 +279,19 @@ impl Stub {
                 .handle_request_response(self.otel_status.0, Some(&self.otel_status.1))
                 .await
                 .expect("should report jaeger status");
+
+            fakeserver
+                .handle_apply(self.redis_service)
+                .await
+                .expect("redis service should apply");
+            fakeserver
+                .handle_apply(self.redis_stateful_set)
+                .await
+                .expect("redis stateful set should apply");
+            fakeserver
+                .handle_request_response(self.redis_status.0, Some(&self.redis_status.1))
+                .await
+                .expect("should report redis status");
 
             // Next we handle creating the jobs
             fakeserver

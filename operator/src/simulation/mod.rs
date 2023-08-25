@@ -1,6 +1,7 @@
 //! Simulation is a k8s custom resource that defines a Ceramic simulation.
 pub(crate) mod controller;
 pub(crate) mod manager;
+pub(crate) mod redis;
 #[cfg(test)]
 pub mod stub;
 pub(crate) mod worker;

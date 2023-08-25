@@ -1,5 +1,6 @@
 [workspace]
 members = ["operator", "runner", "common", "expect-patch"]
+resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1"

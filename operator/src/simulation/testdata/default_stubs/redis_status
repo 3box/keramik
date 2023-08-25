@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/apis/apps/v1/namespaces/test/statefulsets/redis/status",
+    headers: {},
+    body: ,
+}

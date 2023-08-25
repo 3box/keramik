@@ -259,6 +259,7 @@ async fn reconcile(
             reset_bootstrap_job(cx.clone(), &ns).await?;
         }
     }
+
     // Always apply the bootstrap job if we have at least 2 peers,
     // This way if the job is deleted externally for any reason it will rerun.
     if status.peers.len() >= 2 {
@@ -2785,6 +2786,7 @@ mod tests {
             Some(Job::default()),
         ));
         stub.status = expect_file!["./testdata/ceramics_weighted_status"].into();
+
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = stub.run(fakeserver);

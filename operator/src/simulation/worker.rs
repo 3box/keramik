@@ -41,6 +41,11 @@ pub fn worker_job_spec(config: WorkerConfig) -> JobSpec {
                     ]),
                     env: Some(vec![
                         EnvVar {
+                            name: "REDIS_ENDPOINT".to_owned(),
+                            value: Some("http://redis:6379".to_owned()),
+                            ..Default::default()
+                        },
+                        EnvVar {
                             name: "RUNNER_OTLP_ENDPOINT".to_owned(),
                             value: Some("http://otel:4317".to_owned()),
                             ..Default::default()

@@ -1,0 +1,63 @@
+Request {
+    method: "PATCH",
+    uri: "/apis/apps/v1/namespaces/test/statefulsets/redis?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "redis",
+        "ownerReferences": []
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "redis"
+          }
+        },
+        "serviceName": "redis",
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "redis",
+              "managed-by": "keramik"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "image": "redis:latest",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "redis",
+                "ports": [
+                  {
+                    "containerPort": 6379,
+                    "name": "redis-port"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+}

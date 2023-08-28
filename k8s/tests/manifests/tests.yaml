@@ -48,8 +48,10 @@ metadata:
 spec:
   replicas: 2
   ceramic:
-    ipfs:
-      rust: {}
+    - ipfs:
+        rust: {}
+    - ipfs:
+        go: {}
 
 ---
 kind: Job

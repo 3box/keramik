@@ -28,8 +28,10 @@ check_peers() {
       if [ "$(available_peers)" == "$(spec_peers)" ]; then
         echo Network peers available
         mkdir /config/env
-        CERAMIC_URLS=$(jq -j '[.[].ceramic.ceramicAddr] | join(",")' < /peers/peers.json)
+        CERAMIC_URLS=$(jq -j '[.[].ceramic.ipfsRpcAddr] | join(",")' < /peers/peers.json)
+        COMPOSEDB_URLS=$(jq -j '[.[].ceramic.ceramicAddr] | join(",")' < /peers/peers.json)
         echo "CERAMIC_URLS=$CERAMIC_URLS" > /config/.env
+        echo "COMPOSEDB_URLS=$COMPOSEDB_URLS" >> /config/.env
         exit 0
       else
         echo Waiting for network peers...

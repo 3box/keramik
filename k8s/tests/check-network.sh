@@ -12,7 +12,17 @@ check_status() {
   status | jq -r 'if (.status != "Failure") and (.status.readyReplicas == .status.replicas) then true else false end'
 }
 
+
+available_peers() {
+  jq -r '. | length' < /peers/peers.json
+}
+
 populate_peers() {
+  # Sanity check we actually have any peers.
+  if [ "$(available_peers)" == "0" ]; then
+    exit 1
+  fi
+
   mkdir /config/env
   CERAMIC_URLS=$(jq -j '[.[].ceramic.ipfsRpcAddr | select(.)] | join(",")' < /peers/peers.json)
   COMPOSEDB_URLS=$(jq -j '[.[].ceramic.ceramicAddr | select(.)] | join(",")' < /peers/peers.json)

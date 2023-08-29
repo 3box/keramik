@@ -85,7 +85,7 @@ spec:
           envFrom:
             - configMapRef:
                 name: keramik-peers
-      restartPolicy: Never
+      restartPolicy: OnFailure
       containers:
         - name: migration-tests
           image: migration-tests

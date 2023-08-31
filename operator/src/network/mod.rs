@@ -34,6 +34,7 @@ use serde::{Deserialize, Serialize};
     status = "NetworkStatus",
     derive = "PartialEq"
 )]
+#[serde(rename_all = "camelCase")]
 pub struct NetworkSpec {
     /// Number of Ceramic peers
     pub replicas: i32,

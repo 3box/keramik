@@ -15,9 +15,9 @@ pub struct DataDogSpec {
 
 /// Describes if and how to configure datadog telemetry
 pub struct DataDogConfig {
-    enabled: bool,
-    version: String,
-    profiling_enabled: bool,
+    pub enabled: bool,
+    pub version: String,
+    pub profiling_enabled: bool,
 }
 
 impl DataDogConfig {

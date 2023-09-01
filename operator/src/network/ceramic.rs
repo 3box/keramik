@@ -74,7 +74,9 @@ r#"{
         "log-to-files": false
     },
     "metrics": {
-        "metrics-exporter-enabled": false
+        "metrics-exporter-enabled": false,
+        "prometheus-exporter-enabled": true,
+        "prometheus-exporter-port": 9464
     },
     "network": {
         "name": "${CERAMIC_NETWORK}",

@@ -4,7 +4,10 @@ Keramik is a Kubernetes operator for simulating Ceramic networks.
 
 The `k8s` directory contains the kubernetes manifests for deploying Keramik.
 
-## Local Documentation
+## Usage guide
+[Have a look in the documentation](https://3box.github.io/keramik/).
+
+### Build Documentation Locally
 Documentation is done using [mdbook](https://rust-lang.github.io/mdBook/guide/installation.html)
 
     cargo install mdbook

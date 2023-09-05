@@ -106,11 +106,11 @@ impl IpfsRpcClient for HttpRpcClient {
         #[derive(serde::Deserialize)]
         struct Response {
             #[serde(rename = "Peers")]
-            peers: Vec<Peer>,
+            peers: Option<Vec<Peer>>,
         }
         let data: Response = resp.json().await?;
         Ok(PeerStatus {
-            connected_peers: data.peers.len() as i32,
+            connected_peers: data.peers.unwrap_or_default().len() as i32,
         })
     }
 }

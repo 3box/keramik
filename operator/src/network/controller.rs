@@ -23,7 +23,7 @@ use kube::{
     Resource,
 };
 use rand::RngCore;
-use tracing::{debug, error, trace};
+use tracing::{debug, error, trace, warn};
 
 use crate::network::{
     bootstrap,
@@ -590,10 +590,11 @@ async fn update_peer_status(
         let peer_status = match cx.rpc_client.peer_status(peer.ipfs_rpc_addr()).await {
             Ok(res) => res,
             Err(err) => {
-                debug!(%err, peer = peer.id(), "failed to get peer status for peer");
+                warn!(%err, peer = peer.id(), "failed to get peer status for peer");
                 continue;
             }
         };
+        debug!(peer = peer.id(), ?peer_status, "peer status");
         min_connected_peers = Some(min(
             min_connected_peers.unwrap_or(peer_status.connected_peers),
             peer_status.connected_peers,

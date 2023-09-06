@@ -68,6 +68,8 @@ pub enum Scenario {
     CeramicNewStreams,
     /// Simple Query Scenario
     CeramicQuery,
+    /// Scenario to reuse the same model id and query instances across workers
+    CeramicModelReuse,
 }
 
 impl Scenario {
@@ -78,6 +80,7 @@ impl Scenario {
             Scenario::CeramicWriteOnly => "ceramic_write_only",
             Scenario::CeramicNewStreams => "ceramic_new_streams",
             Scenario::CeramicQuery => "ceramic_query",
+            Scenario::CeramicModelReuse => "ceramic_model_reuse",
         }
     }
 
@@ -87,7 +90,8 @@ impl Scenario {
             Self::CeramicSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
-            | Self::CeramicQuery => match peer {
+            | Self::CeramicQuery
+            | Self::CeramicModelReuse => match peer {
                 Peer::Ceramic(peer) => Ok(peer.ceramic_addr.clone()),
                 Peer::Ipfs(_) => Err(anyhow!(
                     "cannot use non ceramic peer as target for simulation {}",
@@ -125,6 +129,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
         Scenario::CeramicWriteOnly => ceramic::write_only::scenario().await?,
         Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
         Scenario::CeramicQuery => ceramic::query::scenario().await?,
+        Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
     };
     let config = if opts.manager {
         manager_config(peers.len(), opts.users, opts.run_time)

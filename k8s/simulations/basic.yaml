@@ -6,4 +6,4 @@ metadata:
 spec:
   scenario: ceramic-write-only
   users: 100
-  run_time: 100
+  runTime: 100

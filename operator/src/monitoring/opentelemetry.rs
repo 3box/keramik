@@ -30,12 +30,19 @@ pub fn service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![
             ServicePort {
-                name: Some("otlp-receiver".to_owned()),
+                name: Some("otlp-grpc-receiver".to_owned()),
                 port: 4317,
                 protocol: Some("TCP".to_owned()),
                 target_port: Some(IntOrString::Int(4317)),
                 ..Default::default()
             },
+            ServicePort {
+              name: Some("otlp-http-receiver".to_owned()),
+              port: 4318,
+              protocol: Some("TCP".to_owned()),
+              target_port: Some(IntOrString::Int(4318)),
+              ..Default::default()
+          },
             ServicePort {
                 name: Some("prom-metrics".to_owned()),
                 port: 9090,

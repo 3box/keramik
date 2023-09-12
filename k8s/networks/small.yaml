@@ -15,9 +15,9 @@ spec:
       image: ceramicnetwork/js-ceramic:latest
       imagePullPolicy: IfNotPresent
       ipfs:
-        kind: go
-        image: ceramicnetwork/go-ipfs-daemon:latest
-        imagePullPolicy: Always
+        go:
+          image: ceramicnetwork/go-ipfs-daemon:latest
+          imagePullPolicy: Always
   # Use custom runner image for bootstrapping
   bootstrap:
     image: keramik/runner:dev

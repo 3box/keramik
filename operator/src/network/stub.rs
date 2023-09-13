@@ -62,10 +62,12 @@ pub struct Stub {
     pub cas_ipfs_service: ExpectPatch<ExpectFile>,
     pub ganache_service: ExpectPatch<ExpectFile>,
     pub cas_postgres_service: ExpectPatch<ExpectFile>,
+    pub localstack_service: ExpectPatch<ExpectFile>,
     pub cas_stateful_set: ExpectPatch<ExpectFile>,
     pub cas_ipfs_stateful_set: ExpectPatch<ExpectFile>,
     pub ganache_stateful_set: ExpectPatch<ExpectFile>,
     pub cas_postgres_stateful_set: ExpectPatch<ExpectFile>,
+    pub localstack_stateful_set: ExpectPatch<ExpectFile>,
     pub bootstrap_job: Vec<(ExpectFile, Option<Job>)>,
 }
 
@@ -143,6 +145,7 @@ impl Default for Stub {
             ganache_service: expect_file!["./testdata/default_stubs/ganache_service"].into(),
             cas_postgres_service: expect_file!["./testdata/default_stubs/cas_postgres_service"]
                 .into(),
+            localstack_service: expect_file!["./testdata/default_stubs/localstack_service"].into(),
             cas_stateful_set: expect_file!["./testdata/default_stubs/cas_stateful_set"].into(),
             cas_ipfs_stateful_set: expect_file!["./testdata/default_stubs/cas_ipfs_stateful_set"]
                 .into(),
@@ -150,6 +153,10 @@ impl Default for Stub {
                 .into(),
             cas_postgres_stateful_set: expect_file![
                 "./testdata/default_stubs/cas_postgres_stateful_set"
+            ]
+            .into(),
+            localstack_stateful_set: expect_file![
+                "./testdata/default_stubs/localstack_stateful_set"
             ]
             .into(),
             bootstrap_job: vec![],
@@ -207,6 +214,10 @@ impl Stub {
                 .await
                 .expect("cas-postgres service should apply");
             fakeserver
+                .handle_apply(self.localstack_service)
+                .await
+                .expect("localstack service should apply");
+            fakeserver
                 .handle_apply(self.cas_stateful_set)
                 .await
                 .expect("cas stateful set should apply");
@@ -222,6 +233,10 @@ impl Stub {
                 .handle_apply(self.cas_postgres_stateful_set)
                 .await
                 .expect("cas-postgres stateful set should apply");
+            fakeserver
+                .handle_apply(self.localstack_stateful_set)
+                .await
+                .expect("localstack stateful set should apply");
         }
         fakeserver
             .handle_request_response(

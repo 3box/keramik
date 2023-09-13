@@ -34,21 +34,15 @@ Request {
               {
                 "command": [
                   "node",
-                  "/app/ganache-core.docker.cli.js",
-                  "--deterministic",
-                  "--db=/ganache/db",
-                  "--mnemonic",
-                  "move sense much taxi wave hurry recall stairs thank brother nut woman",
-                  "--networkId",
-                  "5777",
-                  "--hostname",
-                  "0.0.0.0",
-                  "-l",
-                  "80000000",
+                  "/app/dist/node/cli.js",
+                  "--miner.blockTime=5",
+                  "--mnemonic='move sense much taxi wave hurry recall stairs thank brother nut woman'",
+                  "--networkId=5777",
+                  "-l=80000000",
                   "--quiet"
                 ],
-                "image": "trufflesuite/ganache-cli",
-                "imagePullPolicy": "Always",
+                "image": "trufflesuite/ganache",
+                "imagePullPolicy": "IfNotPresent",
                 "name": "ganache",
                 "ports": [
                   {

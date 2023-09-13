@@ -147,12 +147,14 @@ pub const CAS_SERVICE_IPFS_PORT: i32 = 5001;
 pub const CAS_POSTGRES_SERVICE_NAME: &str = "cas-postgres";
 pub const CAS_POSTGRES_SECRET_NAME: &str = "postgres-auth";
 pub const GANACHE_SERVICE_NAME: &str = "ganache";
+pub const LOCALSTACK_SERVICE_NAME: &str = "localstack";
 
 pub const CERAMIC_APP: &str = "ceramic";
 pub const CAS_APP: &str = "cas";
 pub const CAS_POSTGRES_APP: &str = "cas-postgres";
 pub const CAS_IPFS_APP: &str = "cas-ipfs";
 pub const GANACHE_APP: &str = "ganache";
+pub const LOCALSTACK_APP: &str = "localstack";
 pub const CERAMIC_LOCAL_NETWORK_TYPE: &str = "local";
 
 pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
@@ -352,6 +354,14 @@ async fn apply_cas(
         cas::postgres_service_spec(),
     )
     .await?;
+    apply_service(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        LOCALSTACK_SERVICE_NAME,
+        cas::localstack_service_spec(),
+    )
+    .await?;
 
     apply_stateful_set(
         cx.clone(),
@@ -383,6 +393,14 @@ async fn apply_cas(
         orefs.clone(),
         "cas-postgres",
         cas::postgres_stateful_set_spec(cas_spec.clone()),
+    )
+    .await?;
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.clone(),
+        "localstack",
+        cas::localstack_stateful_set_spec(cas_spec.clone()),
     )
     .await?;
 
@@ -2026,17 +2044,28 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -126,8 +126,8 @@
-                                 }
+            @@ -134,8 +134,8 @@
+                                 "value": "9464"
                                }
                              ],
             -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
             -                "imagePullPolicy": "Always",
             +                "image": "cas/cas:dev",
             +                "imagePullPolicy": "Never",
-                             "name": "cas",
+                             "name": "cas-api",
                              "ports": [
                                {
+            @@ -272,8 +272,8 @@
+                                 "value": "false"
+                               }
+                             ],
+            -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "cas/cas:dev",
+            +                "imagePullPolicy": "Never",
+                             "name": "cas-worker",
+                             "resources": {
+                               "limits": {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -2100,8 +2129,38 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -136,12 +136,12 @@
+            @@ -144,12 +144,12 @@
                              ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            +                    "cpu": "1",
+                                 "ephemeral-storage": "1Gi",
+                                 "memory": "1Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            +                    "cpu": "1",
+                                 "ephemeral-storage": "1Gi",
+                                 "memory": "1Gi"
+                               }
+            @@ -277,12 +277,12 @@
+                             "name": "cas-worker",
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            +                    "cpu": "1",
+                                 "ephemeral-storage": "1Gi",
+                                 "memory": "1Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            +                    "cpu": "1",
+                                 "ephemeral-storage": "1Gi",
+                                 "memory": "1Gi"
+                               }
+            @@ -365,12 +365,12 @@
+                             "name": "cas-scheduler",
                              "resources": {
                                "limits": {
             -                    "cpu": "250m",
@@ -2144,7 +2203,7 @@ mod tests {
         stub.ganache_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -57,14 +57,14 @@
+            @@ -51,14 +51,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2618,10 +2677,10 @@ mod tests {
                          }
                        },
                        "spec": {
-            @@ -124,6 +130,22 @@
-                                     "name": "postgres-auth"
-                                   }
-                                 }
+            @@ -132,6 +138,22 @@
+                               {
+                                 "name": "METRICS_PROMETHEUS_PORT",
+                                 "value": "9464"
             +                  },
             +                  {
             +                    "name": "DD_AGENT_HOST",

@@ -23,6 +23,7 @@ use crate::{
         controller::{
             CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP,
             CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
+            LOCALSTACK_APP, LOCALSTACK_SERVICE_NAME,
         },
         datadog::DataDogConfig,
         utils::{ResourceLimitsConfig, ResourceLimitsSpec},
@@ -48,6 +49,8 @@ pub struct CasSpec {
     pub ganache_resource_limits: Option<ResourceLimitsSpec>,
     /// Resource limits for the CAS Postgres pod, applies to both requests and limits.
     pub postgres_resource_limits: Option<ResourceLimitsSpec>,
+    /// Resource limits for the LocalStack pod, applies to both requests and limits.
+    pub localstack_resource_limits: Option<ResourceLimitsSpec>,
 }
 
 pub struct CasConfig {
@@ -57,6 +60,7 @@ pub struct CasConfig {
     pub ipfs_resource_limits: ResourceLimitsConfig,
     pub ganache_resource_limits: ResourceLimitsConfig,
     pub postgres_resource_limits: ResourceLimitsConfig,
+    pub localstack_resource_limits: ResourceLimitsConfig,
 }
 
 // Define clear defaults for this config
@@ -83,6 +87,11 @@ impl Default for CasConfig {
             postgres_resource_limits: ResourceLimitsConfig {
                 cpu: Quantity("250m".to_owned()),
                 memory: Quantity("512Mi".to_owned()),
+                storage: Quantity("1Gi".to_owned()),
+            },
+            localstack_resource_limits: ResourceLimitsConfig {
+                cpu: Quantity("250m".to_owned()),
+                memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
         }
@@ -120,6 +129,10 @@ impl From<CasSpec> for CasConfig {
                 value.postgres_resource_limits,
                 default.postgres_resource_limits,
             ),
+            localstack_resource_limits: ResourceLimitsConfig::from_spec(
+                value.localstack_resource_limits,
+                default.localstack_resource_limits,
+            ),
         }
     }
 }
@@ -131,89 +144,7 @@ pub fn cas_stateful_set_spec(
     datadog: &DataDogConfig,
 ) -> StatefulSetSpec {
     let config = config.into();
-    let mut env = vec![
-        EnvVar {
-            name: "NODE_ENV".to_owned(),
-            value: Some("dev".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "ANCHOR_EXPIRATION_PERIOD".to_owned(),
-            value: Some("300000".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "ANCHOR_SCHEDULE_EXPRESSION".to_owned(),
-            value: Some("0/1 * * * ? *".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "APP_MODE".to_owned(),
-            value: Some("bundled".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "APP_PORT".to_owned(),
-            value: Some("8081".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "BLOCKCHAIN_CONNECTOR".to_owned(),
-            value: Some("ethereum".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "ETH_NETWORK".to_owned(),
-            value: Some("ganache".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "ETH_RPC_URL".to_owned(),
-            value: Some("http://ganache:8545".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "ETH_WALLET_PK".to_owned(),
-            value: Some(
-                "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9".to_owned(),
-            ),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "ETH_CONTRACT_ADDRESS".to_owned(),
-            value: Some("0xD3f84Cf6Be3DD0EB16dC89c972f7a27B441A39f2".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "IPFS_API_URL".to_owned(),
-            value: Some(format!("http://{CAS_IPFS_SERVICE_NAME}:5001")),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "IPFS_PUBSUB_TOPIC".to_owned(),
-            value: Some("local".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "LOG_LEVEL".to_owned(),
-            value: Some("debug".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "MERKLE_DEPTH_LIMIT".to_owned(),
-            value: Some("0".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "METRICS_PROMETHEUS_PORT".to_owned(),
-            value: Some("9464".to_owned()),
-            ..Default::default()
-        },
-        EnvVar {
-            name: "VALIDATE_RECORDS".to_owned(),
-            value: Some("false".to_owned()),
-            ..Default::default()
-        },
+    let pg_env = vec![
         EnvVar {
             name: "DB_NAME".to_owned(),
             value: Some("anchor_db".to_owned()),
@@ -249,8 +180,119 @@ pub fn cas_stateful_set_spec(
             ..Default::default()
         },
     ];
+    let aws_env = vec![
+        EnvVar {
+            name: "AWS_ACCOUNT_ID".to_owned(),
+            value: Some("000000000000".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "AWS_REGION".to_owned(),
+            value: Some("us-east-1".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "AWS_ACCESS_KEY_ID".to_owned(),
+            value: Some(".".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "AWS_SECRET_ACCESS_KEY".to_owned(),
+            value: Some(".".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "SQS_QUEUE_URL".to_owned(),
+            value: Some("http://localstack:4566/000000000000/cas-anchor-dev-".to_owned()),
+            ..Default::default()
+        },
+    ];
+    let eth_env = vec![
+        EnvVar {
+            name: "ETH_GAS_LIMIT".to_owned(),
+            value: Some("4712388".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_NETWORK".to_owned(),
+            value: Some("ganache".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_RPC_URL".to_owned(),
+            value: Some("http://ganache:8545".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_WALLET_PK".to_owned(),
+            value: Some(
+                "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9".to_owned(),
+            ),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "ETH_CONTRACT_ADDRESS".to_owned(),
+            value: Some("0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC".to_owned()),
+            ..Default::default()
+        },
+    ];
+    let cas_node_env = vec![
+        pg_env.clone(),
+        aws_env.clone(),
+        eth_env.clone(),
+        vec![
+            EnvVar {
+                name: "NODE_ENV".to_owned(),
+                value: Some("dev".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "LOG_LEVEL".to_owned(),
+                value: Some("debug".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "MERKLE_CAR_STORAGE_MODE".to_owned(),
+                value: Some("s3".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "S3_BUCKET_NAME".to_owned(),
+                value: Some("merkle-car".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "S3_ENDPOINT".to_owned(),
+                value: Some("http://localstack:4566".to_owned()),
+                ..Default::default()
+            },
+        ],
+    ]
+    .concat();
 
-    datadog.inject_env(&mut env);
+    let mut cas_api_env = [
+        cas_node_env.clone(),
+        vec![
+            EnvVar {
+                name: "APP_MODE".to_owned(),
+                value: Some("server".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "APP_PORT".to_owned(),
+                value: Some("8081".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "METRICS_PROMETHEUS_PORT".to_owned(),
+                value: Some("9464".to_owned()),
+                ..Default::default()
+            },
+        ],
+    ]
+    .concat();
+
+    datadog.inject_env(&mut cas_api_env);
 
     StatefulSetSpec {
         replicas: Some(1),
@@ -274,27 +316,159 @@ pub fn cas_stateful_set_spec(
                 ..Default::default()
             }),
             spec: Some(PodSpec {
-                containers: vec![Container {
-                    env: Some(env),
-                    image: Some(config.image),
-                    image_pull_policy: Some(config.image_pull_policy),
-                    name: "cas".to_owned(),
-                    ports: Some(vec![ContainerPort {
-                        container_port: 8081,
+                init_containers: Some(vec![
+                    Container {
+                        env: Some(eth_env),
+                        image: Some("public.ecr.aws/r5b3e0r5/3box/cas-contract".to_owned()),
+                        image_pull_policy: Some("IfNotPresent".to_owned()),
+                        name: "launch-contract".to_owned(),
                         ..Default::default()
-                    }]),
-                    resources: Some(ResourceRequirements {
-                        limits: Some(config.cas_resource_limits.clone().into()),
-                        requests: Some(config.cas_resource_limits.into()),
+                    },
+                    Container {
+                        env: Some(aws_env.clone()),
+                        command: Some(
+                            [
+                                "aws",
+                                "s3api",
+                                "create-bucket",
+                                "--bucket",
+                                "merkle-car",
+                                "--endpoint-url",
+                                "http://localstack:4566",
+                            ]
+                            .map(String::from)
+                            .to_vec(),
+                        ),
+                        image: Some("amazon/aws-cli".to_owned()),
+                        image_pull_policy: Some("IfNotPresent".to_owned()),
+                        name: "aws-cli".to_owned(),
                         ..Default::default()
-                    }),
-                    volume_mounts: Some(vec![VolumeMount {
-                        mount_path: "/cas/db".to_owned(),
-                        name: "cas-data".to_owned(),
+                    },
+                ]),
+                containers: vec![
+                    Container {
+                        env: Some(cas_api_env),
+                        image: Some(config.image.clone()),
+                        image_pull_policy: Some(config.image_pull_policy.clone()),
+                        name: "cas-api".to_owned(),
+                        ports: Some(vec![ContainerPort {
+                            container_port: 8081,
+                            ..Default::default()
+                        }]),
+                        resources: Some(ResourceRequirements {
+                            limits: Some(config.cas_resource_limits.clone().into()),
+                            requests: Some(config.cas_resource_limits.clone().into()),
+                            ..Default::default()
+                        }),
                         ..Default::default()
-                    }]),
-                    ..Default::default()
-                }],
+                    },
+                    Container {
+                        env: Some(
+                            [
+                                cas_node_env.clone(),
+                                vec![
+                                    EnvVar {
+                                        name: "APP_MODE".to_owned(),
+                                        value: Some("continual-anchoring".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "IPFS_API_URL".to_owned(),
+                                        value: Some(format!("http://{CAS_IPFS_SERVICE_NAME}:5001")),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "IPFS_API_TIMEOUT".to_owned(),
+                                        value: Some("120000".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "IPFS_PUBSUB_TOPIC".to_owned(),
+                                        value: Some("/ceramic/local-keramik".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "MERKLE_DEPTH_LIMIT".to_owned(),
+                                        value: Some("0".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "USE_SMART_CONTRACT_ANCHORS".to_owned(),
+                                        value: Some("true".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "SCHEDULER_STOP_AFTER_NO_OP".to_owned(),
+                                        value: Some("false".to_owned()),
+                                        ..Default::default()
+                                    },
+                                ],
+                            ]
+                            .concat(),
+                        ),
+                        image: Some(config.image),
+                        image_pull_policy: Some(config.image_pull_policy),
+                        name: "cas-worker".to_owned(),
+                        resources: Some(ResourceRequirements {
+                            limits: Some(config.cas_resource_limits.clone().into()),
+                            requests: Some(config.cas_resource_limits.clone().into()),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
+                    Container {
+                        env: Some(
+                            [
+                                pg_env,
+                                aws_env,
+                                vec![
+                                    EnvVar {
+                                        name: "AWS_ENDPOINT".to_owned(),
+                                        value: Some("http://localstack:4566".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "ANCHOR_BATCH_SIZE".to_owned(),
+                                        value: Some("1".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "ANCHOR_BATCH_LINGER".to_owned(),
+                                        value: Some("5m".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    // Disable worker monitoring since we're not launching workers
+                                    EnvVar {
+                                        name: "ANCHOR_BATCH_MONITOR_TICK".to_owned(),
+                                        value: Some("9223372036854775807ns".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "POLL_END_CHECKPOINT_DELTA".to_owned(),
+                                        value: Some("0s".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    // Don't launch any workers through the scheduler since we're going to use a long-lived
+                                    // worker.
+                                    EnvVar {
+                                        name: "MAX_ANCHOR_WORKERS".to_owned(),
+                                        value: Some("0".to_owned()),
+                                        ..Default::default()
+                                    },
+                                ],
+                            ]
+                            .concat(),
+                        ),
+                        image: Some("public.ecr.aws/r5b3e0r5/3box/go-cas:latest".to_owned()),
+                        name: "cas-scheduler".to_owned(),
+                        resources: Some(ResourceRequirements {
+                            limits: Some(config.cas_resource_limits.clone().into()),
+                            requests: Some(config.cas_resource_limits.into()),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
+                ],
                 volumes: Some(vec![Volume {
                     name: "cas-data".to_owned(),
                     persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
@@ -465,24 +639,17 @@ pub fn ganache_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpe
             }),
             spec: Some(PodSpec {
                 containers: vec![Container {
-                    command: Some(vec![
-                        "node".to_owned(),
-                        "/app/ganache-core.docker.cli.js".to_owned(),
-                        "--deterministic".to_owned(),
-                        "--db=/ganache/db".to_owned(),
-                        "--mnemonic".to_owned(),
-                        "move sense much taxi wave hurry recall stairs thank brother nut woman"
-                            .to_owned(),
-                        "--networkId".to_owned(),
-                        "5777".to_owned(),
-                        "--hostname".to_owned(),
-                        "0.0.0.0".to_owned(),
-                        "-l".to_owned(),
-                        "80000000".to_owned(),
-                        "--quiet".to_owned(),
-                    ]),
-                    image: Some("trufflesuite/ganache-cli".to_owned()),
-                    image_pull_policy: Some("Always".to_owned()),
+                    command: Some([
+                        "node",
+                        "/app/dist/node/cli.js",
+                        "--miner.blockTime=5",
+                        "--mnemonic='move sense much taxi wave hurry recall stairs thank brother nut woman'",
+                        "--networkId=5777",
+                        "-l=80000000",
+                        "--quiet",
+                    ].map(String::from).to_vec()),
+                    image: Some("trufflesuite/ganache".to_owned()),
+                    image_pull_policy: Some("IfNotPresent".to_owned()),
                     name: "ganache".to_owned(),
                     ports: Some(vec![ContainerPort {
                         container_port: 8545,
@@ -594,7 +761,7 @@ pub fn postgres_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
                         },
                     ]),
                     image: Some("postgres:15-alpine".to_owned()),
-                    image_pull_policy: Some("Always".to_owned()),
+                    image_pull_policy: Some("IfNotPresent".to_owned()),
                     name: "postgres".to_owned(),
                     ports: Some(vec![ContainerPort {
                         container_port: 5432,
@@ -609,7 +776,7 @@ pub fn postgres_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
                     volume_mounts: Some(vec![VolumeMount {
                         mount_path: "/var/lib/postgresql".to_owned(),
                         name: "postgres-data".to_owned(),
-                        sub_path: Some("ceradmic_data".to_owned()),
+                        sub_path: Some("ceramic_data".to_owned()),
                         ..Default::default()
                     }]),
                     ..Default::default()
@@ -662,6 +829,89 @@ pub fn postgres_service_spec() -> ServiceSpec {
         }]),
         selector: selector_labels(CAS_POSTGRES_APP),
         type_: Some("ClusterIP".to_owned()),
+        ..Default::default()
+    }
+}
+
+pub fn localstack_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+    let config = config.into();
+    StatefulSetSpec {
+        replicas: Some(1),
+        selector: LabelSelector {
+            match_labels: selector_labels(LOCALSTACK_APP),
+            ..Default::default()
+        },
+        service_name: LOCALSTACK_SERVICE_NAME.to_owned(),
+        template: PodTemplateSpec {
+            metadata: Some(ObjectMeta {
+                labels: selector_labels(LOCALSTACK_APP),
+                ..Default::default()
+            }),
+            spec: Some(PodSpec {
+                containers: vec![Container {
+                    image: Some("localstack/localstack".to_owned()),
+                    image_pull_policy: Some("IfNotPresent".to_owned()),
+                    name: "localstack".to_owned(),
+                    ports: Some(vec![ContainerPort {
+                        container_port: 4566,
+                        ..Default::default()
+                    }]),
+                    resources: Some(ResourceRequirements {
+                        limits: Some(config.localstack_resource_limits.clone().into()),
+                        requests: Some(config.localstack_resource_limits.into()),
+                        ..Default::default()
+                    }),
+                    volume_mounts: Some(vec![VolumeMount {
+                        mount_path: "/tmp/localstack".to_owned(),
+                        name: "localstack-data".to_owned(),
+                        ..Default::default()
+                    }]),
+                    ..Default::default()
+                }],
+                volumes: Some(vec![Volume {
+                    name: "localstack-data".to_owned(),
+                    persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
+                        claim_name: "localstack-data".to_owned(),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }]),
+                ..Default::default()
+            }),
+        },
+        volume_claim_templates: Some(vec![PersistentVolumeClaim {
+            metadata: ObjectMeta {
+                name: Some("localstack-data".to_owned()),
+                ..Default::default()
+            },
+            spec: Some(PersistentVolumeClaimSpec {
+                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
+                resources: Some(ResourceRequirements {
+                    requests: Some(BTreeMap::from_iter(vec![(
+                        "storage".to_owned(),
+                        Quantity("10Gi".to_owned()),
+                    )])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        }]),
+        ..Default::default()
+    }
+}
+
+pub fn localstack_service_spec() -> ServiceSpec {
+    ServiceSpec {
+        ports: Some(vec![ServicePort {
+            name: Some("localstack".to_owned()),
+            port: 4566,
+            protocol: Some("TCP".to_owned()),
+            target_port: Some(IntOrString::Int(4566)),
+            ..Default::default()
+        }]),
+        selector: selector_labels(LOCALSTACK_APP),
+        type_: Some("NodePort".to_owned()),
         ..Default::default()
     }
 }

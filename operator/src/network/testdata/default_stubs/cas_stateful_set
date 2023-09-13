@@ -36,28 +36,54 @@ Request {
               {
                 "env": [
                   {
-                    "name": "NODE_ENV",
-                    "value": "dev"
+                    "name": "DB_NAME",
+                    "value": "anchor_db"
                   },
                   {
-                    "name": "ANCHOR_EXPIRATION_PERIOD",
-                    "value": "300000"
+                    "name": "DB_HOST",
+                    "value": "cas-postgres"
                   },
                   {
-                    "name": "ANCHOR_SCHEDULE_EXPRESSION",
-                    "value": "0/1 * * * ? *"
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
                   },
                   {
-                    "name": "APP_MODE",
-                    "value": "bundled"
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
                   },
                   {
-                    "name": "APP_PORT",
-                    "value": "8081"
+                    "name": "AWS_ACCOUNT_ID",
+                    "value": "000000000000"
                   },
                   {
-                    "name": "BLOCKCHAIN_CONNECTOR",
-                    "value": "ethereum"
+                    "name": "AWS_REGION",
+                    "value": "us-east-1"
+                  },
+                  {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "value": "."
+                  },
+                  {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "value": "."
+                  },
+                  {
+                    "name": "SQS_QUEUE_URL",
+                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
+                  },
+                  {
+                    "name": "ETH_GAS_LIMIT",
+                    "value": "4712388"
                   },
                   {
                     "name": "ETH_NETWORK",
@@ -73,32 +99,64 @@ Request {
                   },
                   {
                     "name": "ETH_CONTRACT_ADDRESS",
-                    "value": "0xD3f84Cf6Be3DD0EB16dC89c972f7a27B441A39f2"
+                    "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
                   },
                   {
-                    "name": "IPFS_API_URL",
-                    "value": "http://cas-ipfs:5001"
-                  },
-                  {
-                    "name": "IPFS_PUBSUB_TOPIC",
-                    "value": "local"
+                    "name": "NODE_ENV",
+                    "value": "dev"
                   },
                   {
                     "name": "LOG_LEVEL",
                     "value": "debug"
                   },
                   {
-                    "name": "MERKLE_DEPTH_LIMIT",
-                    "value": "0"
+                    "name": "MERKLE_CAR_STORAGE_MODE",
+                    "value": "s3"
+                  },
+                  {
+                    "name": "S3_BUCKET_NAME",
+                    "value": "merkle-car"
+                  },
+                  {
+                    "name": "S3_ENDPOINT",
+                    "value": "http://localstack:4566"
+                  },
+                  {
+                    "name": "APP_MODE",
+                    "value": "server"
+                  },
+                  {
+                    "name": "APP_PORT",
+                    "value": "8081"
                   },
                   {
                     "name": "METRICS_PROMETHEUS_PORT",
                     "value": "9464"
-                  },
+                  }
+                ],
+                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+                "imagePullPolicy": "Always",
+                "name": "cas-api",
+                "ports": [
                   {
-                    "name": "VALIDATE_RECORDS",
-                    "value": "false"
+                    "containerPort": 8081
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
                   },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                }
+              },
+              {
+                "env": [
                   {
                     "name": "DB_NAME",
                     "value": "anchor_db"
@@ -124,16 +182,99 @@ Request {
                         "name": "postgres-auth"
                       }
                     }
+                  },
+                  {
+                    "name": "AWS_ACCOUNT_ID",
+                    "value": "000000000000"
+                  },
+                  {
+                    "name": "AWS_REGION",
+                    "value": "us-east-1"
+                  },
+                  {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "value": "."
+                  },
+                  {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "value": "."
+                  },
+                  {
+                    "name": "SQS_QUEUE_URL",
+                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
+                  },
+                  {
+                    "name": "ETH_GAS_LIMIT",
+                    "value": "4712388"
+                  },
+                  {
+                    "name": "ETH_NETWORK",
+                    "value": "ganache"
+                  },
+                  {
+                    "name": "ETH_RPC_URL",
+                    "value": "http://ganache:8545"
+                  },
+                  {
+                    "name": "ETH_WALLET_PK",
+                    "value": "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9"
+                  },
+                  {
+                    "name": "ETH_CONTRACT_ADDRESS",
+                    "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
+                  },
+                  {
+                    "name": "NODE_ENV",
+                    "value": "dev"
+                  },
+                  {
+                    "name": "LOG_LEVEL",
+                    "value": "debug"
+                  },
+                  {
+                    "name": "MERKLE_CAR_STORAGE_MODE",
+                    "value": "s3"
+                  },
+                  {
+                    "name": "S3_BUCKET_NAME",
+                    "value": "merkle-car"
+                  },
+                  {
+                    "name": "S3_ENDPOINT",
+                    "value": "http://localstack:4566"
+                  },
+                  {
+                    "name": "APP_MODE",
+                    "value": "continual-anchoring"
+                  },
+                  {
+                    "name": "IPFS_API_URL",
+                    "value": "http://cas-ipfs:5001"
+                  },
+                  {
+                    "name": "IPFS_API_TIMEOUT",
+                    "value": "120000"
+                  },
+                  {
+                    "name": "IPFS_PUBSUB_TOPIC",
+                    "value": "/ceramic/local-keramik"
+                  },
+                  {
+                    "name": "MERKLE_DEPTH_LIMIT",
+                    "value": "0"
+                  },
+                  {
+                    "name": "USE_SMART_CONTRACT_ANCHORS",
+                    "value": "true"
+                  },
+                  {
+                    "name": "SCHEDULER_STOP_AFTER_NO_OP",
+                    "value": "false"
                   }
                 ],
                 "image": "ceramicnetwork/ceramic-anchor-service:latest",
                 "imagePullPolicy": "Always",
-                "name": "cas",
-                "ports": [
-                  {
-                    "containerPort": 8081
-                  }
-                ],
+                "name": "cas-worker",
                 "resources": {
                   "limits": {
                     "cpu": "250m",
@@ -145,13 +286,160 @@ Request {
                     "ephemeral-storage": "1Gi",
                     "memory": "1Gi"
                   }
-                },
-                "volumeMounts": [
+                }
+              },
+              {
+                "env": [
                   {
-                    "mountPath": "/cas/db",
-                    "name": "cas-data"
+                    "name": "DB_NAME",
+                    "value": "anchor_db"
+                  },
+                  {
+                    "name": "DB_HOST",
+                    "value": "cas-postgres"
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "AWS_ACCOUNT_ID",
+                    "value": "000000000000"
+                  },
+                  {
+                    "name": "AWS_REGION",
+                    "value": "us-east-1"
+                  },
+                  {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "value": "."
+                  },
+                  {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "value": "."
+                  },
+                  {
+                    "name": "SQS_QUEUE_URL",
+                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
+                  },
+                  {
+                    "name": "AWS_ENDPOINT",
+                    "value": "http://localstack:4566"
+                  },
+                  {
+                    "name": "ANCHOR_BATCH_SIZE",
+                    "value": "1"
+                  },
+                  {
+                    "name": "ANCHOR_BATCH_LINGER",
+                    "value": "5m"
+                  },
+                  {
+                    "name": "ANCHOR_BATCH_MONITOR_TICK",
+                    "value": "9223372036854775807ns"
+                  },
+                  {
+                    "name": "POLL_END_CHECKPOINT_DELTA",
+                    "value": "0s"
+                  },
+                  {
+                    "name": "MAX_ANCHOR_WORKERS",
+                    "value": "0"
                   }
-                ]
+                ],
+                "image": "public.ecr.aws/r5b3e0r5/3box/go-cas:latest",
+                "name": "cas-scheduler",
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                }
+              }
+            ],
+            "initContainers": [
+              {
+                "env": [
+                  {
+                    "name": "ETH_GAS_LIMIT",
+                    "value": "4712388"
+                  },
+                  {
+                    "name": "ETH_NETWORK",
+                    "value": "ganache"
+                  },
+                  {
+                    "name": "ETH_RPC_URL",
+                    "value": "http://ganache:8545"
+                  },
+                  {
+                    "name": "ETH_WALLET_PK",
+                    "value": "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9"
+                  },
+                  {
+                    "name": "ETH_CONTRACT_ADDRESS",
+                    "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
+                  }
+                ],
+                "image": "public.ecr.aws/r5b3e0r5/3box/cas-contract",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "launch-contract"
+              },
+              {
+                "command": [
+                  "aws",
+                  "s3api",
+                  "create-bucket",
+                  "--bucket",
+                  "merkle-car",
+                  "--endpoint-url",
+                  "http://localstack:4566"
+                ],
+                "env": [
+                  {
+                    "name": "AWS_ACCOUNT_ID",
+                    "value": "000000000000"
+                  },
+                  {
+                    "name": "AWS_REGION",
+                    "value": "us-east-1"
+                  },
+                  {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "value": "."
+                  },
+                  {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "value": "."
+                  },
+                  {
+                    "name": "SQS_QUEUE_URL",
+                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
+                  }
+                ],
+                "image": "amazon/aws-cli",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "aws-cli"
               }
             ],
             "volumes": [

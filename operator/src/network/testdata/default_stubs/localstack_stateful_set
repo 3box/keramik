@@ -1,6 +1,6 @@
 Request {
     method: "PATCH",
-    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/cas-postgres?&fieldManager=keramik",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/localstack?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
@@ -12,90 +12,59 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "cas-postgres",
+        "name": "localstack",
         "ownerReferences": []
       },
       "spec": {
         "replicas": 1,
         "selector": {
           "matchLabels": {
-            "app": "cas-postgres"
+            "app": "localstack"
           }
         },
-        "serviceName": "cas-postgres",
+        "serviceName": "localstack",
         "template": {
           "metadata": {
             "labels": {
-              "app": "cas-postgres"
+              "app": "localstack"
             }
           },
           "spec": {
             "containers": [
               {
-                "env": [
-                  {
-                    "name": "POSTGRES_DB",
-                    "value": "anchor_db"
-                  },
-                  {
-                    "name": "POSTGRES_PASSWORD",
-                    "valueFrom": {
-                      "secretKeyRef": {
-                        "key": "password",
-                        "name": "postgres-auth"
-                      }
-                    }
-                  },
-                  {
-                    "name": "POSTGRES_USER",
-                    "valueFrom": {
-                      "secretKeyRef": {
-                        "key": "username",
-                        "name": "postgres-auth"
-                      }
-                    }
-                  }
-                ],
-                "image": "postgres:15-alpine",
+                "image": "localstack/localstack",
                 "imagePullPolicy": "IfNotPresent",
-                "name": "postgres",
+                "name": "localstack",
                 "ports": [
                   {
-                    "containerPort": 5432,
-                    "name": "postgres"
+                    "containerPort": 4566
                   }
                 ],
                 "resources": {
                   "limits": {
                     "cpu": "250m",
                     "ephemeral-storage": "1Gi",
-                    "memory": "512Mi"
+                    "memory": "1Gi"
                   },
                   "requests": {
                     "cpu": "250m",
                     "ephemeral-storage": "1Gi",
-                    "memory": "512Mi"
+                    "memory": "1Gi"
                   }
                 },
                 "volumeMounts": [
                   {
-                    "mountPath": "/var/lib/postgresql",
-                    "name": "postgres-data",
-                    "subPath": "ceramic_data"
+                    "mountPath": "/tmp/localstack",
+                    "name": "localstack-data"
                   }
                 ]
               }
             ],
-            "securityContext": {
-              "fsGroup": 70,
-              "runAsGroup": 70,
-              "runAsUser": 70
-            },
             "volumes": [
               {
-                "name": "postgres-data",
+                "name": "localstack-data",
                 "persistentVolumeClaim": {
-                  "claimName": "postgres-data"
+                  "claimName": "localstack-data"
                 }
               }
             ]
@@ -106,7 +75,7 @@ Request {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
             "metadata": {
-              "name": "postgres-data"
+              "name": "localstack-data"
             },
             "spec": {
               "accessModes": [

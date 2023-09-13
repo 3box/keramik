@@ -205,6 +205,11 @@ pub fn cas_stateful_set_spec(
             ..Default::default()
         },
         EnvVar {
+            name: "METRICS_PROMETHEUS_PORT".to_owned(),
+            value: Some("9464".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
             name: "VALIDATE_RECORDS".to_owned(),
             value: Some("false".to_owned()),
             ..Default::default()

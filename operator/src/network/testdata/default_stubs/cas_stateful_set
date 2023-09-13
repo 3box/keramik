@@ -92,6 +92,10 @@ Request {
                     "value": "0"
                   },
                   {
+                    "name": "METRICS_PROMETHEUS_PORT",
+                    "value": "9464"
+                  },
+                  {
                     "name": "VALIDATE_RECORDS",
                     "value": "false"
                   },

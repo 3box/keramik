@@ -2026,7 +2026,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -122,8 +122,8 @@
+            @@ -126,8 +126,8 @@
                                  }
                                }
                              ],
@@ -2100,7 +2100,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -132,12 +132,12 @@
+            @@ -136,12 +136,12 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2618,7 +2618,7 @@ mod tests {
                          }
                        },
                        "spec": {
-            @@ -120,6 +126,22 @@
+            @@ -124,6 +130,22 @@
                                      "name": "postgres-auth"
                                    }
                                  }

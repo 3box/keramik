@@ -164,6 +164,8 @@ pub struct RustIpfsSpec {
     pub image_pull_policy: Option<String>,
     // Resource limits for ipfs nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Value of the RUST_LOG env var.
+    pub rust_log: Option<String>,
 }
 
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
@@ -271,6 +273,7 @@ pub struct RustIpfsConfig {
     image: String,
     image_pull_policy: String,
     resource_limits: ResourceLimitsConfig,
+    rust_log: String,
 }
 
 impl Default for RustIpfsConfig {
@@ -283,6 +286,7 @@ impl Default for RustIpfsConfig {
                 memory: Quantity("512Mi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
+            rust_log: "info,ceramic_one=debug,tracing_actix_web=debug".to_owned(),
         }
     }
 }
@@ -296,6 +300,7 @@ impl From<RustIpfsSpec> for RustIpfsConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            rust_log: value.rust_log.unwrap_or(default.rust_log),
         }
     }
 }
@@ -396,7 +401,7 @@ impl RustIpfsConfig {
             env: Some(vec![
                 EnvVar {
                     name: "RUST_LOG".to_owned(),
-                    value: Some("info,ceramic_one=debug,tracing_actix_web=debug".to_owned()),
+                    value: Some(self.rust_log.to_owned()),
                     ..Default::default()
                 },
                 EnvVar {

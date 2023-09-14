@@ -13,7 +13,7 @@ use k8s_openapi::{
     },
 };
 
-use crate::simulation::controller::PROM_CONFIG_MAP_NAME;
+use crate::monitoring::PROM_CONFIG_MAP_NAME;
 
 use crate::utils::selector_labels;
 

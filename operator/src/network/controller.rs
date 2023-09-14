@@ -25,14 +25,17 @@ use kube::{
 use rand::RngCore;
 use tracing::{debug, error, trace, warn};
 
-use crate::network::{
-    bootstrap,
-    cas::{self, CasSpec},
-    ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo},
-    datadog::DataDogConfig,
-    peers,
-    utils::{HttpRpcClient, IpfsRpcClient},
-    BootstrapSpec, Network, NetworkSpec, NetworkStatus,
+use crate::{
+    monitoring,
+    network::{
+        bootstrap,
+        cas::{self, CasSpec},
+        ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo},
+        datadog::DataDogConfig,
+        peers,
+        utils::{HttpRpcClient, IpfsRpcClient},
+        BootstrapSpec, Network, NetworkSpec, NetworkStatus,
+    },
 };
 
 use crate::utils::{
@@ -181,6 +184,15 @@ async fn reconcile(
     let datadog: DataDogConfig = (&spec.datadog).into();
 
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
+
+    let orefs = network
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
+
+    monitoring::apply_jaeger(cx.clone(), &ns, orefs.clone()).await?;
+    monitoring::apply_prometheus(cx.clone(), &ns, orefs.clone()).await?;
+    monitoring::apply_opentelemetry(cx.clone(), &ns, orefs.clone()).await?;
 
     let net_config: NetworkConfig = spec.into();
 

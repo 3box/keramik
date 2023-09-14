@@ -19,7 +19,7 @@ use k8s_openapi::{
 
 use crate::utils::selector_labels;
 
-use crate::simulation::controller::{OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME, OTEL_CR};
+use crate::monitoring::{OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME, OTEL_CR};
 
 pub const OTEL_APP: &str = "otel";
 

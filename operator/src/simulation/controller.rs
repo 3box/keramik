@@ -25,12 +25,13 @@ use rand::RngCore;
 
 use tracing::{debug, error};
 
-use crate::simulation::{
-    manager, manager::ManagerConfig, worker, worker::WorkerConfig, JobImageConfig, Simulation,
-    SimulationStatus,
+use crate::{
+    monitoring,
+    simulation::{
+        manager, manager::ManagerConfig, worker, worker::WorkerConfig, JobImageConfig, Simulation,
+        SimulationStatus,
+    },
 };
-
-use crate::monitoring::{jaeger, opentelemetry, prometheus};
 
 use crate::network::{
     controller::PEERS_CONFIG_MAP_NAME,
@@ -41,10 +42,7 @@ use crate::network::{
 
 use keramik_common::peer_info::Peer;
 
-use crate::utils::{
-    apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map, apply_job,
-    apply_service, apply_stateful_set, Context, MANAGED_BY_LABEL_SELECTOR,
-};
+use crate::utils::{apply_job, apply_service, Context, MANAGED_BY_LABEL_SELECTOR};
 
 /// Handle errors during reconciliation.
 fn on_error(
@@ -142,9 +140,14 @@ async fn reconcile(
     let ns = simulation.namespace().unwrap();
     let num_peers = get_num_peers(cx.clone(), &ns).await?;
 
-    apply_jaeger(cx.clone(), &ns, simulation.clone()).await?;
-    apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
-    apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
+    let orefs = simulation
+        .controller_owner_ref(&())
+        .map(|oref| vec![oref])
+        .unwrap_or_default();
+
+    monitoring::apply_jaeger(cx.clone(), &ns, orefs.clone()).await?;
+    monitoring::apply_prometheus(cx.clone(), &ns, orefs.clone()).await?;
+    monitoring::apply_opentelemetry(cx.clone(), &ns, orefs.clone()).await?;
 
     let ready = monitoring_ready(cx.clone(), &ns).await?;
 
@@ -198,16 +201,6 @@ async fn reconcile(
 pub const MANAGER_SERVICE_NAME: &str = "goose";
 pub const MANAGER_JOB_NAME: &str = "simulate-manager";
 pub const WORKER_JOB_NAME: &str = "simulate-worker";
-
-pub const JAEGER_SERVICE_NAME: &str = "jaeger";
-pub const OTEL_SERVICE_NAME: &str = "otel";
-
-pub const OTEL_CR_BINDING: &str = "monitoring-cluster-role-binding";
-pub const OTEL_CR: &str = "monitoring-cluster-role";
-pub const OTEL_ACCOUNT: &str = "monitoring-service-account";
-
-pub const OTEL_CONFIG_MAP_NAME: &str = "otel-config";
-pub const PROM_CONFIG_MAP_NAME: &str = "prom-config";
 
 async fn apply_manager(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
@@ -318,118 +311,6 @@ async fn apply_n_workers(
     Ok(())
 }
 
-async fn apply_jaeger(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
-    ns: &str,
-    simulation: Arc<Simulation>,
-) -> Result<(), kube::error::Error> {
-    let orefs: Vec<_> = simulation
-        .controller_owner_ref(&())
-        .map(|oref| vec![oref])
-        .unwrap_or_default();
-
-    apply_service(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        JAEGER_SERVICE_NAME,
-        jaeger::service_spec(),
-    )
-    .await?;
-
-    apply_stateful_set(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        "jaeger",
-        jaeger::stateful_set_spec(),
-    )
-    .await?;
-    Ok(())
-}
-
-async fn apply_prometheus(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
-    ns: &str,
-    simulation: Arc<Simulation>,
-) -> Result<(), kube::error::Error> {
-    let orefs = simulation
-        .controller_owner_ref(&())
-        .map(|oref| vec![oref])
-        .unwrap_or_default();
-
-    apply_config_map(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        PROM_CONFIG_MAP_NAME,
-        prometheus::config_map_data(),
-    )
-    .await?;
-    apply_stateful_set(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        "prometheus",
-        prometheus::stateful_set_spec(),
-    )
-    .await?;
-    Ok(())
-}
-
-async fn apply_opentelemetry(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
-    ns: &str,
-    simulation: Arc<Simulation>,
-) -> Result<(), kube::error::Error> {
-    let orefs = simulation
-        .controller_owner_ref(&())
-        .map(|oref| vec![oref])
-        .unwrap_or_default();
-
-    apply_account(cx.clone(), ns, orefs.clone(), OTEL_ACCOUNT).await?;
-    apply_cluster_role(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        OTEL_CR,
-        opentelemetry::cluster_role(),
-    )
-    .await?;
-    apply_cluster_role_binding(
-        cx.clone(),
-        orefs.clone(),
-        OTEL_CR_BINDING,
-        opentelemetry::cluster_role_binding(ns),
-    )
-    .await?;
-    apply_config_map(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        OTEL_CONFIG_MAP_NAME,
-        opentelemetry::config_map_data(),
-    )
-    .await?;
-    apply_service(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        OTEL_SERVICE_NAME,
-        opentelemetry::service_spec(),
-    )
-    .await?;
-    apply_stateful_set(
-        cx.clone(),
-        ns,
-        orefs.clone(),
-        "opentelemetry",
-        opentelemetry::stateful_set_spec(),
-    )
-    .await?;
-
-    Ok(())
-}
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
 mod tests {

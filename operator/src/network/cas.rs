@@ -236,7 +236,7 @@ pub fn cas_stateful_set_spec(
             ..Default::default()
         },
     ];
-    let cas_node_env = vec![
+    let cas_node_env = [
         pg_env.clone(),
         aws_env.clone(),
         eth_env.clone(),

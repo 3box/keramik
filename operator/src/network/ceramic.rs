@@ -153,28 +153,37 @@ pub struct CeramicSpec {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub enum IpfsSpec {
+    /// Rust IPFS specification
     Rust(RustIpfsSpec),
+    /// Go IPFS specification
     Go(GoIpfsSpec),
 }
 
+/// Describes how the Rust IPFS node for a peer should behave.
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RustIpfsSpec {
+    /// Name of image to use
     pub image: Option<String>,
+    /// Image pull policy for the image
     pub image_pull_policy: Option<String>,
-    // Resource limits for ipfs nodes, applies to both requests and limits.
+    /// Resource limits for ipfs nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
     /// Value of the RUST_LOG env var.
     pub rust_log: Option<String>,
 }
 
+/// Describes how the Go IPFS node for a peer should behave.
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct GoIpfsSpec {
+    /// Name of image to use
     pub image: Option<String>,
+    /// Image pull policy for the image
     pub image_pull_policy: Option<String>,
-    // Resource limits for ipfs nodes, applies to both requests and limits.
+    /// Resource limits for ipfs nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// List of ipfs commands to run during initialization.
     pub commands: Option<Vec<String>>,
 }
 

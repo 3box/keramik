@@ -22,12 +22,12 @@ serde_yaml = "0.9.21"
 thiserror = "1"
 anyhow.workspace = true
 clap.workspace = true
-k8s-openapi = { version = "0.18", features = [
+k8s-openapi = { version = "0.20", features = [
     "v1_26",
     "schemars",
 ], default-features = false }
 keramik-common.workspace = true
-kube = { version = "0.82", features = [
+kube = { version = "0.86", features = [
     "derive",
     "runtime",
 ], default-features = true }

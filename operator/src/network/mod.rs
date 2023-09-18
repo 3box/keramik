@@ -16,7 +16,7 @@ use crate::network::{cas::CasSpec, datadog::DataDogSpec};
 pub use crate::utils::Context;
 
 pub use bootstrap::BootstrapSpec;
-pub use ceramic::CeramicSpec;
+pub use ceramic::{CeramicSpec, GoIpfsSpec, IpfsSpec, RustIpfsSpec};
 pub use controller::run;
 
 use keramik_common::peer_info::Peer;

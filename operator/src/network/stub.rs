@@ -5,11 +5,9 @@ use expect_test::{expect_file, ExpectFile};
 use k8s_openapi::api::{apps::v1::StatefulSetSpec, batch::v1::Job, core::v1::Secret};
 
 use crate::{
+    labels::managed_labels,
     network::{Network, NetworkSpec, NetworkStatus},
-    utils::{
-        managed_labels,
-        test::{ApiServerVerifier, WithStatus},
-    },
+    utils::test::{ApiServerVerifier, WithStatus},
 };
 
 // Add tests specific implementation to the Network

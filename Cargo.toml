@@ -6,8 +6,8 @@ resolver = "2"
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
 env_logger = "0.10.0"
-expect-patch = {path = "./expect-patch/"}
-keramik-common = { path = "./common/" }
+expect-patch = { path = "./expect-patch/" }
+keramik-common = { path = "./common/", default-features = false }
 multiaddr = "0.17"
 multibase = "0.9.1"
 multihash = "0.17"

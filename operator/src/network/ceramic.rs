@@ -15,19 +15,19 @@ use k8s_openapi::{
     },
 };
 use kube::core::ObjectMeta;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
+use crate::labels::{managed_labels, selector_labels};
 use crate::network::{
     controller::{
-        NetworkConfig, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
+        CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_LOCAL_NETWORK_TYPE, GANACHE_SERVICE_NAME,
         INIT_CONFIG_MAP_NAME,
     },
     datadog::DataDogConfig,
-    utils::{ResourceLimitsConfig, ResourceLimitsSpec},
+    resource_limits::ResourceLimitsConfig,
+    CeramicSpec, GoIpfsSpec, IpfsSpec, NetworkSpec, RustIpfsSpec,
 };
 
-use crate::utils::{managed_labels, selector_labels};
+use crate::network::controller::{CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT};
 
 const IPFS_CONTAINER_NAME: &str = "ipfs";
 const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
@@ -131,62 +131,6 @@ pub fn service_spec() -> ServiceSpec {
     }
 }
 
-/// Describes how a Ceramic peer should behave.
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct CeramicSpec {
-    /// Relative weight of the spec compared to others.
-    pub weight: Option<i32>,
-    /// Name of a config map with a ceramic-init.sh script that runs as an initialization step.
-    pub init_config_map: Option<String>,
-    /// Image of the ceramic container.
-    pub image: Option<String>,
-    /// Pull policy for the ceramic container image.
-    pub image_pull_policy: Option<String>,
-    /// Configuration of the IPFS container
-    pub ipfs: Option<IpfsSpec>,
-    /// Resource limits for ceramic nodes, applies to both requests and limits.
-    pub resource_limits: Option<ResourceLimitsSpec>,
-}
-
-/// Describes how the IPFS node for a peer should behave.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub enum IpfsSpec {
-    /// Rust IPFS specification
-    Rust(RustIpfsSpec),
-    /// Go IPFS specification
-    Go(GoIpfsSpec),
-}
-
-/// Describes how the Rust IPFS node for a peer should behave.
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct RustIpfsSpec {
-    /// Name of image to use
-    pub image: Option<String>,
-    /// Image pull policy for the image
-    pub image_pull_policy: Option<String>,
-    /// Resource limits for ipfs nodes, applies to both requests and limits.
-    pub resource_limits: Option<ResourceLimitsSpec>,
-    /// Value of the RUST_LOG env var.
-    pub rust_log: Option<String>,
-}
-
-/// Describes how the Go IPFS node for a peer should behave.
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct GoIpfsSpec {
-    /// Name of image to use
-    pub image: Option<String>,
-    /// Image pull policy for the image
-    pub image_pull_policy: Option<String>,
-    /// Resource limits for ipfs nodes, applies to both requests and limits.
-    pub resource_limits: Option<ResourceLimitsSpec>,
-    /// List of ipfs commands to run during initialization.
-    pub commands: Option<Vec<String>>,
-}
-
 pub struct CeramicConfig {
     pub weight: i32,
     pub init_config_map: String,
@@ -202,6 +146,46 @@ pub struct CeramicBundle<'a> {
     pub config: &'a CeramicConfig,
     pub net_config: &'a NetworkConfig,
     pub datadog: &'a DataDogConfig,
+}
+
+// Contains top level config for the network
+pub struct NetworkConfig {
+    pub private_key_secret: Option<String>,
+    pub network_type: String,
+    pub pubsub_topic: String,
+    pub eth_rpc_url: String,
+    pub cas_api_url: String,
+}
+
+impl Default for NetworkConfig {
+    fn default() -> Self {
+        Self {
+            private_key_secret: None,
+            network_type: CERAMIC_LOCAL_NETWORK_TYPE.to_owned(),
+            pubsub_topic: "/ceramic/local-keramik".to_owned(),
+            eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
+            cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
+        }
+    }
+}
+
+impl From<&NetworkSpec> for NetworkConfig {
+    fn from(value: &NetworkSpec) -> Self {
+        let default = NetworkConfig::default();
+        Self {
+            private_key_secret: value.private_key_secret.to_owned(),
+            network_type: value
+                .network_type
+                .to_owned()
+                .unwrap_or(default.network_type),
+            pubsub_topic: value
+                .pubsub_topic
+                .to_owned()
+                .unwrap_or(default.pubsub_topic),
+            eth_rpc_url: value.eth_rpc_url.to_owned().unwrap_or(default.eth_rpc_url),
+            cas_api_url: value.cas_api_url.to_owned().unwrap_or(default.cas_api_url),
+        }
+    }
 }
 
 /// Unique identifying information about this ceramic spec.
@@ -223,9 +207,6 @@ impl CeramicInfo {
             service: format!("ceramic-{suffix}"),
         }
     }
-}
-
-impl CeramicInfo {
     /// Generate a new uninque name for this ceramic spec
     /// Generated name is deterministic for a given input name.
     pub fn new_name(&self, name: &str) -> String {

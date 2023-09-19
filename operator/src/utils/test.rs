@@ -9,7 +9,7 @@ use rand::rngs::mock::StepRng;
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{network::utils::IpfsRpcClient, utils::Context};
+use crate::{network::ipfs_rpc::IpfsRpcClient, utils::Context};
 
 pub type ApiServerHandle = tower_test::mock::Handle<http::Request<Body>, http::Response<Body>>;
 

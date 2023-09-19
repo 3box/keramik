@@ -13,14 +13,10 @@ ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs.gi
 cid = "0.9"
 clap.workspace = true
 goose = { version = "0.16", features = ["gaggle"] }
-keramik-common.workspace = true
+keramik-common = { workspace = true, features = ["telemetry"] }
 libipld = "0.16.0"
-multiaddr.workspace = true
-multibase.workspace = true
 multihash.workspace = true
-opentelemetry-otlp.workspace = true
 opentelemetry.workspace = true
-prometheus-client = "0.19"
 rand = "0.8.5"
 redis = { version = "0.23.2", features = ["tokio-comp"] }
 reqwest.workspace = true
@@ -28,8 +24,5 @@ schemars = "0.8.12"
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
-tonic.workspace = true
 tracing-log.workspace = true
-tracing-opentelemetry.workspace = true
-tracing-subscriber.workspace = true
 tracing.workspace = true

@@ -14,7 +14,7 @@ use k8s_openapi::{
     },
 };
 
-use crate::utils::{managed_labels, selector_labels};
+use crate::labels::{managed_labels, selector_labels};
 
 pub const REDIS_APP: &str = "redis";
 

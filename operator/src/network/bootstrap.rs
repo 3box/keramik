@@ -4,24 +4,8 @@ use k8s_openapi::api::{
         ConfigMapVolumeSource, Container, EnvVar, PodSpec, PodTemplateSpec, Volume, VolumeMount,
     },
 };
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
-use crate::network::controller::PEERS_CONFIG_MAP_NAME;
-
-/// BootstrapSpec defines how the network bootstrap process should proceed.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct BootstrapSpec {
-    /// Image of the runner for the bootstrap job.
-    pub image: Option<String>,
-    /// Image pull policy for the bootstrap job.
-    pub image_pull_policy: Option<String>,
-    /// Bootstrap method. Defaults to ring.
-    pub method: Option<String>,
-    /// Number of nodes to connect to each peer.
-    pub n: Option<i32>,
-}
+use crate::network::{BootstrapSpec, PEERS_CONFIG_MAP_NAME};
 
 // BootstrapConfig defines which properties of the JobSpec can be customized.
 pub struct BootstrapConfig {

@@ -14,7 +14,7 @@ use k8s_openapi::{
     },
 };
 
-use crate::utils::selector_labels;
+use crate::labels::selector_labels;
 
 pub const JAEGER_APP: &str = "jaeger";
 

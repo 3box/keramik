@@ -15,43 +15,18 @@ use k8s_openapi::{
     },
 };
 use kube::core::ObjectMeta;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
-use crate::{
-    network::{
-        controller::{
-            CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP,
-            CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME,
-            LOCALSTACK_APP, LOCALSTACK_SERVICE_NAME,
-        },
-        datadog::DataDogConfig,
-        utils::{ResourceLimitsConfig, ResourceLimitsSpec},
+use crate::labels::{managed_labels, selector_labels};
+use crate::network::{resource_limits::ResourceLimitsConfig, CasSpec};
+
+use crate::network::{
+    controller::{
+        CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
+        CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME, LOCALSTACK_APP,
+        LOCALSTACK_SERVICE_NAME,
     },
-    utils::managed_labels,
+    datadog::DataDogConfig,
 };
-
-use crate::utils::selector_labels;
-
-/// Defines details about how CAS is deployed
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct CasSpec {
-    /// Image of the runner for the bootstrap job.
-    pub image: Option<String>,
-    /// Image pull policy for the bootstrap job.
-    pub image_pull_policy: Option<String>,
-    /// Resource limits for the CAS pod, applies to both requests and limits.
-    pub cas_resource_limits: Option<ResourceLimitsSpec>,
-    /// Resource limits for the CAS IPFS pod, applies to both requests and limits.
-    pub ipfs_resource_limits: Option<ResourceLimitsSpec>,
-    /// Resource limits for the Ganache pod, applies to both requests and limits.
-    pub ganache_resource_limits: Option<ResourceLimitsSpec>,
-    /// Resource limits for the CAS Postgres pod, applies to both requests and limits.
-    pub postgres_resource_limits: Option<ResourceLimitsSpec>,
-    /// Resource limits for the LocalStack pod, applies to both requests and limits.
-    pub localstack_resource_limits: Option<ResourceLimitsSpec>,
-}
 
 pub struct CasConfig {
     pub image: String,

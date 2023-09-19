@@ -9,7 +9,7 @@ use k8s_openapi::api::{
 
 use kube::core::ObjectMeta;
 
-use crate::{network::controller::PEERS_CONFIG_MAP_NAME, simulation::JobImageConfig};
+use crate::{network::PEERS_CONFIG_MAP_NAME, simulation::job::JobImageConfig};
 
 // WorkerConfig defines which properties of the JobSpec can be customized.
 pub struct WorkerConfig {

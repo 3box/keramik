@@ -25,21 +25,58 @@ use kube::{
 use rand::RngCore;
 use tracing::{debug, error, trace, warn};
 
-use crate::network::{
-    bootstrap,
-    cas::{self, CasSpec},
-    ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo},
-    datadog::DataDogConfig,
-    peers,
-    utils::{HttpRpcClient, IpfsRpcClient},
-    BootstrapSpec, Network, NetworkSpec, NetworkStatus,
+use crate::{
+    labels::{managed_labels, MANAGED_BY_LABEL_SELECTOR},
+    network::{
+        bootstrap, cas,
+        ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo, NetworkConfig},
+        datadog::DataDogConfig,
+        ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
+        peers, BootstrapSpec, CasSpec, Network, NetworkStatus,
+    },
+    CONTROLLER_NAME,
 };
 
 use crate::utils::{
     apply_config_map, apply_job, apply_service, apply_stateful_set, delete_service,
-    delete_stateful_set, generate_random_secret, managed_labels, Context,
-    MANAGED_BY_LABEL_SELECTOR,
+    delete_stateful_set, generate_random_secret, Context,
 };
+
+// A list of constants used in various K8s resources.
+//
+// When should you use a constant vs just hardcode the string literal directly?
+//
+// K8s uses lots of names to relate various resources (i.e. port names).
+// We DO NOT want to use a constant for all of those use cases. However if a value
+// spans multiple resources then we should create a constant for it.
+
+/// Name of the config map maintained by the operator with information about each peer in the
+/// network.
+pub const PEERS_CONFIG_MAP_NAME: &str = "keramik-peers";
+
+pub const CERAMIC_SERVICE_IPFS_PORT: i32 = 5001;
+pub const CERAMIC_SERVICE_API_PORT: i32 = 7007;
+
+pub const INIT_CONFIG_MAP_NAME: &str = "ceramic-init";
+pub const ADMIN_SECRET_NAME: &str = "ceramic-admin";
+
+pub const CAS_SERVICE_NAME: &str = "cas";
+pub const CAS_IPFS_SERVICE_NAME: &str = "cas-ipfs";
+pub const CAS_SERVICE_IPFS_PORT: i32 = 5001;
+pub const CAS_POSTGRES_SERVICE_NAME: &str = "cas-postgres";
+pub const CAS_POSTGRES_SECRET_NAME: &str = "postgres-auth";
+pub const GANACHE_SERVICE_NAME: &str = "ganache";
+pub const LOCALSTACK_SERVICE_NAME: &str = "localstack";
+
+pub const CERAMIC_APP: &str = "ceramic";
+pub const CAS_APP: &str = "cas";
+pub const CAS_POSTGRES_APP: &str = "cas-postgres";
+pub const CAS_IPFS_APP: &str = "cas-ipfs";
+pub const GANACHE_APP: &str = "ganache";
+pub const LOCALSTACK_APP: &str = "localstack";
+pub const CERAMIC_LOCAL_NETWORK_TYPE: &str = "local";
+
+pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 
 /// Handle errors during reconciliation.
 fn on_error(
@@ -124,40 +161,6 @@ pub async fn run() {
         })
         .await;
 }
-
-// A list of constants used in various K8s resources.
-//
-// When should you use a constant vs just hardcode the string literal directly?
-//
-// K8s uses lots of names to relate various resources (i.e. port names).
-// We DO NOT want to use a constant for all of those use cases. However if a value
-// spans multiple resources then we should create a constant for it.
-
-pub const CONTROLLER_NAME: &str = "keramik";
-pub const CERAMIC_SERVICE_IPFS_PORT: i32 = 5001;
-pub const CERAMIC_SERVICE_API_PORT: i32 = 7007;
-
-pub const INIT_CONFIG_MAP_NAME: &str = "ceramic-init";
-pub const PEERS_CONFIG_MAP_NAME: &str = "keramik-peers";
-pub const ADMIN_SECRET_NAME: &str = "ceramic-admin";
-
-pub const CAS_SERVICE_NAME: &str = "cas";
-pub const CAS_IPFS_SERVICE_NAME: &str = "cas-ipfs";
-pub const CAS_SERVICE_IPFS_PORT: i32 = 5001;
-pub const CAS_POSTGRES_SERVICE_NAME: &str = "cas-postgres";
-pub const CAS_POSTGRES_SECRET_NAME: &str = "postgres-auth";
-pub const GANACHE_SERVICE_NAME: &str = "ganache";
-pub const LOCALSTACK_SERVICE_NAME: &str = "localstack";
-
-pub const CERAMIC_APP: &str = "ceramic";
-pub const CAS_APP: &str = "cas";
-pub const CAS_POSTGRES_APP: &str = "cas-postgres";
-pub const CAS_IPFS_APP: &str = "cas-ipfs";
-pub const GANACHE_APP: &str = "ganache";
-pub const LOCALSTACK_APP: &str = "localstack";
-pub const CERAMIC_LOCAL_NETWORK_TYPE: &str = "local";
-
-pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 
 const MAX_CERAMICS: usize = 10;
 
@@ -703,46 +706,6 @@ async fn reset_bootstrap_job(
     Ok(())
 }
 
-// Contains top level config for the network
-pub struct NetworkConfig {
-    pub private_key_secret: Option<String>,
-    pub network_type: String,
-    pub pubsub_topic: String,
-    pub eth_rpc_url: String,
-    pub cas_api_url: String,
-}
-
-impl Default for NetworkConfig {
-    fn default() -> Self {
-        Self {
-            private_key_secret: None,
-            network_type: CERAMIC_LOCAL_NETWORK_TYPE.to_owned(),
-            pubsub_topic: "/ceramic/local-keramik".to_owned(),
-            eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
-            cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
-        }
-    }
-}
-
-impl From<&NetworkSpec> for NetworkConfig {
-    fn from(value: &NetworkSpec) -> Self {
-        let default = NetworkConfig::default();
-        Self {
-            private_key_secret: value.private_key_secret.to_owned(),
-            network_type: value
-                .network_type
-                .to_owned()
-                .unwrap_or(default.network_type),
-            pubsub_topic: value
-                .pubsub_topic
-                .to_owned()
-                .unwrap_or(default.pubsub_topic),
-            eth_rpc_url: value.eth_rpc_url.to_owned().unwrap_or(default.eth_rpc_url),
-            cas_api_url: value.cas_api_url.to_owned().unwrap_or(default.cas_api_url),
-        }
-    }
-}
-
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
 mod tests {
@@ -752,16 +715,14 @@ mod tests {
     use super::{reconcile, Network};
 
     use crate::{
+        labels::managed_labels,
         network::{
-            cas::CasSpec,
-            ceramic::{GoIpfsSpec, IpfsSpec, RustIpfsSpec},
-            datadog::DataDogSpec,
+            ipfs_rpc::{tests::MockIpfsRpcClientTest, PeerStatus},
             stub::{CeramicStub, Stub},
-            utils::{tests::MockIpfsRpcClientTest, PeerStatus, ResourceLimitsSpec},
-            CeramicSpec, NetworkSpec, NetworkStatus,
+            CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, NetworkSpec, NetworkStatus,
+            ResourceLimitsSpec, RustIpfsSpec,
         },
         utils::{
-            managed_labels,
             test::{timeout_after_1s, ApiServerVerifier, WithStatus},
             Context,
         },

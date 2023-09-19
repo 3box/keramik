@@ -17,7 +17,7 @@ use k8s_openapi::{
     },
 };
 
-use crate::utils::selector_labels;
+use crate::labels::selector_labels;
 
 use crate::simulation::controller::{OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME, OTEL_CR};
 

@@ -15,7 +15,7 @@ use k8s_openapi::{
 
 use crate::simulation::controller::PROM_CONFIG_MAP_NAME;
 
-use crate::utils::selector_labels;
+use crate::labels::selector_labels;
 
 pub const PROM_APP: &str = "prometheus";
 

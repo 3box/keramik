@@ -1,17 +1,8 @@
 use std::collections::BTreeMap;
 
 use k8s_openapi::api::core::v1::{EnvVar, EnvVarSource, ObjectFieldSelector};
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
 
-/// Describes if and how to configure datadog telemetry
-#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct DataDogSpec {
-    pub enabled: Option<bool>,
-    pub version: Option<String>,
-    pub profiling_enabled: Option<bool>,
-}
+use crate::network::DataDogSpec;
 
 /// Describes if and how to configure datadog telemetry
 pub struct DataDogConfig {

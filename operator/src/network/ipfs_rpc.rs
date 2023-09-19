@@ -1,19 +1,9 @@
-use std::collections::BTreeMap;
-
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
-use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use keramik_common::peer_info::IpfsPeerInfo;
 use multiaddr::{Multiaddr, Protocol};
 use multihash::Multihash;
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
-
-#[derive(serde::Deserialize)]
-struct ErrorResponse {
-    #[serde(rename = "Message")]
-    message: String,
-}
+use serde::Deserialize;
 
 /// Define the behavior we consume from the IPFS RPC API.
 #[async_trait]
@@ -21,12 +11,17 @@ pub trait IpfsRpcClient {
     async fn peer_info(&self, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo>;
     async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus>;
 }
-
 /// Status of the current peer
 #[derive(Debug, Clone)]
 pub struct PeerStatus {
     /// Number of connected peers
     pub connected_peers: i32,
+}
+
+#[derive(Deserialize)]
+struct ErrorResponse {
+    #[serde(rename = "Message")]
+    message: String,
 }
 
 pub struct HttpRpcClient;
@@ -112,51 +107,6 @@ impl IpfsRpcClient for HttpRpcClient {
         Ok(PeerStatus {
             connected_peers: data.peers.unwrap_or_default().len() as i32,
         })
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
-#[serde(rename_all = "camelCase")]
-pub struct ResourceLimitsSpec {
-    /// Cpu resource limit
-    pub cpu: Option<Quantity>,
-    /// Memory resource limit
-    pub memory: Option<Quantity>,
-    // Ephemeral storage resource limit
-    pub storage: Option<Quantity>,
-}
-
-#[derive(Clone)]
-pub struct ResourceLimitsConfig {
-    /// Cpu resource limit
-    pub cpu: Quantity,
-    /// Memory resource limit
-    pub memory: Quantity,
-    // Ephemeral storage resource limit
-    pub storage: Quantity,
-}
-
-impl ResourceLimitsConfig {
-    pub fn from_spec(spec: Option<ResourceLimitsSpec>, defaults: Self) -> Self {
-        if let Some(spec) = spec {
-            Self {
-                cpu: spec.cpu.unwrap_or(defaults.cpu),
-                memory: spec.memory.unwrap_or(defaults.memory),
-                storage: spec.storage.unwrap_or(defaults.storage),
-            }
-        } else {
-            defaults
-        }
-    }
-}
-
-impl From<ResourceLimitsConfig> for BTreeMap<String, Quantity> {
-    fn from(value: ResourceLimitsConfig) -> Self {
-        BTreeMap::from_iter([
-            ("cpu".to_owned(), value.cpu),
-            ("ephemeral-storage".to_owned(), value.storage),
-            ("memory".to_owned(), value.memory),
-        ])
     }
 }
 

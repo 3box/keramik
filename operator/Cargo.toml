@@ -1,11 +1,38 @@
-
 [[bin]]
 path = "src/crdgen.rs"
 name = "crdgen"
+required-features = ["crdgen"]
 
 [[bin]]
 path = "src/main.rs"
 name = "keramik-operator"
+required-features = ["controller"]
+
+
+[features]
+default = ["controller", "crdgen"]
+crdgen = ["dep:serde_yaml"]
+controller = [
+    "dep:anyhow",
+    "dep:async-trait",
+    "dep:clap",
+    "dep:futures",
+    "dep:hex",
+    "dep:multiaddr",
+    "dep:multibase",
+    "dep:multihash",
+    "dep:opentelemetry",
+    "dep:reqwest",
+    "dep:serde_yaml",
+    "dep:thiserror",
+    "dep:tokio",
+    "dep:tracing",
+    "dep:tracing-log",
+    # Enable keramik-common/telemetry feature if the controller is enabled.
+    "keramik-common/telemetry",
+    "kube/client",
+]
+
 
 [package]
 name = "keramik-operator"
@@ -14,14 +41,11 @@ version = "0.0.1"
 description = "K8s operator binary for automating Ceramic networks"
 
 [dependencies]
-async-trait = "0.1.68"
-futures = "0.3"
-hex = "0.4.3"
-rand = "0.8.5"
-serde_yaml = "0.9.21"
-thiserror = "1"
-anyhow.workspace = true
-clap.workspace = true
+anyhow = { workspace = true, optional = true }
+async-trait = { version = "0.1.68", optional = true }
+clap = { workspace = true, optional = true }
+futures = { version = "0.3", optional = true }
+hex = { version = "0.4.3", optional = true }
 k8s-openapi = { version = "0.20", features = [
     "v1_26",
     "schemars",
@@ -30,23 +54,21 @@ keramik-common.workspace = true
 kube = { version = "0.86", features = [
     "derive",
     "runtime",
-], default-features = true }
-multiaddr.workspace = true
-multibase.workspace = true
-multihash.workspace = true
-opentelemetry.workspace = true
-opentelemetry-otlp.workspace = true
-reqwest.workspace = true
+], default-features = false }
+multiaddr = { workspace = true, optional = true }
+multibase = { workspace = true, optional = true }
+multihash = { workspace = true, optional = true }
+opentelemetry = { workspace = true, optional = true }
+rand = { version = "0.8.5" }
+reqwest = { workspace = true, optional = true }
 schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-tokio.workspace = true
-tonic.workspace = true
-tracing.workspace = true
-tracing-log.workspace = true
-tracing-opentelemetry.workspace = true
-tracing-subscriber.workspace = true
-
+serde_yaml = { version = "0.9.21", optional = true }
+thiserror = { version = "1", optional = true }
+tokio = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
+tracing-log = { workspace = true, optional = true }
 
 [dev-dependencies]
 expect-patch.workspace = true

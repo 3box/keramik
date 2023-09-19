@@ -16,7 +16,7 @@ use k8s_openapi::{
     apimachinery::pkg::apis::meta::v1::OwnerReference,
 };
 
-use crate::network::utils::IpfsRpcClient;
+use crate::{labels::managed_labels, network::ipfs_rpc::IpfsRpcClient, CONTROLLER_NAME};
 
 use kube::{
     api::{DeleteParams, Patch, PatchParams},
@@ -51,28 +51,6 @@ impl<R> Context<R, StdRng> {
             rng: Mutex::new(StdRng::from_rng(thread_rng())?),
         })
     }
-}
-
-/// A list of constants used in various K8s resources
-pub const CONTROLLER_NAME: &str = "keramik";
-
-/// Create lables that can be used as a unique selector for a given app name.
-pub fn selector_labels(app: &str) -> Option<BTreeMap<String, String>> {
-    Some(BTreeMap::from_iter(vec![(
-        "app".to_owned(),
-        app.to_owned(),
-    )]))
-}
-
-/// Manage by label
-pub const MANAGED_BY_LABEL_SELECTOR: &str = "managed-by=keramik";
-
-/// Labels that indicate the resource is managed by the keramik operator.
-pub fn managed_labels() -> Option<BTreeMap<String, String>> {
-    Some(BTreeMap::from_iter(vec![(
-        "managed-by".to_owned(),
-        "keramik".to_owned(),
-    )]))
 }
 
 /// Apply a Service

@@ -21,29 +21,31 @@ use kube::{
     },
     Resource, ResourceExt,
 };
-use rand::RngCore;
+use rand::{thread_rng, Rng, RngCore};
 
 use tracing::{debug, error};
 
-use crate::simulation::{
-    manager, manager::ManagerConfig, redis, worker, worker::WorkerConfig, JobImageConfig,
-    Simulation, SimulationStatus,
+use crate::{
+    labels::MANAGED_BY_LABEL_SELECTOR,
+    simulation::{
+        job::JobImageConfig, manager, manager::ManagerConfig, redis, worker, worker::WorkerConfig,
+        Simulation, SimulationStatus,
+    },
 };
 
 use crate::monitoring::{jaeger, opentelemetry, prometheus};
 
 use crate::network::{
-    controller::PEERS_CONFIG_MAP_NAME,
+    ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
     peers::PEERS_MAP_KEY,
-    utils::{HttpRpcClient, IpfsRpcClient},
-    Network,
+    Network, PEERS_CONFIG_MAP_NAME,
 };
 
 use keramik_common::peer_info::Peer;
 
 use crate::utils::{
     apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map, apply_job,
-    apply_service, apply_stateful_set, Context, MANAGED_BY_LABEL_SELECTOR,
+    apply_service, apply_stateful_set, Context,
 };
 
 /// Handle errors during reconciliation.
@@ -136,7 +138,10 @@ async fn reconcile(
     let status = if let Some(status) = &simulation.status {
         status.clone()
     } else {
-        SimulationStatus::default()
+        // Generate new status with random nonce
+        SimulationStatus {
+            nonce: thread_rng().gen(),
+        }
     };
 
     let ns = simulation.namespace().unwrap();
@@ -487,7 +492,7 @@ mod tests {
     use super::{reconcile, Simulation};
 
     use crate::{
-        network::utils::tests::MockIpfsRpcClientTest,
+        network::ipfs_rpc::tests::MockIpfsRpcClientTest,
         simulation::{stub::Stub, SimulationSpec},
         utils::{test::ApiServerVerifier, Context},
     };

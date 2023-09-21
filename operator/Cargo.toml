@@ -54,6 +54,7 @@ keramik-common.workspace = true
 kube = { version = "0.86", features = [
     "derive",
     "runtime",
+    "openssl-tls",
 ], default-features = false }
 multiaddr = { workspace = true, optional = true }
 multibase = { workspace = true, optional = true }

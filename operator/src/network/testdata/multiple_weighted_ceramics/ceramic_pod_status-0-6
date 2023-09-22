@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/api/v1/namespaces/keramik-test/pods/ceramic-0-6/status",
+    headers: {},
+    body: ,
+}

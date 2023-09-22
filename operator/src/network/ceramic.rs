@@ -212,6 +212,10 @@ impl CeramicInfo {
     pub fn new_name(&self, name: &str) -> String {
         format!("{name}-{}", self.suffix)
     }
+    /// Determine the pod name
+    pub fn pod_name(&self, peer: i32) -> String {
+        format!("{}-{peer}", self.stateful_set)
+    }
     /// Determine the IPFS RPC address of a Ceramic peer
     pub fn ipfs_rpc_addr(&self, ns: &str, peer: i32) -> String {
         format!(

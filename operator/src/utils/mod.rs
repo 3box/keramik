@@ -273,8 +273,7 @@ pub fn generate_random_secret(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
     len: usize,
 ) -> String {
-    let mut secret_bytes: Vec<u8> = Vec::new();
-    secret_bytes.resize(len, 0);
+    let mut secret_bytes: Vec<u8> = vec![0; len];
     let mut rng = cx.rng.lock().expect("should be able to acquire lock");
     rng.fill_bytes(&mut secret_bytes);
     hex::encode(secret_bytes)

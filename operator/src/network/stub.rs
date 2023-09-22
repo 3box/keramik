@@ -2,7 +2,11 @@
 
 use expect_patch::ExpectPatch;
 use expect_test::{expect_file, ExpectFile};
-use k8s_openapi::api::{apps::v1::StatefulSetSpec, batch::v1::Job, core::v1::Secret};
+use k8s_openapi::api::{
+    apps::v1::StatefulSet,
+    batch::v1::Job,
+    core::v1::{Pod, Secret},
+};
 
 use crate::{
     labels::managed_labels,
@@ -54,6 +58,7 @@ pub struct Stub {
     pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
     pub ceramic_admin_secret: Option<(ExpectPatch<ExpectFile>, Option<Secret>)>,
     pub ceramic_deletes: Vec<ExpectPatch<ExpectFile>>,
+    pub ceramic_pod_status: Vec<(ExpectPatch<ExpectFile>, Option<Pod>)>,
     pub keramik_peers_configmap: ExpectPatch<ExpectFile>,
     pub ceramics: Vec<CeramicStub>,
     pub cas_service: ExpectPatch<ExpectFile>,
@@ -127,6 +132,7 @@ impl Default for Stub {
                 expect_file!["./testdata/default_stubs/delete_ceramic_ss_9"].into(),
                 expect_file!["./testdata/default_stubs/delete_ceramic_svc_9"].into(),
             ],
+            ceramic_pod_status: vec![],
             ceramics: vec![CeramicStub {
                 configmaps: vec![
                     expect_file!["./testdata/default_stubs/ceramic_init_configmap"].into(),
@@ -261,7 +267,7 @@ impl Stub {
         }
         for ceramic_delete in self.ceramic_deletes {
             fakeserver
-                .handle_request_response(ceramic_delete, None::<&StatefulSetSpec>)
+                .handle_request_response(ceramic_delete, None::<&StatefulSet>)
                 .await
                 .expect("ceramic should delete");
         }
@@ -280,6 +286,12 @@ impl Stub {
                 .handle_apply(c.stateful_set)
                 .await
                 .expect("ceramic stateful set should apply");
+        }
+        for ceramic_pod_status in self.ceramic_pod_status {
+            fakeserver
+                .handle_request_response(ceramic_pod_status.0, ceramic_pod_status.1.as_ref())
+                .await
+                .expect("ceramic pod status should exist");
         }
         fakeserver
             .handle_apply(self.keramik_peers_configmap)

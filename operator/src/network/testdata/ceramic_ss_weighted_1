@@ -17,7 +17,7 @@ Request {
       },
       "spec": {
         "podManagementPolicy": "Parallel",
-        "replicas": 256,
+        "replicas": 2,
         "selector": {
           "matchLabels": {
             "app": "ceramic"

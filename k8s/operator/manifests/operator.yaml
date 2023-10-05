@@ -18,7 +18,7 @@ metadata:
   name: keramik-operator
 rules:
   - apiGroups: [""]
-    resources: ["namespaces","configmaps","secrets","pods", "serviceaccounts"]
+    resources: ["namespaces","configmaps","secrets","pods","pods/status", "serviceaccounts"]
     verbs: ["create", "get", "list", "watch", "patch"]
   - apiGroups: [""]
     resources: ["services"]

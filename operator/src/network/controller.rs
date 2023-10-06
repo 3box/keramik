@@ -2,10 +2,13 @@ use std::{cmp::min, collections::BTreeMap, str::from_utf8, sync::Arc, time::Dura
 
 use anyhow::anyhow;
 use futures::stream::StreamExt;
-use k8s_openapi::api::{
-    apps::v1::{StatefulSet, StatefulSetStatus},
-    batch::v1::Job,
-    core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceStatus},
+use k8s_openapi::{
+    api::{
+        apps::v1::{StatefulSet, StatefulSetStatus},
+        batch::v1::Job,
+        core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceStatus},
+    },
+    apimachinery::pkg::apis::meta::v1::Time,
 };
 use keramik_common::peer_info::{CeramicPeerInfo, Peer};
 use kube::{
@@ -23,7 +26,7 @@ use kube::{
     Resource,
 };
 use rand::RngCore;
-use tracing::{debug, error, trace, warn};
+use tracing::{debug, error, info, trace, warn};
 
 use crate::{
     labels::{managed_labels, MANAGED_BY_LABEL_SELECTOR},
@@ -34,6 +37,7 @@ use crate::{
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
         peers, BootstrapSpec, CasSpec, Network, NetworkStatus,
     },
+    utils::Clock,
     CONTROLLER_NAME,
 };
 
@@ -82,7 +86,7 @@ pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 fn on_error(
     _network: Arc<Network>,
     _error: &Error,
-    _context: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    _context: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
 ) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
@@ -167,7 +171,7 @@ const MAX_CERAMICS: usize = 10;
 /// Perform a reconcile pass for the Network CRD
 async fn reconcile(
     network: Arc<Network>,
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
 ) -> Result<Action, Error> {
     let spec = network.spec();
     debug!(?spec, "reconcile");
@@ -183,11 +187,32 @@ async fn reconcile(
         });
     };
 
-    let datadog: DataDogConfig = (&spec.datadog).into();
+    // Check if the network should die, otherwise update expiration_time.
+    let creation_timestamp = network.meta().creation_timestamp.as_ref();
+    status.expiration_time = match (creation_timestamp, &spec.ttl_seconds) {
+        (Some(created), Some(ttl_seconds)) => {
+            let now = cx.clock.now();
+            let expiration_time = created.0 + Duration::from_secs(*ttl_seconds);
+            if now > expiration_time {
+                info!("network TTL expired, deleting network");
+                delete_network(cx.clone(), &network.name_unchecked()).await?;
+                // Return early no need to update status
+                return Ok(Action::await_change());
+            };
+            Some(Time(expiration_time))
+        }
+        (None, Some(_)) => {
+            warn!("no creation time on network resource, cannot enforce TTL");
+            None
+        }
+        _ => None,
+    };
 
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
     let net_config: NetworkConfig = spec.into();
+
+    let datadog: DataDogConfig = (&spec.datadog).into();
 
     // Only create CAS resources if the Ceramic network was "local"
     let ceramic_configs: CeramicConfigs = spec.ceramic.clone().into();
@@ -286,7 +311,7 @@ async fn reconcile(
 
 // Applies the namespace
 async fn apply_network_namespace(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     network: Arc<Network>,
 ) -> Result<String, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
@@ -310,8 +335,18 @@ async fn apply_network_namespace(
     Ok(ns)
 }
 
+async fn delete_network(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    name: &str,
+) -> Result<(), kube::error::Error> {
+    let networks: Api<Network> = Api::all(cx.k_client.clone());
+
+    networks.delete(name, &DeleteParams::default()).await?;
+    Ok(())
+}
+
 async fn apply_cas(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     cas_spec: Option<CasSpec>,
@@ -411,13 +446,13 @@ async fn apply_cas(
 }
 
 async fn is_cas_postgres_secret_missing(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, CAS_POSTGRES_SECRET_NAME).await
 }
 async fn create_cas_postgres_secret(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
 ) -> Result<(), kube::error::Error> {
@@ -434,13 +469,13 @@ async fn create_cas_postgres_secret(
 }
 
 async fn is_admin_secret_missing(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     is_secret_missing(cx, ns, ADMIN_SECRET_NAME).await
 }
 async fn create_admin_secret(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     source_secret_name: Option<&String>,
@@ -480,7 +515,7 @@ async fn create_admin_secret(
 
 // Applies the ceramic related resources
 async fn apply_ceramic<'a>(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     bundle: &CeramicBundle<'a>,
@@ -502,7 +537,7 @@ async fn apply_ceramic<'a>(
 }
 // Deletes the configured ceramic
 async fn delete_ceramic(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     info: &CeramicInfo,
 ) -> Result<(), kube::error::Error> {
@@ -512,7 +547,7 @@ async fn delete_ceramic(
 }
 
 async fn apply_ceramic_service(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     info: &CeramicInfo,
@@ -526,7 +561,7 @@ async fn apply_ceramic_service(
 }
 
 async fn apply_ceramic_stateful_set<'a>(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     bundle: &CeramicBundle<'a>,
@@ -541,7 +576,7 @@ async fn apply_ceramic_stateful_set<'a>(
 }
 
 async fn apply_bootstrap_job(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     spec: Option<BootstrapSpec>,
@@ -561,7 +596,7 @@ async fn apply_bootstrap_job(
 // Reports the minimum number of connected peers for any given peer.
 // If not peers are ready None is returned.
 async fn update_peer_status(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     ceramics: &[CeramicBundle<'_>],
@@ -662,7 +697,7 @@ fn is_pod_ready(pod: &Pod) -> bool {
 }
 
 async fn is_secret_missing(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     name: &str,
 ) -> Result<bool, kube::error::Error> {
@@ -671,7 +706,7 @@ async fn is_secret_missing(
 }
 
 async fn create_secret(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
     name: &str,
@@ -701,7 +736,7 @@ async fn create_secret(
 // Deletes the bootstrap job if there is not an active job already running.
 // Does nothing when the job does not exist.
 async fn reset_bootstrap_job(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
 ) -> Result<(), kube::error::Error> {
     // Check if there is an active job already running.
@@ -730,8 +765,8 @@ async fn reset_bootstrap_job(
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeMap;
     use std::sync::Arc;
+    use std::{collections::BTreeMap, time::Duration};
 
     use super::{reconcile, Network};
 
@@ -745,7 +780,7 @@ mod tests {
         },
         utils::{
             test::{timeout_after_1s, ApiServerVerifier, WithStatus},
-            Context,
+            Clock, Context,
         },
     };
 
@@ -755,13 +790,22 @@ mod tests {
             batch::v1::{Job, JobStatus},
             core::v1::{Pod, PodCondition, PodStatus, Secret},
         },
-        apimachinery::pkg::api::resource::Quantity,
+        apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::Time},
+        chrono::{DateTime, TimeZone, Utc},
         ByteString,
     };
     use keramik_common::peer_info::IpfsPeerInfo;
+    use kube::Resource;
     use tracing::debug;
     use tracing_test::traced_test;
 
+    #[derive(Clone, Copy)]
+    struct StaticClock(DateTime<Utc>);
+    impl Clock for StaticClock {
+        fn now(&self) -> DateTime<Utc> {
+            self.0
+        }
+    }
     // Construct default mock for IpfsRpc trait
     fn default_ipfs_rpc_mock() -> MockIpfsRpcClientTest {
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
@@ -865,7 +909,7 @@ mod tests {
                 replicas: 2,
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
+                ..Default::default()
             });
         // Setup peer info
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
@@ -936,7 +980,7 @@ mod tests {
             -        "replicas": 0,
             -        "readyReplicas": 0,
             -        "namespace": null,
-            -        "peers": []
+            -        "peers": [],
             +        "replicas": 2,
             +        "readyReplicas": 2,
             +        "namespace": "keramik-test",
@@ -970,10 +1014,10 @@ mod tests {
             +              ]
             +            }
             +          }
-            +        ]
+            +        ],
+                     "expirationTime": null
                    }
                  },
-             }
         "#]]);
         stub.bootstrap_job.push((
             expect_file!["./testdata/bootstrap_job_two_peers_get"],
@@ -1010,7 +1054,7 @@ mod tests {
                 replicas: 2,
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
+                ..Default::default()
             });
         // Setup peer info
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
@@ -1065,7 +1109,7 @@ mod tests {
             +        "replicas": 2,
                      "readyReplicas": 0,
             -        "namespace": null,
-            -        "peers": []
+            -        "peers": [],
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
@@ -1077,10 +1121,10 @@ mod tests {
             +              ]
             +            }
             +          }
-            +        ]
+            +        ],
+                     "expirationTime": null
                    }
                  },
-             }
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -1103,7 +1147,7 @@ mod tests {
                 replicas: 2,
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
+                ..Default::default()
             });
         // Setup peer info
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
@@ -1173,7 +1217,7 @@ mod tests {
             -        "replicas": 0,
             -        "readyReplicas": 0,
             -        "namespace": null,
-            -        "peers": []
+            -        "peers": [],
             +        "replicas": 2,
             +        "readyReplicas": 2,
             +        "namespace": "keramik-test",
@@ -1207,10 +1251,10 @@ mod tests {
             +              ]
             +            }
             +          }
-            +        ]
+            +        ],
+                     "expirationTime": null
                    }
                  },
-             }
         "#]]);
         stub.bootstrap_job.push((
             expect_file!["./testdata/bootstrap_job_two_peers_get"],
@@ -1248,7 +1292,7 @@ mod tests {
                 replicas: 2,
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
+                ..Default::default()
             });
         // Setup peer info
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
@@ -1318,7 +1362,7 @@ mod tests {
             -        "replicas": 0,
             -        "readyReplicas": 0,
             -        "namespace": null,
-            -        "peers": []
+            -        "peers": [],
             +        "replicas": 2,
             +        "readyReplicas": 2,
             +        "namespace": "keramik-test",
@@ -1352,10 +1396,10 @@ mod tests {
             +              ]
             +            }
             +          }
-            +        ]
+            +        ],
+                     "expirationTime": null
                    }
                  },
-             }
         "#]]);
         // Bootstrap is applied if we have at least two peers.
         // However we do not expect to see any GET/DELETE for the bootstrap job as all peers report
@@ -1385,7 +1429,7 @@ mod tests {
                 replicas: 2,
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
+                ..Default::default()
             });
         // Setup peer info
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
@@ -1455,7 +1499,7 @@ mod tests {
             -        "replicas": 0,
             -        "readyReplicas": 0,
             -        "namespace": null,
-            -        "peers": []
+            -        "peers": [],
             +        "replicas": 2,
             +        "readyReplicas": 2,
             +        "namespace": "keramik-test",
@@ -1489,10 +1533,10 @@ mod tests {
             +              ]
             +            }
             +          }
-            +        ]
+            +        ],
+                     "expirationTime": null
                    }
                  },
-             }
         "#]]);
         // Bootstrap is applied if we have at least two peers.
         // However we do not expect to see any GET/DELETE for the bootstrap job as all peers report
@@ -1585,7 +1629,7 @@ mod tests {
             -        "replicas": 0,
             -        "readyReplicas": 0,
             -        "namespace": null,
-            -        "peers": []
+            -        "peers": [],
             +        "replicas": 2,
             +        "readyReplicas": 2,
             +        "namespace": "keramik-test",
@@ -1619,10 +1663,10 @@ mod tests {
             +              ]
             +            }
             +          }
-            +        ]
+            +        ],
+                     "expirationTime": null
                    }
                  },
-             }
         "#]]);
         // Bootstrap is applied if we have at least two peers.
         // However we do not expect to see any GET/DELETE for the bootstrap job as all peers report
@@ -1671,7 +1715,7 @@ mod tests {
                      "replicas": 0,
                      "readyReplicas": 0,
                      "namespace": null,
-            -        "peers": []
+            -        "peers": [],
             +        "peers": [
             +          {
             +            "ipfs": {
@@ -1682,10 +1726,10 @@ mod tests {
             +              ]
             +            }
             +          }
-            +        ]
+            +        ],
+                     "expirationTime": null
                    }
                  },
-             }
         "#]]);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
@@ -1707,7 +1751,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -1721,9 +1764,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.ceramics[0]
             .configmaps
@@ -1825,7 +1868,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -1839,9 +1881,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.ceramics[0]
             .configmaps
@@ -1962,7 +2004,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -1976,9 +2017,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.ceramics[0]
             .configmaps
@@ -2085,7 +2126,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -2099,9 +2139,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
@@ -2160,7 +2200,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -2174,9 +2213,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
@@ -2245,7 +2284,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -2259,9 +2297,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
@@ -2413,7 +2451,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -2427,9 +2464,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
@@ -2607,7 +2644,6 @@ mod tests {
             .with_status(NetworkStatus {
                 ready_replicas: 0,
                 namespace: Some("keramik-test".to_owned()),
-                peers: vec![],
                 ..Default::default()
             });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -2623,9 +2659,9 @@ mod tests {
                      "readyReplicas": 0,
             -        "namespace": null,
             +        "namespace": "keramik-test",
-                     "peers": []
+                     "peers": [],
+                     "expirationTime": null
                    }
-                 },
         "#]]);
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
@@ -2968,6 +3004,61 @@ mod tests {
 
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_expired() {
+        // Expect no calls
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
+
+        let clock = StaticClock(Utc.with_ymd_and_hms(2023, 10, 11, 9, 35, 0).unwrap());
+
+        let (testctx, api_handle) = Context::test_with_clock(mock_rpc_client, clock);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mut network = Network::test().with_spec(NetworkSpec {
+            // Set expiration as 5m from creation
+            ttl_seconds: Some(300),
+            ..Default::default()
+        });
+        // Set creation time as 10m ago
+        network.meta_mut().creation_timestamp = Some(Time(clock.now() - Duration::from_secs(600)));
+
+        // Expect network to be deleted
+        let mut stub = Stub::default();
+        stub.delete = Some(expect_file!["./testdata/delete_network"].into());
+
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_not_expired() {
+        let mock_rpc_client = default_ipfs_rpc_mock();
+
+        let clock = StaticClock(Utc.with_ymd_and_hms(2023, 10, 11, 9, 35, 0).unwrap());
+
+        let (testctx, api_handle) = Context::test_with_clock(mock_rpc_client, clock);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mut network = Network::test().with_spec(NetworkSpec {
+            // Set expiration as 10m into the future
+            ttl_seconds: Some(600),
+            ..Default::default()
+        });
+        // Set creation time as 5m ago
+        network.meta_mut().creation_timestamp = Some(Time(clock.now() - Duration::from_secs(300)));
+
+        // Expect network to report expiration time.
+        let mut stub = Stub::default();
+        stub.status = expect_file!["./testdata/not_expired_status"].into();
+
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
             .await

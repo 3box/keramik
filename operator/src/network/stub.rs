@@ -51,6 +51,7 @@ impl WithStatus for Network {
 #[derive(Debug)]
 pub struct Stub {
     network: Network,
+    pub delete: Option<ExpectPatch<ExpectFile>>,
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
     pub postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
@@ -84,6 +85,7 @@ pub struct CeramicStub {
 impl Default for Stub {
     fn default() -> Self {
         Self {
+            delete: None,
             network: Network::test(),
             namespace: expect_file!["./testdata/default_stubs/namespace"].into(),
             status: expect_file!["./testdata/default_stubs/status"].into(),
@@ -188,6 +190,15 @@ impl Stub {
     // Use explicit function since async closures are not yet supported
     async fn _run(self, mut fakeserver: ApiServerVerifier) -> Network {
         // We need to handle each expected call in sequence
+
+        if let Some(delete) = self.delete {
+            fakeserver
+                .handle_request_response(delete, Some(&self.network))
+                .await
+                .expect("should be able to delete network");
+            return self.network;
+        }
+
         fakeserver
             .handle_apply(self.namespace)
             .await

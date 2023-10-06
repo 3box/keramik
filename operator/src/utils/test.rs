@@ -9,17 +9,32 @@ use rand::rngs::mock::StepRng;
 use reqwest::header::HeaderMap;
 use serde::{Deserialize, Serialize};
 
-use crate::{network::ipfs_rpc::IpfsRpcClient, utils::Context};
+use crate::{
+    network::ipfs_rpc::IpfsRpcClient,
+    utils::{Clock, Context, UtcClock},
+};
 
 pub type ApiServerHandle = tower_test::mock::Handle<http::Request<Body>, http::Response<Body>>;
 
 // Add test specific implementation to the Context
-impl<R> Context<R, StepRng>
+impl<R> Context<R, StepRng, UtcClock>
 where
     R: IpfsRpcClient,
 {
     // Create a test context with a mocked kube and rpc clients
+    // Uses real clock
     pub fn test(mock_rpc_client: R) -> (Arc<Self>, ApiServerHandle) {
+        Self::test_with_clock(mock_rpc_client, UtcClock)
+    }
+}
+
+impl<R, C> Context<R, StepRng, C>
+where
+    R: IpfsRpcClient,
+    C: Clock,
+{
+    // Create a test context with a mocked kube and rpc clients
+    pub fn test_with_clock(mock_rpc_client: R, clock: C) -> (Arc<Self>, ApiServerHandle) {
         let (mock_service, handle) =
             tower_test::mock::pair::<http::Request<Body>, http::Response<Body>>();
         let mock_k_client = Client::new(mock_service, "default");
@@ -27,6 +42,7 @@ where
             k_client: mock_k_client,
             rpc_client: mock_rpc_client,
             rng: Mutex::new(StepRng::new(29, 7)),
+            clock,
         };
         (Arc::new(ctx), handle)
     }

@@ -1,3 +1,9 @@
+[package]
+name = "keramik-operator"
+edition = "2021"
+version = "0.0.1"
+description = "K8s operator binary for automating Ceramic networks"
+
 [[bin]]
 path = "src/crdgen.rs"
 name = "crdgen"
@@ -33,12 +39,6 @@ controller = [
     "kube/client",
 ]
 
-
-[package]
-name = "keramik-operator"
-edition = "2021"
-version = "0.0.1"
-description = "K8s operator binary for automating Ceramic networks"
 
 [dependencies]
 anyhow = { workspace = true, optional = true }

@@ -31,6 +31,7 @@ use crate::{
         job::JobImageConfig, manager, manager::ManagerConfig, redis, worker, worker::WorkerConfig,
         Simulation, SimulationStatus,
     },
+    utils::Clock,
 };
 
 use crate::monitoring::{jaeger, opentelemetry, prometheus};
@@ -52,7 +53,7 @@ use crate::utils::{
 fn on_error(
     _network: Arc<Simulation>,
     _error: &Error,
-    _context: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    _context: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
 ) -> Action {
     Action::requeue(Duration::from_secs(5))
 }
@@ -130,7 +131,7 @@ pub async fn run() {
 /// Perform a reconile pass for the Simulation CRD
 async fn reconcile(
     simulation: Arc<Simulation>,
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
 ) -> Result<Action, Error> {
     let spec = simulation.spec();
     debug!(?spec, "reconcile");
@@ -221,7 +222,7 @@ pub const OTEL_CONFIG_MAP_NAME: &str = "otel-config";
 pub const PROM_CONFIG_MAP_NAME: &str = "prom-config";
 
 async fn apply_manager(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     simulation: Arc<Simulation>,
     config: ManagerConfig,
@@ -252,7 +253,7 @@ async fn apply_manager(
 }
 
 async fn get_num_peers(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
 ) -> Result<u32, kube::error::Error> {
     let config_maps: Api<ConfigMap> = Api::namespaced(cx.k_client.clone(), ns);
@@ -270,7 +271,7 @@ async fn get_num_peers(
 }
 
 async fn redis_ready(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
@@ -285,7 +286,7 @@ async fn redis_ready(
 }
 
 async fn monitoring_ready(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {
     let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
@@ -310,7 +311,7 @@ async fn monitoring_ready(
 }
 
 async fn apply_n_workers(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     peers: u32,
     nonce: u32,
@@ -345,7 +346,7 @@ async fn apply_n_workers(
 }
 
 async fn apply_redis(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
@@ -375,7 +376,7 @@ async fn apply_redis(
 }
 
 async fn apply_jaeger(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
@@ -405,7 +406,7 @@ async fn apply_jaeger(
 }
 
 async fn apply_prometheus(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {
@@ -434,7 +435,7 @@ async fn apply_prometheus(
 }
 
 async fn apply_opentelemetry(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     simulation: Arc<Simulation>,
 ) -> Result<(), kube::error::Error> {

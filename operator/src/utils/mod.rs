@@ -14,6 +14,7 @@ use k8s_openapi::{
         rbac::v1::{ClusterRole, ClusterRoleBinding},
     },
     apimachinery::pkg::apis::meta::v1::OwnerReference,
+    chrono::{DateTime, Utc},
 };
 
 use crate::{labels::managed_labels, network::ipfs_rpc::IpfsRpcClient, CONTROLLER_NAME};
@@ -30,16 +31,18 @@ use rand::{rngs::StdRng, thread_rng, RngCore, SeedableRng};
 use anyhow::Result;
 
 /// Operator Context
-pub struct Context<R, Rng> {
+pub struct Context<R, Rng, C> {
     /// Kube client
     pub k_client: Client,
     /// IPFS client
     pub rpc_client: R,
     /// Random number generator
     pub rng: Mutex<Rng>,
+    /// Clock that provide the current time
+    pub clock: C,
 }
 
-impl<R> Context<R, StdRng> {
+impl<R> Context<R, StdRng, UtcClock> {
     /// Create new context
     pub fn new(k_client: Client, rpc_client: R) -> Result<Self>
     where
@@ -49,13 +52,27 @@ impl<R> Context<R, StdRng> {
             k_client,
             rpc_client,
             rng: Mutex::new(StdRng::from_rng(thread_rng())?),
+            clock: UtcClock,
         })
     }
 }
 
+/// Provides the current time.
+pub trait Clock {
+    /// Report the current time.
+    fn now(&self) -> DateTime<Utc>;
+}
+
+/// Provides the current time using real time.
+pub struct UtcClock;
+impl Clock for UtcClock {
+    fn now(&self) -> DateTime<Utc> {
+        Utc::now()
+    }
+}
 /// Apply a Service
 pub async fn apply_service(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -82,7 +99,7 @@ pub async fn apply_service(
 }
 /// Delete a service in namespace
 pub async fn delete_service(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     name: &str,
 ) -> Result<(), kube::error::Error> {
@@ -97,7 +114,7 @@ pub async fn delete_service(
 
 /// Apply a Job
 pub async fn apply_job(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -123,7 +140,7 @@ pub async fn apply_job(
 
 /// Apply a stateful set in namespace
 pub async fn apply_stateful_set(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -151,7 +168,7 @@ pub async fn apply_stateful_set(
 
 /// Delete a stateful set in namespace
 pub async fn delete_stateful_set(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     name: &str,
 ) -> Result<(), kube::error::Error> {
@@ -166,7 +183,7 @@ pub async fn delete_stateful_set(
 
 /// Apply account in namespace
 pub async fn apply_account(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -192,7 +209,7 @@ pub async fn apply_account(
 
 /// Apply cluster role
 pub async fn apply_cluster_role(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     _ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -217,7 +234,7 @@ pub async fn apply_cluster_role(
 
 /// Apply cluster role binding
 pub async fn apply_cluster_role_binding(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     orefs: Vec<OwnerReference>,
     name: &str,
     crb: ClusterRoleBinding,
@@ -243,7 +260,7 @@ pub async fn apply_cluster_role_binding(
 
 /// Apply a config map
 pub async fn apply_config_map(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
@@ -270,7 +287,7 @@ pub async fn apply_config_map(
 
 /// Generate a random, hex-encoded secret
 pub fn generate_random_secret(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore>>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     len: usize,
 ) -> String {
     let mut secret_bytes: Vec<u8> = vec![0; len];

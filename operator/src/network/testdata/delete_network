@@ -1,0 +1,8 @@
+Request {
+    method: "DELETE",
+    uri: "/apis/keramik.3box.io/v1alpha1/networks/test?",
+    headers: {
+        "content-type": "application/json",
+    },
+    body: {},
+}

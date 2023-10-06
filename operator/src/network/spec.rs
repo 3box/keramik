@@ -43,6 +43,9 @@ pub struct NetworkSpec {
     pub cas: Option<CasSpec>,
     /// Descibes if/how datadog should be deployed.
     pub datadog: Option<DataDogSpec>,
+    /// The number of seconds this network should live.
+    /// If unset the network lives forever.
+    pub ttl_seconds: Option<u64>,
 }
 
 /// Current status of the network.
@@ -57,6 +60,9 @@ pub struct NetworkStatus {
     pub namespace: Option<String>,
     /// Information about each Ceramic peer
     pub peers: Vec<Peer>,
+    /// Time when the network will expire and be deleted.
+    /// If unset the network lives forever.
+    pub expiration_time: Option<k8s_openapi::apimachinery::pkg::apis::meta::v1::Time>,
 }
 
 /// BootstrapSpec defines how the network bootstrap process should proceed.

@@ -407,6 +407,47 @@ Request {
               },
               {
                 "command": [
+                  "./node_modules/knex/bin/cli.js",
+                  "migrate:latest"
+                ],
+                "env": [
+                  {
+                    "name": "DB_NAME",
+                    "value": "anchor_db"
+                  },
+                  {
+                    "name": "DB_HOST",
+                    "value": "cas-postgres"
+                  },
+                  {
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "DB_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "NODE_ENV",
+                    "value": "dev"
+                  }
+                ],
+                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+                "imagePullPolicy": "Always",
+                "name": "cas-migrations"
+              },
+              {
+                "command": [
                   "aws",
                   "s3api",
                   "create-bucket",

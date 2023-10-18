@@ -2242,6 +2242,17 @@ mod tests {
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
+            @@ -442,8 +442,8 @@
+                                 "value": "dev"
+                               }
+                             ],
+            -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "cas/cas:dev",
+            +                "imagePullPolicy": "Never",
+                             "name": "cas-migrations"
+                           },
+                           {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

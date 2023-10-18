@@ -37,7 +37,7 @@ rules:
     verbs: ["create", "get", "patch"]
   - apiGroups: ["keramik.3box.io"]
     resources: ["networks", "networks/status", "simulations", "simulations/status"]
-    verbs: ["get", "list", "watch", "patch"]
+    verbs: ["get", "list", "watch", "patch", "delete"]
 ---
 # Binding the role to the account
 kind: ClusterRoleBinding

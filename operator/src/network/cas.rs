@@ -300,6 +300,28 @@ pub fn cas_stateful_set_spec(
                         ..Default::default()
                     },
                     Container {
+                        env: Some(
+                            [
+                                pg_env.clone(),
+                                vec![EnvVar {
+                                    name: "NODE_ENV".to_owned(),
+                                    value: Some("dev".to_owned()),
+                                    ..Default::default()
+                                }],
+                            ]
+                            .concat(),
+                        ),
+                        command: Some(
+                            ["./node_modules/knex/bin/cli.js", "migrate:latest"]
+                                .map(String::from)
+                                .to_vec(),
+                        ),
+                        image: Some(config.image.clone()),
+                        image_pull_policy: Some(config.image_pull_policy.clone()),
+                        name: "cas-migrations".to_owned(),
+                        ..Default::default()
+                    },
+                    Container {
                         env: Some(aws_env.clone()),
                         command: Some(
                             [

@@ -342,11 +342,11 @@ Request {
                   },
                   {
                     "name": "ANCHOR_BATCH_SIZE",
-                    "value": "1"
+                    "value": "20"
                   },
                   {
                     "name": "ANCHOR_BATCH_LINGER",
-                    "value": "5m"
+                    "value": "10s"
                   },
                   {
                     "name": "ANCHOR_BATCH_MONITOR_TICK",

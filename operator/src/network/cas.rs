@@ -426,12 +426,12 @@ pub fn cas_stateful_set_spec(
                                     },
                                     EnvVar {
                                         name: "ANCHOR_BATCH_SIZE".to_owned(),
-                                        value: Some("1".to_owned()),
+                                        value: Some("20".to_owned()),
                                         ..Default::default()
                                     },
                                     EnvVar {
                                         name: "ANCHOR_BATCH_LINGER".to_owned(),
-                                        value: Some("5m".to_owned()),
+                                        value: Some("10s".to_owned()),
                                         ..Default::default()
                                     },
                                     // Disable worker monitoring since we're not launching workers

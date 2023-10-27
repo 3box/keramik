@@ -18,13 +18,15 @@ RUN --mount=type=cache,target=/home/builder/.cargo,uid=1001,gid=1001 \
     make build && \
     cp ./target/release/keramik-runner ./target/release/keramik-operator ./
 
-FROM ubuntu:latest as runner
+# This image needs to be the same as the parent image of rust-builder
+FROM debian:bookworm-slim as runner
 
 COPY --from=builder /home/builder/keramik/keramik-runner /usr/bin
 
 ENTRYPOINT ["/usr/bin/keramik-runner"]
 
-FROM ubuntu:latest as operator
+# This image needs to be the same as the parent image of rust-builder
+FROM debian:bookworm-slim as operator
 
 COPY --from=builder /home/builder/keramik/keramik-operator /usr/bin
 

@@ -19,14 +19,19 @@ RUN --mount=type=cache,target=/home/builder/.cargo,uid=1001,gid=1001 \
     cp ./target/release/keramik-runner ./target/release/keramik-operator ./
 
 # This image needs to be the same as the parent image of rust-builder
-FROM debian:bookworm-slim as runner
+FROM debian:bookworm-slim as exec
+
+RUN apt-get update && apt-get install -y \
+    openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+FROM exec as runner
 
 COPY --from=builder /home/builder/keramik/keramik-runner /usr/bin
 
 ENTRYPOINT ["/usr/bin/keramik-runner"]
 
-# This image needs to be the same as the parent image of rust-builder
-FROM debian:bookworm-slim as operator
+FROM exec as operator
 
 COPY --from=builder /home/builder/keramik/keramik-operator /usr/bin
 

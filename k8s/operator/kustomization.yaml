@@ -6,7 +6,12 @@ resources:
 
 images:
   - name: keramik/operator
+    newTag: dev
+
+    # If you always want to use the latest committed version of Keramic, uncomment these lines
+    # (and comment out newTag:dev above), and change the file k8s/operator/operator.yaml to change
+    # the value of imagePullPolicy from IfNotPresent to Always.
+
     # newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
     # newTag: latest
-    newTag: dev
 

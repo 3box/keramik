@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 use k8s_openapi::{
     api::{
@@ -268,6 +268,7 @@ pub struct RustIpfsConfig {
     image_pull_policy: String,
     resource_limits: ResourceLimitsConfig,
     rust_log: String,
+    env: Option<HashMap<String, String>>,
 }
 
 impl Default for RustIpfsConfig {
@@ -281,6 +282,7 @@ impl Default for RustIpfsConfig {
                 storage: Quantity("1Gi".to_owned()),
             },
             rust_log: "info,ceramic_one=debug,tracing_actix_web=debug".to_owned(),
+            env: None,
         }
     }
 }
@@ -295,6 +297,7 @@ impl From<RustIpfsSpec> for RustIpfsConfig {
                 default.resource_limits,
             ),
             rust_log: value.rust_log.unwrap_or(default.rust_log),
+            env: value.env,
         }
     }
 }
@@ -391,51 +394,66 @@ impl From<IpfsSpec> for IpfsConfig {
 
 impl RustIpfsConfig {
     fn container(&self) -> Container {
+        let mut env = vec![
+            EnvVar {
+                name: "RUST_LOG".to_owned(),
+                value: Some(self.rust_log.to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_BIND_ADDRESS".to_owned(),
+                value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_IPFS_PORT}")),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_METRICS".to_owned(),
+                value: Some("true".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_METRICS_BIND_ADDRESS".to_owned(),
+                value: Some("0.0.0.0:9090".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_SWARM_ADDRESSES".to_owned(),
+                value: Some("/ip4/0.0.0.0/tcp/4001".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_STORE_DIR".to_owned(),
+                value: Some("/data/ipfs".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_NETWORK".to_owned(),
+                value: Some("local".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_LOCAL_NETWORK_ID".to_owned(),
+                // We can use a hard coded value since nodes from other networks should not be
+                // able to connect.
+                value: Some("0".to_owned()),
+                ..Default::default()
+            },
+        ];
+        if let Some(extra_env) = &self.env {
+            extra_env.iter().for_each(|(key, value)| {
+                if let Some((pos, _)) = env.iter().enumerate().find(|(_, var)| &var.name == key) {
+                    env.swap_remove(pos);
+                }
+                env.push(EnvVar {
+                    name: key.to_string(),
+                    value: Some(value.to_string()),
+                    ..Default::default()
+                })
+            });
+        }
+        // Sort env vars so we can have stable tests
+        env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
         Container {
-            env: Some(vec![
-                EnvVar {
-                    name: "RUST_LOG".to_owned(),
-                    value: Some(self.rust_log.to_owned()),
-                    ..Default::default()
-                },
-                EnvVar {
-                    name: "CERAMIC_ONE_BIND_ADDRESS".to_owned(),
-                    value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_IPFS_PORT}")),
-                    ..Default::default()
-                },
-                EnvVar {
-                    name: "CERAMIC_ONE_METRICS".to_owned(),
-                    value: Some("true".to_owned()),
-                    ..Default::default()
-                },
-                EnvVar {
-                    name: "CERAMIC_ONE_METRICS_BIND_ADDRESS".to_owned(),
-                    value: Some("0.0.0.0:9090".to_owned()),
-                    ..Default::default()
-                },
-                EnvVar {
-                    name: "CERAMIC_ONE_SWARM_ADDRESSES".to_owned(),
-                    value: Some("/ip4/0.0.0.0/tcp/4001".to_owned()),
-                    ..Default::default()
-                },
-                EnvVar {
-                    name: "CERAMIC_ONE_STORE_DIR".to_owned(),
-                    value: Some("/data/ipfs".to_owned()),
-                    ..Default::default()
-                },
-                EnvVar {
-                    name: "CERAMIC_ONE_NETWORK".to_owned(),
-                    value: Some("local".to_owned()),
-                    ..Default::default()
-                },
-                EnvVar {
-                    name: "CERAMIC_ONE_LOCAL_NETWORK_ID".to_owned(),
-                    // We can use a hard coded value since nodes from other networks should not be
-                    // able to connect.
-                    value: Some("0".to_owned()),
-                    ..Default::default()
-                },
-            ]),
+            env: Some(env),
             image: Some(self.image.to_owned()),
             image_pull_policy: Some(self.image_pull_policy.to_owned()),
             name: IPFS_CONTAINER_NAME.to_owned(),

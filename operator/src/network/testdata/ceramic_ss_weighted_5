@@ -161,6 +161,14 @@ Request {
                   {
                     "name": "CERAMIC_ONE_STORE_DIR",
                     "value": "/data/ipfs"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_NETWORK",
+                    "value": "local"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+                    "value": "0"
                   }
                 ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",

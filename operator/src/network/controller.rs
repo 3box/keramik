@@ -1774,7 +1774,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,34 +137,8 @@
+            @@ -137,42 +137,8 @@
                              ]
                            },
                            {
@@ -1802,6 +1802,14 @@ mod tests {
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -1811,7 +1819,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -199,6 +173,11 @@
+            @@ -207,6 +173,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1823,7 +1831,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -307,6 +286,13 @@
+            @@ -315,6 +286,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -1891,7 +1899,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,34 +137,8 @@
+            @@ -137,42 +137,8 @@
                              ]
                            },
                            {
@@ -1919,6 +1927,14 @@ mod tests {
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -1928,7 +1944,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -185,14 +159,14 @@
+            @@ -193,14 +159,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -1949,7 +1965,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -199,6 +173,11 @@
+            @@ -207,6 +173,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1961,7 +1977,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -307,6 +286,13 @@
+            @@ -315,6 +286,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -2027,7 +2043,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,34 +137,8 @@
+            @@ -137,42 +137,8 @@
                              ]
                            },
                            {
@@ -2055,6 +2071,14 @@ mod tests {
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2064,7 +2088,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -199,6 +173,16 @@
+            @@ -207,6 +173,16 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2081,7 +2105,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -307,6 +291,13 @@
+            @@ -315,6 +291,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -2146,8 +2170,8 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -163,7 +163,7 @@
-                                 "value": "/data/ipfs"
+            @@ -171,7 +171,7 @@
+                                 "value": "0"
                                }
                              ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2155,7 +2179,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -185,14 +185,14 @@
+            @@ -193,14 +193,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2503,7 +2527,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -262,14 +262,14 @@
+            @@ -270,14 +270,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -2701,7 +2725,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -222,19 +222,19 @@
+            @@ -230,19 +230,19 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -2761,7 +2785,7 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
-            @@ -257,8 +257,8 @@
+            @@ -265,8 +265,8 @@
                                  "value": "2"
                                }
                              ],

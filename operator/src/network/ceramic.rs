@@ -423,6 +423,18 @@ impl RustIpfsConfig {
                     value: Some("/data/ipfs".to_owned()),
                     ..Default::default()
                 },
+                EnvVar {
+                    name: "CERAMIC_ONE_NETWORK".to_owned(),
+                    value: Some("local".to_owned()),
+                    ..Default::default()
+                },
+                EnvVar {
+                    name: "CERAMIC_ONE_LOCAL_NETWORK_ID".to_owned(),
+                    // We can use a hard coded value since nodes from other networks should not be
+                    // able to connect.
+                    value: Some("0".to_owned()),
+                    ..Default::default()
+                },
             ]),
             image: Some(self.image.to_owned()),
             image_pull_policy: Some(self.image_pull_policy.to_owned()),

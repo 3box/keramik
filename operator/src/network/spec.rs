@@ -1,4 +1,5 @@
 //! Place all spec types into a single module so they can be used as a lightweight dependency
+use std::collections::HashMap;
 
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use keramik_common::peer_info::Peer;
@@ -119,6 +120,9 @@ pub struct RustIpfsSpec {
     pub resource_limits: Option<ResourceLimitsSpec>,
     /// Value of the RUST_LOG env var.
     pub rust_log: Option<String>,
+    /// Extra env values to pass to the image.
+    /// CAUTION: Any env vars specified in this set will override any predefined values.
+    pub env: Option<HashMap<String, String>>,
 }
 
 /// Describes how the Go IPFS node for a peer should behave.

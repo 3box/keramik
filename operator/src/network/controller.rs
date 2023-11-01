@@ -765,8 +765,8 @@ async fn reset_bootstrap_job(
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
     use std::{collections::BTreeMap, time::Duration};
+    use std::{collections::HashMap, sync::Arc};
 
     use super::{reconcile, Network};
 
@@ -1780,12 +1780,12 @@ mod tests {
                            {
             -                "env": [
             -                  {
-            -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
-            -                  },
-            -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS",
@@ -1796,20 +1796,20 @@ mod tests {
             -                    "value": "0.0.0.0:9090"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_NETWORK",
-            -                    "value": "local"
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-            -                    "value": "0"
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -1905,12 +1905,12 @@ mod tests {
                            {
             -                "env": [
             -                  {
-            -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
-            -                  },
-            -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS",
@@ -1921,20 +1921,20 @@ mod tests {
             -                    "value": "0.0.0.0:9090"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_NETWORK",
-            -                    "value": "local"
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-            -                    "value": "0"
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2049,12 +2049,12 @@ mod tests {
                            {
             -                "env": [
             -                  {
-            -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
-            -                  },
-            -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS",
@@ -2065,20 +2065,20 @@ mod tests {
             -                    "value": "0.0.0.0:9090"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_NETWORK",
-            -                    "value": "local"
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-            -                    "value": "0"
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2141,6 +2141,12 @@ mod tests {
                             memory: Some(Quantity("4Gi".to_owned())),
                             storage: Some(Quantity("4Gi".to_owned())),
                         }),
+                        env: Some(HashMap::from_iter([
+                            ("ENV_KEY_A".to_string(), "ENV_VALUE_A".to_string()),
+                            ("ENV_KEY_B".to_string(), "ENV_VALUE_B".to_string()),
+                            // Override one existing var
+                            ("CERAMIC_ONE_METRICS".to_string(), "false".to_string()),
+                        ])),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -2170,8 +2176,29 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -171,7 +171,7 @@
-                                 "value": "0"
+            @@ -148,7 +148,7 @@
+                               },
+                               {
+                                 "name": "CERAMIC_ONE_METRICS",
+            -                    "value": "true"
+            +                    "value": "false"
+                               },
+                               {
+                                 "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
+            @@ -167,11 +167,19 @@
+                                 "value": "/ip4/0.0.0.0/tcp/4001"
+                               },
+                               {
+            +                    "name": "ENV_KEY_A",
+            +                    "value": "ENV_VALUE_A"
+            +                  },
+            +                  {
+            +                    "name": "ENV_KEY_B",
+            +                    "value": "ENV_VALUE_B"
+            +                  },
+            +                  {
+                                 "name": "RUST_LOG",
+                                 "value": "info,ceramic_one=debug,tracing_actix_web=debug"
                                }
                              ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2179,7 +2206,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -193,14 +193,14 @@
+            @@ -193,14 +201,14 @@
                              ],
                              "resources": {
                                "limits": {

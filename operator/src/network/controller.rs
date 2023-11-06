@@ -1774,7 +1774,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,42 +137,8 @@
+            @@ -137,50 +137,8 @@
                              ]
                            },
                            {
@@ -1782,6 +1782,14 @@ mod tests {
             -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
@@ -1809,7 +1817,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug,quinn_proto=error"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -1819,7 +1827,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -207,6 +173,11 @@
+            @@ -215,6 +173,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1831,7 +1839,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -315,6 +286,13 @@
+            @@ -323,6 +286,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -1899,7 +1907,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,42 +137,8 @@
+            @@ -137,50 +137,8 @@
                              ]
                            },
                            {
@@ -1907,6 +1915,14 @@ mod tests {
             -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
@@ -1934,7 +1950,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug,quinn_proto=error"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -1944,7 +1960,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -193,14 +159,14 @@
+            @@ -201,14 +159,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -1965,7 +1981,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -207,6 +173,11 @@
+            @@ -215,6 +173,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -1977,7 +1993,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -315,6 +286,13 @@
+            @@ -323,6 +286,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -2043,7 +2059,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,42 +137,8 @@
+            @@ -137,50 +137,8 @@
                              ]
                            },
                            {
@@ -2051,6 +2067,14 @@ mod tests {
             -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
@@ -2078,7 +2102,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
+            -                    "value": "info,ceramic_one=debug,tracing_actix_web=debug,quinn_proto=error"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2088,7 +2112,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -207,6 +173,16 @@
+            @@ -215,6 +173,16 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2105,7 +2129,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -315,6 +291,13 @@
+            @@ -323,6 +291,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -2176,7 +2200,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -148,7 +148,7 @@
+            @@ -156,7 +156,7 @@
                                },
                                {
                                  "name": "CERAMIC_ONE_METRICS",
@@ -2185,7 +2209,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
-            @@ -167,11 +167,19 @@
+            @@ -175,11 +175,19 @@
                                  "value": "/ip4/0.0.0.0/tcp/4001"
                                },
                                {
@@ -2198,7 +2222,7 @@ mod tests {
             +                  },
             +                  {
                                  "name": "RUST_LOG",
-                                 "value": "info,ceramic_one=debug,tracing_actix_web=debug"
+                                 "value": "info,ceramic_one=debug,tracing_actix_web=debug,quinn_proto=error"
                                }
                              ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2206,7 +2230,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -193,14 +201,14 @@
+            @@ -201,14 +209,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2415,7 +2439,7 @@ mod tests {
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -63,14 +63,14 @@
+            @@ -77,14 +77,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2554,7 +2578,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -270,14 +270,14 @@
+            @@ -278,14 +278,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -2752,7 +2776,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -230,19 +230,19 @@
+            @@ -238,19 +238,19 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -2812,7 +2836,7 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
-            @@ -265,8 +265,8 @@
+            @@ -273,8 +273,8 @@
                                  "value": "2"
                                }
                              ],

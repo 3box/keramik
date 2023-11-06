@@ -40,6 +40,20 @@ Request {
                   "-b",
                   "0.0.0.0:5001"
                 ],
+                "env": [
+                  {
+                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+                    "value": "6"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+                    "value": "1"
+                  },
+                  {
+                    "name": "RUST_LOG",
+                    "value": "info,ceramic_one=debug,quinn_proto=error"
+                  }
+                ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one",
                 "imagePullPolicy": "Always",
                 "name": "ipfs",

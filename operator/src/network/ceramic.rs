@@ -281,7 +281,7 @@ impl Default for RustIpfsConfig {
                 memory: Quantity("512Mi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
-            rust_log: "info,ceramic_one=debug,tracing_actix_web=debug".to_owned(),
+            rust_log: "info,ceramic_one=debug,tracing_actix_web=debug,quinn_proto=error".to_owned(),
             env: None,
         }
     }
@@ -435,6 +435,16 @@ impl RustIpfsConfig {
                 // We can use a hard coded value since nodes from other networks should not be
                 // able to connect.
                 value: Some("0".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_KADEMLIA_REPLICATION".to_owned(),
+                value: Some("6".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_KADEMLIA_PARALLELISM".to_owned(),
+                value: Some("1".to_owned()),
                 ..Default::default()
             },
         ];

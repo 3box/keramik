@@ -537,6 +537,23 @@ pub fn cas_ipfs_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
                         "-b".to_owned(),
                         "0.0.0.0:5001".to_owned(),
                     ]),
+                    env: Some(vec![
+                        EnvVar {
+                            name: "CERAMIC_ONE_KADEMLIA_REPLICATION".to_owned(),
+                            value: Some("6".to_owned()),
+                            ..Default::default()
+                        },
+                        EnvVar {
+                            name: "CERAMIC_ONE_KADEMLIA_PARALLELISM".to_owned(),
+                            value: Some("1".to_owned()),
+                            ..Default::default()
+                        },
+                        EnvVar {
+                            name: "RUST_LOG".to_owned(),
+                            value: Some("info,ceramic_one=debug,quinn_proto=error".to_owned()),
+                            ..Default::default()
+                        },
+                    ]),
                     image: Some("public.ecr.aws/r5b3e0r5/3box/ceramic-one".to_owned()),
                     image_pull_policy: Some("Always".to_owned()),
                     name: "ipfs".to_owned(),

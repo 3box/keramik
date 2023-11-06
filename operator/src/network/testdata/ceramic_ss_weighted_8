@@ -143,6 +143,14 @@ Request {
                     "value": "0.0.0.0:5001"
                   },
                   {
+                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+                    "value": "1"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+                    "value": "6"
+                  },
+                  {
                     "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
                     "value": "0"
                   },
@@ -168,7 +176,7 @@ Request {
                   },
                   {
                     "name": "RUST_LOG",
-                    "value": "info,ceramic_one=debug,tracing_actix_web=debug"
+                    "value": "info,ceramic_one=debug,tracing_actix_web=debug,quinn_proto=error"
                   }
                 ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",

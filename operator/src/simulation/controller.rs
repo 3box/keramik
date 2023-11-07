@@ -172,6 +172,7 @@ async fn reconcile(
         run_time: spec.run_time.to_owned(),
         nonce: status.nonce,
         job_image_config: job_image_config.clone(),
+        throttle_requests: spec.throttle_requests.clone(),
     };
 
     apply_manager(cx.clone(), &ns, simulation.clone(), manager_config).await?;
@@ -772,6 +773,48 @@ mod tests {
                              "name": "worker",
                              "volumeMounts": [
                                {
+        "#]]);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_throttle() {
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            scenario: "test-scenario".to_owned(),
+            throttle_requests: Some(100),
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -41,7 +41,7 @@
+                               },
+                               {
+                                 "name": "SIMULATE_SCENARIO",
+            -                    "value": ""
+            +                    "value": "test-scenario"
+                               },
+                               {
+                                 "name": "SIMULATE_MANAGER",
+            @@ -74,6 +74,10 @@
+                               {
+                                 "name": "DID_PRIVATE_KEY",
+                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            +                  },
+            +                  {
+            +                    "name": "SIMULATE_THROTTLE_REQUESTS",
+            +                    "value": "100"
+                               }
+                             ],
+                             "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
         "#]]);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)

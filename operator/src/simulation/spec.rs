@@ -25,6 +25,8 @@ pub struct SimulationSpec {
     pub image: Option<String>,
     /// Pull policy for image.
     pub image_pull_policy: Option<String>,
+    /// Throttle requests (per second) for a simulation
+    pub throttle_requests: Option<usize>,
 }
 
 /// Current status of a simulation.

@@ -47,6 +47,10 @@ pub struct Opts {
     /// All workers and manager must be given the same nonce.
     #[arg(long, env = "SIMULATE_NONCE")]
     nonce: u64,
+
+    /// Option to throttle requests (per second) for load control
+    #[arg(long, env = "SIMULATE_THROTTLE_REQUESTS", default_value = "None")]
+    throttle_requests: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -140,6 +144,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
                     .get(opts.target_peer)
                     .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
             )?,
+            opts.throttle_requests,
         )
     };
 
@@ -171,7 +176,7 @@ fn manager_config(count: usize, users: usize, run_time: String) -> GooseConfigur
     config.run_time = run_time;
     config
 }
-fn worker_config(target_peer_addr: String) -> GooseConfiguration {
+fn worker_config(target_peer_addr: String, throttle_requests: Option<usize>) -> GooseConfiguration {
     let mut config = GooseConfiguration::default();
     config.request_log = "request.log".to_owned();
     config.log_level = 2;
@@ -181,6 +186,9 @@ fn worker_config(target_peer_addr: String) -> GooseConfiguration {
     // domain name explicitly.
     config.manager_host = "manager.goose".to_owned();
     config.manager_port = 5115;
+    if let Some(throttle_requests) = throttle_requests {
+        config.throttle_requests = throttle_requests
+    }
     config
 }
 

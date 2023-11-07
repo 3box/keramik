@@ -172,7 +172,7 @@ async fn reconcile(
         run_time: spec.run_time.to_owned(),
         nonce: status.nonce,
         job_image_config: job_image_config.clone(),
-        throttle_requests: spec.throttle_requests.clone(),
+        throttle_requests: spec.throttle_requests,
     };
 
     apply_manager(cx.clone(), &ns, simulation.clone(), manager_config).await?;
@@ -787,7 +787,6 @@ mod tests {
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let simulation = Simulation::test().with_spec(SimulationSpec {
-            scenario: "test-scenario".to_owned(),
             throttle_requests: Some(100),
             ..Default::default()
         });
@@ -795,15 +794,6 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -41,7 +41,7 @@
-                               },
-                               {
-                                 "name": "SIMULATE_SCENARIO",
-            -                    "value": ""
-            +                    "value": "test-scenario"
-                               },
-                               {
-                                 "name": "SIMULATE_MANAGER",
             @@ -74,6 +74,10 @@
                                {
                                  "name": "DID_PRIVATE_KEY",

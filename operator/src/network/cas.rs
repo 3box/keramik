@@ -863,7 +863,7 @@ pub fn localstack_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSet
             }),
             spec: Some(PodSpec {
                 containers: vec![Container {
-                    image: Some("localstack/localstack".to_owned()),
+                    image: Some("localstack/localstack@sha256:539f4145f9b3610d11b292457e657b7fd6ad0f7c93e206620056424faacf68b5".to_owned()),
                     image_pull_policy: Some("IfNotPresent".to_owned()),
                     name: "localstack".to_owned(),
                     ports: Some(vec![ContainerPort {

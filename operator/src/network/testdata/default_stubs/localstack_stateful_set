@@ -32,7 +32,7 @@ Request {
           "spec": {
             "containers": [
               {
-                "image": "localstack/localstack",
+                "image": "localstack/localstack@sha256:539f4145f9b3610d11b292457e657b7fd6ad0f7c93e206620056424faacf68b5",
                 "imagePullPolicy": "IfNotPresent",
                 "name": "localstack",
                 "ports": [

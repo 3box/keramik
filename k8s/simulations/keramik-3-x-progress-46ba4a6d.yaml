@@ -1,0 +1,9 @@
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Simulation
+metadata:
+  name: ceramic-write-only-60m
+  namespace: keramik-3-x-progress-46ba4a6d-9ae2b416
+spec:
+  scenario: ceramic-write-only
+  users: 200
+  runTime: 10

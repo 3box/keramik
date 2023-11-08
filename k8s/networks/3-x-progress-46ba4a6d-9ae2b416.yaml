@@ -1,0 +1,21 @@
+apiVersion: keramik.3box.io/v1alpha1
+kind: Network
+metadata:
+  name: 3-x-progress-46ba4a6d-9ae2b416
+spec:
+  ceramic:
+    - image: us-central1-docker.pkg.dev/box-benchmarking-ipfs-testing/js-ceramic/3.x-progress:46ba4a6d
+      resourceLimits:
+        cpu: "2"
+        memory: 4Gi
+        storage: 1Gi    
+      ipfs:
+        go:
+          image: ceramicnetwork/go-ipfs-daemon:e4640917c2e2d9c7d7b9601e32719250159fb3d0
+          resourceLimits:
+            cpu: "2"
+            memory: 4Gi
+            storage: 1Gi
+  privateKeySecret: ceramic-admin
+  replicas: 2
+  ttlSeconds: 1209600

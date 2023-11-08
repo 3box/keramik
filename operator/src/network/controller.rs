@@ -1801,7 +1801,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
-            -                    "value": "0.0.0.0:9090"
+            -                    "value": "0.0.0.0:9465"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_NETWORK",
@@ -1934,7 +1934,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
-            -                    "value": "0.0.0.0:9090"
+            -                    "value": "0.0.0.0:9465"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_NETWORK",
@@ -2086,7 +2086,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
-            -                    "value": "0.0.0.0:9090"
+            -                    "value": "0.0.0.0:9465"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_NETWORK",

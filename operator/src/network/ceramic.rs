@@ -412,7 +412,7 @@ impl RustIpfsConfig {
             },
             EnvVar {
                 name: "CERAMIC_ONE_METRICS_BIND_ADDRESS".to_owned(),
-                value: Some("0.0.0.0:9090".to_owned()),
+                value: Some("0.0.0.0:9465".to_owned()),
                 ..Default::default()
             },
             EnvVar {

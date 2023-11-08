@@ -54,7 +54,7 @@ Request {
                 },
                 "volumeMounts": [
                   {
-                    "mountPath": "/tmp/localstack",
+                    "mountPath": "/var/lib/localstack",
                     "name": "localstack-data"
                   }
                 ]

@@ -876,7 +876,7 @@ pub fn localstack_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSet
                         ..Default::default()
                     }),
                     volume_mounts: Some(vec![VolumeMount {
-                        mount_path: "/tmp/localstack".to_owned(),
+                        mount_path: "/var/lib/localstack".to_owned(),
                         name: "localstack-data".to_owned(),
                         ..Default::default()
                     }]),

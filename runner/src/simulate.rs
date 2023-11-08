@@ -49,7 +49,7 @@ pub struct Opts {
     nonce: u64,
 
     /// Option to throttle requests (per second) for load control
-    #[arg(long, env = "SIMULATE_THROTTLE_REQUESTS", default_value = "None")]
+    #[arg(long, env = "SIMULATE_THROTTLE_REQUESTS")]
     throttle_requests: Option<usize>,
 }
 

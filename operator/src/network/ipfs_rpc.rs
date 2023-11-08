@@ -55,7 +55,7 @@ impl IpfsRpcClient for HttpRpcClient {
         let p2p_addrs = data
             .addresses
             .iter()
-            .map(|addr| -> Multiaddr { addr.parse().expect("should be a valid multiaddr") })
+            .filter_map(|addr| addr.parse::<Multiaddr>().ok())
             .filter(|addr| {
                 // Address must have both a non loopback ip4 address and a tcp or quic endpoint
                 addr.iter().any(|proto| match proto {

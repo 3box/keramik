@@ -96,6 +96,9 @@ pub struct CeramicSpec {
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for ceramic nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Extra env values to pass to the image.
+    /// CAUTION: Any env vars specified in this set will override any predefined values.
+    pub env: Option<HashMap<String, String>>,
 }
 
 /// Describes how the IPFS node for a peer should behave.

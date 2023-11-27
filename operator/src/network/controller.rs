@@ -3151,4 +3151,52 @@ mod tests {
             .expect("reconciler");
         timeout_after_1s(mocksrv).await;
     }
+    #[tokio::test]
+    async fn ceramic_environment() {
+        // Setup network spec and status
+        let mut env = HashMap::default();
+        env.insert("SOME_ENV_VAR".to_string(), "SOME_ENV_VALUE".to_string());
+        let network = Network::test().with_spec(NetworkSpec {
+            ceramic: vec![CeramicSpec {
+                env: Some(env),
+                ..Default::default()
+            }],
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramics[0].stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -79,6 +79,10 @@
+                               {
+                                 "name": "CERAMIC_LOG_LEVEL",
+                                 "value": "2"
+            +                  },
+            +                  {
+            +                    "name": "SOME_ENV_VAR",
+            +                    "value": "SOME_ENV_VALUE"
+                               }
+                             ],
+                             "image": "ceramicnetwork/composedb:latest",
+            @@ -271,6 +275,10 @@
+                               {
+                                 "name": "CERAMIC_LOG_LEVEL",
+                                 "value": "2"
+            +                  },
+            +                  {
+            +                    "name": "SOME_ENV_VAR",
+            +                    "value": "SOME_ENV_VALUE"
+                               }
+                             ],
+                             "image": "ceramicnetwork/composedb:latest",
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
 }

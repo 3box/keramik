@@ -172,6 +172,20 @@ spec:
   ethRpcUrl: &quot;&quot;
   casApiUrl: &quot;https://some-anchor-service.com&quot;
 </code></pre>
+<h1 id="adjusting-ceramic-environment"><a class="header" href="#adjusting-ceramic-environment">Adjusting Ceramic Environment</a></h1>
+<p>Ceramic environment can be adjusted by specifying environment variables in the network configuration</p>
+<pre><code class="language-yaml"># network configuration
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    - env:
+        CERAMIC_PUBSUB_QPS_LIMIT: 500
+</code></pre>
 <h1 id="disabling-aws-functionality"><a class="header" href="#disabling-aws-functionality">Disabling AWS Functionality</a></h1>
 <p>Certain functionality in CAS depends on AWS services. If you are running Keramik in a non-AWS environment, you can
 disable this by editing the statefulset for CAS</p>

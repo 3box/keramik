@@ -138,6 +138,7 @@ pub struct CeramicConfig {
     pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
+    pub env: Option<HashMap<String, String>>,
 }
 
 /// Bundles all relevant config for a ceramic spec.
@@ -350,6 +351,7 @@ impl Default for CeramicConfig {
                 memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
+            env: None,
         }
     }
 }
@@ -379,6 +381,7 @@ impl From<CeramicSpec> for CeramicConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            env: value.env,
         }
     }
 }
@@ -660,6 +663,23 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             ..Default::default()
         },
     ];
+
+    if let Some(extra_env) = &bundle.config.env {
+        extra_env.iter().for_each(|(key, value)| {
+            if let Some((pos, _)) = ceramic_env
+                .iter()
+                .enumerate()
+                .find(|(_, var)| &var.name == key)
+            {
+                ceramic_env.swap_remove(pos);
+            }
+            ceramic_env.push(EnvVar {
+                name: key.to_string(),
+                value: Some(value.to_string()),
+                ..Default::default()
+            })
+        });
+    }
 
     let mut init_env = vec![EnvVar {
         name: "CERAMIC_ADMIN_PRIVATE_KEY".to_owned(),

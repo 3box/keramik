@@ -35,6 +35,23 @@ spec:
   casApiUrl: "https://some-anchor-service.com"
 ```
 
+# Adjusting Ceramic Environment
+Ceramic environment can be adjusted by specifying environment variables in the network configuration
+
+```yaml
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    - env:
+        CERAMIC_PUBSUB_QPS_LIMIT: 500
+```
+
 # Disabling AWS Functionality
 Certain functionality in CAS depends on AWS services. If you are running Keramik in a non-AWS environment, you can
 disable this by editing the statefulset for CAS

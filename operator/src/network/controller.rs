@@ -197,7 +197,7 @@ async fn reconcile(
                 info!("network TTL expired, deleting network");
                 delete_network(cx.clone(), &network.name_unchecked()).await?;
                 // Return early no need to update status
-                return Ok(Action::await_change());
+                return Ok(Action::requeue(Duration::from_secs(5 * 60)));
             };
             Some(Time(expiration_time))
         }

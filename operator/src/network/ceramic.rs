@@ -358,12 +358,16 @@ impl Default for CeramicConfig {
 
 pub struct CeramicConfigs(pub Vec<CeramicConfig>);
 
-impl From<Vec<CeramicSpec>> for CeramicConfigs {
-    fn from(value: Vec<CeramicSpec>) -> Self {
-        if value.is_empty() {
-            Self(vec![CeramicConfig::default()])
+impl From<Option<Vec<CeramicSpec>>> for CeramicConfigs {
+    fn from(value: Option<Vec<CeramicSpec>>) -> Self {
+        if let Some(value) = value {
+            if value.is_empty() {
+                Self(vec![CeramicConfig::default()])
+            } else {
+                Self(value.into_iter().map(CeramicConfig::from).collect())
+            }
         } else {
-            Self(value.into_iter().map(CeramicConfig::from).collect())
+            Self(vec![CeramicConfig::default()])
         }
     }
 }

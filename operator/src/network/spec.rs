@@ -28,7 +28,7 @@ pub struct NetworkSpec {
     /// Total replicas will be split across each ceramic spec according to relative weights.
     /// It is possible that if the weight is small enough compared to others that a single spec
     /// will be assigned zero replicas.
-    pub ceramic: Vec<CeramicSpec>,
+    pub ceramic: Option<Vec<CeramicSpec>>,
     /// Name of secret containing the private key used for signing anchor requests and generating
     /// the Admin DID.
     pub private_key_secret: Option<String>,

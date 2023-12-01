@@ -182,7 +182,9 @@ async fn reconcile(
     } else {
         NetworkStatus::default()
     };
-    if spec.ceramic.len() > MAX_CERAMICS {
+
+    let ceramic_configs: CeramicConfigs = spec.ceramic.clone().into();
+    if ceramic_configs.0.len() > MAX_CERAMICS {
         return Err(Error::App {
             source: anyhow!("too many ceramics configured, maximum {MAX_CERAMICS}"),
         });
@@ -216,7 +218,6 @@ async fn reconcile(
     let datadog: DataDogConfig = (&spec.datadog).into();
 
     // Only create CAS resources if the Ceramic network was "local"
-    let ceramic_configs: CeramicConfigs = spec.ceramic.clone().into();
     if net_config.network_type == CERAMIC_LOCAL_NETWORK_TYPE {
         apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone(), &datadog).await?;
     }
@@ -1882,10 +1883,10 @@ mod tests {
         // Setup network spec and status
         let network = Network::test()
             .with_spec(NetworkSpec {
-                ceramic: vec![CeramicSpec {
+                ceramic: Some(vec![CeramicSpec {
                     ipfs: Some(IpfsSpec::Go(GoIpfsSpec::default())),
                     ..Default::default()
-                }],
+                }]),
                 ..Default::default()
             })
             .with_status(NetworkStatus {
@@ -2007,7 +2008,7 @@ mod tests {
         // Setup network spec and status
         let network = Network::test()
             .with_spec(NetworkSpec {
-                ceramic: vec![CeramicSpec {
+                ceramic: Some(vec![CeramicSpec {
                     ipfs: Some(IpfsSpec::Go(GoIpfsSpec {
                         image: Some("ipfs/ipfs:go".to_owned()),
                         resource_limits: Some(ResourceLimitsSpec {
@@ -2018,7 +2019,7 @@ mod tests {
                         ..Default::default()
                     })),
                     ..Default::default()
-                }],
+                }]),
                 ..Default::default()
             })
             .with_status(NetworkStatus {
@@ -2161,7 +2162,7 @@ mod tests {
         // Setup network spec and status
         let network = Network::test()
             .with_spec(NetworkSpec {
-                ceramic: vec![CeramicSpec {
+                ceramic: Some(vec![CeramicSpec {
                     ipfs: Some(IpfsSpec::Go(GoIpfsSpec {
                         commands: Some(vec![
                             "ipfs config Pubsub.SeenMessagesTTL 10m".to_owned(),
@@ -2170,7 +2171,7 @@ mod tests {
                         ..Default::default()
                     })),
                     ..Default::default()
-                }],
+                }]),
                 ..Default::default()
             })
             .with_status(NetworkStatus {
@@ -2297,7 +2298,7 @@ mod tests {
         // Setup network spec and status
         let network = Network::test()
             .with_spec(NetworkSpec {
-                ceramic: vec![CeramicSpec {
+                ceramic: Some(vec![CeramicSpec {
                     ipfs: Some(IpfsSpec::Rust(RustIpfsSpec {
                         image: Some("ipfs/ipfs:rust".to_owned()),
                         resource_limits: Some(ResourceLimitsSpec {
@@ -2314,7 +2315,7 @@ mod tests {
                         ..Default::default()
                     })),
                     ..Default::default()
-                }],
+                }]),
                 ..Default::default()
             })
             .with_status(NetworkStatus {
@@ -2664,14 +2665,14 @@ mod tests {
         // Setup network spec and status
         let network = Network::test()
             .with_spec(NetworkSpec {
-                ceramic: vec![CeramicSpec {
+                ceramic: Some(vec![CeramicSpec {
                     resource_limits: Some(ResourceLimitsSpec {
                         cpu: Some(Quantity("4".to_owned())),
                         memory: Some(Quantity("4Gi".to_owned())),
                         storage: Some(Quantity("4Gi".to_owned())),
                     }),
                     ..Default::default()
-                }],
+                }]),
                 ..Default::default()
             })
             .with_status(NetworkStatus {
@@ -2953,11 +2954,11 @@ mod tests {
     async fn ceramic_image() {
         // Setup network spec and status
         let network = Network::test().with_spec(NetworkSpec {
-            ceramic: vec![CeramicSpec {
+            ceramic: Some(vec![CeramicSpec {
                 image: Some("ceramic:foo".to_owned()),
                 image_pull_policy: Some("IfNotPresent".to_owned()),
                 ..Default::default()
-            }],
+            }]),
             ..Default::default()
         });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -3112,7 +3113,7 @@ mod tests {
     async fn multiple_default_ceramics() {
         // Setup network spec and status
         let network = Network::test().with_spec(NetworkSpec {
-            ceramic: vec![CeramicSpec::default(), CeramicSpec::default()],
+            ceramic: Some(vec![CeramicSpec::default(), CeramicSpec::default()]),
             ..Default::default()
         });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -3139,7 +3140,7 @@ mod tests {
     async fn multiple_ceramics() {
         // Setup network spec and status
         let network = Network::test().with_spec(NetworkSpec {
-            ceramic: vec![
+            ceramic: Some(vec![
                 CeramicSpec::default(),
                 CeramicSpec {
                     ipfs: Some(IpfsSpec::Go(GoIpfsSpec {
@@ -3147,7 +3148,7 @@ mod tests {
                     })),
                     ..Default::default()
                 },
-            ],
+            ]),
             ..Default::default()
         });
         let mock_rpc_client = default_ipfs_rpc_mock();
@@ -3181,13 +3182,15 @@ mod tests {
         assert_eq!(weights.iter().sum::<i32>(), replicas);
         let network = Network::test().with_spec(NetworkSpec {
             replicas,
-            ceramic: weights
-                .iter()
-                .map(|w| CeramicSpec {
-                    weight: Some(*w),
-                    ..Default::default()
-                })
-                .collect(),
+            ceramic: Some(
+                weights
+                    .iter()
+                    .map(|w| CeramicSpec {
+                        weight: Some(*w),
+                        ..Default::default()
+                    })
+                    .collect(),
+            ),
 
             ..Default::default()
         });
@@ -3297,10 +3300,10 @@ mod tests {
         let mut env = HashMap::default();
         env.insert("SOME_ENV_VAR".to_string(), "SOME_ENV_VALUE".to_string());
         let network = Network::test().with_spec(NetworkSpec {
-            ceramic: vec![CeramicSpec {
+            ceramic: Some(vec![CeramicSpec {
                 env: Some(env),
                 ..Default::default()
-            }],
+            }]),
             ..Default::default()
         });
         let mock_rpc_client = default_ipfs_rpc_mock();

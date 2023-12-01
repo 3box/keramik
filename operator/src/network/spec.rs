@@ -67,9 +67,11 @@ pub struct NetworkStatus {
 }
 
 /// BootstrapSpec defines how the network bootstrap process should proceed.
-#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct BootstrapSpec {
+    /// When true bootstrap job will run, defaults to true.
+    pub enabled: Option<bool>,
     /// Image of the runner for the bootstrap job.
     pub image: Option<String>,
     /// Image pull policy for the bootstrap job.

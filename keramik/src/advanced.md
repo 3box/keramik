@@ -5,3 +5,4 @@ For more advanced usage of keramik, please see
  - [Metrics](./metrics.md)
  - [IPFS](./ipfs.md)
  - [Secrets](./secrets.md)
+ - [Custom Bootstrap Configuration](./advanced_bootstrap.md)

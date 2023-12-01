@@ -17,3 +17,4 @@
   - [Secrets](./secrets.md)
   - [Operator Design](./operator.md)
   - [Migration Tests](./migration.md)
+  - [Custom Bootstrap Configuration](./advanced_bootstrap.md)

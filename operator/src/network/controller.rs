@@ -31,11 +31,12 @@ use tracing::{debug, error, info, trace, warn};
 use crate::{
     labels::{managed_labels, MANAGED_BY_LABEL_SELECTOR},
     network::{
-        bootstrap, cas,
+        bootstrap::{self, BootstrapConfig},
+        cas,
         ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo, NetworkConfig},
         datadog::DataDogConfig,
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
-        peers, BootstrapSpec, CasSpec, Network, NetworkStatus,
+        peers, CasSpec, Network, NetworkStatus,
     },
     utils::Clock,
     CONTROLLER_NAME,
@@ -281,19 +282,22 @@ async fn reconcile(
     .await?;
     debug!(min_connected_peers, "min_connected_peers");
 
-    // Check if we should rerun the bootstrap job.
-    if let Some(min_connected_peers) = min_connected_peers {
-        if status.peers.len() >= 2 && min_connected_peers == 0 {
-            // We have ready peers that are not connected to any other peers.
-            // Delete bootstrap job to rerun the job.
-            reset_bootstrap_job(cx.clone(), &ns).await?;
+    let bootstrap_config: BootstrapConfig = spec.bootstrap.clone().into();
+    if bootstrap_config.enabled {
+        // Check if we should rerun the bootstrap job.
+        if let Some(min_connected_peers) = min_connected_peers {
+            if status.peers.len() >= 2 && min_connected_peers == 0 {
+                // We have ready peers that are not connected to any other peers.
+                // Delete bootstrap job to rerun the job.
+                reset_bootstrap_job(cx.clone(), &ns).await?;
+            }
         }
-    }
 
-    // Always apply the bootstrap job if we have at least 2 peers,
-    // This way if the job is deleted externally for any reason it will rerun.
-    if status.peers.len() >= 2 {
-        apply_bootstrap_job(cx.clone(), &ns, network.clone(), spec.bootstrap.clone()).await?;
+        // Always apply the bootstrap job if we have at least 2 peers,
+        // This way if the job is deleted externally for any reason it will rerun.
+        if status.peers.len() >= 2 {
+            apply_bootstrap_job(cx.clone(), &ns, network.clone(), bootstrap_config).await?;
+        }
     }
 
     // Update network status
@@ -579,11 +583,10 @@ async fn apply_bootstrap_job(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     network: Arc<Network>,
-    spec: Option<BootstrapSpec>,
+    config: BootstrapConfig,
 ) -> Result<(), Error> {
-    // Create bootstrap jobs
     debug!("applying bootstrap job");
-    let spec = bootstrap::bootstrap_job_spec(spec);
+    let spec = bootstrap::bootstrap_job_spec(config);
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
@@ -775,8 +778,8 @@ mod tests {
         network::{
             ipfs_rpc::{tests::MockIpfsRpcClientTest, PeerStatus},
             stub::{CeramicStub, Stub},
-            CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, NetworkSpec, NetworkStatus,
-            ResourceLimitsSpec, RustIpfsSpec,
+            BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, NetworkSpec,
+            NetworkStatus, ResourceLimitsSpec, RustIpfsSpec,
         },
         utils::{
             test::{timeout_after_1s, ApiServerVerifier, WithStatus},
@@ -1271,6 +1274,143 @@ mod tests {
             expect_file!["./testdata/bootstrap_job_two_peers_apply"],
             Some(Job::default()),
         ));
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_two_peers_bootstrap_disabled() {
+        // Setup network spec and status
+        let network = Network::test()
+            .with_spec(NetworkSpec {
+                replicas: 2,
+                bootstrap: Some(BootstrapSpec {
+                    enabled: Some(false),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            })
+            .with_status(NetworkStatus {
+                replicas: 2,
+                ready_replicas: 0,
+                namespace: Some("keramik-test".to_owned()),
+                ..Default::default()
+            });
+        // Setup peer info
+        let mut mock_rpc_client = MockIpfsRpcClientTest::new();
+        mock_rpc_client.expect_peer_info().once().return_once(|_| {
+            Ok(IpfsPeerInfo {
+                peer_id: "peer_id_0".to_owned(),
+                ipfs_rpc_addr: "http://peer0:5001".to_owned(),
+                p2p_addrs: vec!["/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0".to_owned()],
+            })
+        });
+        mock_rpc_client.expect_peer_info().once().return_once(|_| {
+            Ok(IpfsPeerInfo {
+                peer_id: "peer_id_1".to_owned(),
+                ipfs_rpc_addr: "http://peer1:5001".to_owned(),
+                p2p_addrs: vec!["/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1".to_owned()],
+            })
+        });
+        mock_cas_peer_info_ready(&mut mock_rpc_client);
+        // Report that peers are not connected so we should bootstrap if it were enabled
+        mock_not_connected_peer_status(&mut mock_rpc_client);
+        mock_not_connected_peer_status(&mut mock_rpc_client);
+        mock_not_connected_peer_status(&mut mock_rpc_client);
+
+        let mut stub = Stub::default().with_network(network.clone());
+        // Patch expected request values
+        stub.ceramics[0].stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -17,7 +17,7 @@
+                   },
+                   "spec": {
+                     "podManagementPolicy": "Parallel",
+            -        "replicas": 0,
+            +        "replicas": 2,
+                     "selector": {
+                       "matchLabels": {
+                         "app": "ceramic"
+        "#]]);
+        stub.ceramic_pod_status.push((
+            expect_file!["./testdata/ceramic_pod_status-0-0"].into(),
+            ready_pod_status(),
+        ));
+        stub.ceramic_pod_status.push((
+            expect_file!["./testdata/ceramic_pod_status-0-1"].into(),
+            ready_pod_status(),
+        ));
+        stub.keramik_peers_configmap.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -9,7 +9,7 @@
+                   "apiVersion": "v1",
+                   "kind": "ConfigMap",
+                   "data": {
+            -        "peers.json": "[]"
+            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+                   },
+                   "metadata": {
+                     "labels": {
+        "#]]);
+        stub.status.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -7,10 +7,40 @@
+                 },
+                 body: {
+                   "status": {
+            -        "replicas": 0,
+            -        "readyReplicas": 0,
+            -        "namespace": null,
+            -        "peers": [],
+            +        "replicas": 2,
+            +        "readyReplicas": 2,
+            +        "namespace": "keramik-test",
+            +        "peers": [
+            +          {
+            +            "ceramic": {
+            +              "peerId": "peer_id_0",
+            +              "ipfsRpcAddr": "http://peer0:5001",
+            +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
+            +              ]
+            +            }
+            +          },
+            +          {
+            +            "ceramic": {
+            +              "peerId": "peer_id_1",
+            +              "ipfsRpcAddr": "http://peer1:5001",
+            +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
+            +              ]
+            +            }
+            +          },
+            +          {
+            +            "ipfs": {
+            +              "peerId": "cas_peer_id",
+            +              "ipfsRpcAddr": "http://cas-ipfs:5001",
+            +              "p2pAddrs": [
+            +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
+            +              ]
+            +            }
+            +          }
+            +        ],
+                     "expirationTime": null
+                   }
+                 },
+        "#]]);
+        // Bootstrap is disabled, there should be no requests for it.
+        stub.bootstrap_job = vec![];
+
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = stub.run(fakeserver);

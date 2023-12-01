@@ -9,6 +9,7 @@ use crate::network::{BootstrapSpec, PEERS_CONFIG_MAP_NAME};
 
 // BootstrapConfig defines which properties of the JobSpec can be customized.
 pub struct BootstrapConfig {
+    pub enabled: bool,
     pub image: String,
     pub image_pull_policy: String,
     pub method: String,
@@ -19,6 +20,7 @@ pub struct BootstrapConfig {
 impl Default for BootstrapConfig {
     fn default() -> Self {
         Self {
+            enabled: true,
             image: "public.ecr.aws/r5b3e0r5/3box/keramik-runner".to_owned(),
             image_pull_policy: "Always".to_owned(),
             method: "sentinel".to_owned(),
@@ -40,6 +42,7 @@ impl From<BootstrapSpec> for BootstrapConfig {
     fn from(value: BootstrapSpec) -> Self {
         let default = Self::default();
         Self {
+            enabled: value.enabled.unwrap_or(default.enabled),
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
             method: value.method.unwrap_or(default.method),
@@ -48,8 +51,8 @@ impl From<BootstrapSpec> for BootstrapConfig {
     }
 }
 
-pub fn bootstrap_job_spec(config: impl Into<BootstrapConfig>) -> JobSpec {
-    let config = config.into();
+pub fn bootstrap_job_spec(config: BootstrapConfig) -> JobSpec {
+    debug_assert!(config.enabled);
     JobSpec {
         backoff_limit: Some(4),
         template: PodTemplateSpec {

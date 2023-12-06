@@ -16,10 +16,10 @@ While not required to use keramik it makes deploying and mutating networks signi
 
 ```shell
 # Create a new kind cluster (i.e. local k8s)
-kind create cluster --config kind.yaml 
+kind create cluster --config kind.yaml
 ```
 
-Now you will need to [deploy images](./deploy_images.md) to the cluster.
+Now you will need to [deploy Keramik](./deploy_keramik.md) to the cluster.
 
 
 

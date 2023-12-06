@@ -1,6 +1,7 @@
 # Simulation
 
 To run a simulation, first define a simulation. Available simulation types are
+
 - `ipfs-rpc` - A simple simulation that writes and reads to IPFS
 - `ceramic-simple` - A simple simulation that writes and reads events to two different streams, a small and large model
 - `ceramic-write-only` - A simulation that only performs updates on two different streams
@@ -15,15 +16,34 @@ apiVersion: "keramik.3box.io/v1alpha1"
 kind: Simulation
 metadata:
   name: basic
-  namespace: keramik-small
+  # Must be the same namespace as the network to test
+  namespace: keramik-<unique-name>-small
 spec:
   scenario: ceramic-simple
   users: 10
-  run_time: 4
+  runTime: 4
 ```
-If you want to run it against a defined network, set the namespace to the same as the network. in this example the 
+
+If you want to run it against a defined network, set the namespace to the same as the network. in this example the
 namespace is set to the same network applied when [the network was setup](./setup_network.md).
 Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.
+
+Before running the simulation make sure the `network` is ready.
+
+```
+kubectl describe network <unique-name>-small
+```
+
+You should see that the number of `Ready Replicas` is the same as the `Replicas`.
+Example simplified output of a ready network:
+
+```txt
+Name:         nc-small
+...
+  Ready Replicas:  2
+  Replicas:        2
+...
+```
 
 Once ready, apply this simulation defintion to the k8s cluster:
 
@@ -42,4 +62,57 @@ If you want to rerun a simulation with no changes, you can delete the simulation
 kubectl delete -f basic.yaml
 ```
 
+## Simulating Specific Versions
+
+Often you will want to run a simulation against a specific version of software.
+To do this you will need to build the image and configure your network to run that image.
+
+### Example Custom JS-Ceramic Image
+
+Use this example `network` definition with a custom `js-ceramic` image.
+
+```yaml
+# custom-js-ceramic.yaml
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: custom-js-ceramic
+spec:
+  replicas: 2
+  ceramic:
+    - image: ceramicnetwork/composedb:dev
+      imagePullPolicy: IfNotPresent
+```
+
+```shell
+kubectl apply -f custom-js-ceramic.yaml
+```
+
+You can also run [mixed networks](./mixed_networks.md) and various other [advanced](./advanced_configuration.md) configurations.
+
+
+### Example Custom IPFS Image
+
+Use this example `network` definition with a custom `IPFS` image.
+
+```yaml
+# custom-ipfs.yaml
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: custom-ipfs
+spec:
+  replicas: 2
+  ceramic:
+    - ipfs:
+        rust:
+          image: ceramicnetwork/rust-ceramic:dev
+          imagePullPolicy: IfNotPresent
+```
+
+```shell
+kubectl apply -f custom-ipfs.yaml
+```
 

@@ -4,14 +4,25 @@ namespace: keramik
 resources:
   - ./manifests/operator.yaml
 
+#
+#
+# Uncomment either the latest or development section
+#
+#
+
+# Uncomment for running latest
+#
+# Additionally ensure that ./k8s/operator/manifests/operator.yaml uses Always as the imagePullPolicy
+#
 images:
   - name: keramik/operator
-    newTag: dev
+    newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
+    newTag: latest
 
-    # If you always want to use the latest committed version of Keramic, uncomment these lines
-    # (and comment out newTag:dev above), and change the file k8s/operator/operator.yaml to change
-    # the value of imagePullPolicy from IfNotPresent to Always.
-
-    # newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
-    # newTag: latest
-
+# Uncomment for development
+#
+# Additionally ensure that ./k8s/operator/manifests/operator.yaml uses IfNotPresent as the imagePullPolicy
+#
+#images:
+#  - name: keramik/operator
+#    newTag: dev

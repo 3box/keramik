@@ -148,7 +148,7 @@ pub struct GoIpfsSpec {
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct CasSpec {
-    /// Image of the runner for the bootstrap job.
+    /// Image of CAS
     pub image: Option<String>,
     /// Image pull policy for the bootstrap job.
     pub image_pull_policy: Option<String>,

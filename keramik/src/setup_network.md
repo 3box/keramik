@@ -1,8 +1,8 @@
 # Setting Up a Network
+
 With the operator running we can now define a Ceramic network.
 
-Place the following network definition into the file `small.yaml`. You can also use a [custom image](./custom_runner_image.md)
-for the runner when setting up a network.
+Place the following network definition into the file `small.yaml`.
 
 ```yaml
 # small.yaml
@@ -10,22 +10,12 @@ for the runner when setting up a network.
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
-  name: <initials>-small
+  name: <unique-name>-small
 spec:
   replicas: 2
 ```
 
-If you're running a simulation in the cloud, you will want to use `version` to separate out the metrics and errors for
-your simulation run.
-
-```yaml
-datadog:
-  enabled: true
-  version: "unique-simulation-name"
-  profilingEnabled: true
-```
-
-A complete example of a network definition with datadog enabled can be found [here](./datadog.md).
+The `<unique-name>` can be any unique string, your initials are a good default if you are deploying the network to a cloud cluster.
 
 Apply this network definition to the k8s cluster:
 
@@ -36,10 +26,11 @@ kubectl apply -f small.yaml
 After a minute or two you should have a functioning Ceramic network.
 
 ## Checking the status of the network
+
 Check the status of the network:
 
 ```shell
-export NETWORK_NAME=<initials>-small
+export NETWORK_NAME=<unique-name>-small
 kubectl describe network $NETWORK_NAME
 ```
 
@@ -56,7 +47,10 @@ Inspect the pods within the network using:
 kubectl get pods
 ```
 
-When your pods are ready, you can [run a simulation](./simulation.md)
+>HINT: Use tools like  [k9s](https://k9scli.io/) to interactively manage your network.
+
+When your pods are ready, you can [run a simulation](./simulation.md).
+If you are running locally, be patient as the first time you setup a network you will need to download several images.
 
 >HINT: Use tools like [kubectx](https://github.com/ahmetb/kubectx) or [kubie](https://github.com/sbstp/kubie) to work with multiple namespaces and contexts.
 

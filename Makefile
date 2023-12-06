@@ -33,3 +33,11 @@ runner:
 .PHONY: operator
 operator:
 	${CARGO} build --bin keramik-operator --release --locked  --config net.git-fetch-with-cli=true
+
+.PHONY: book
+book:
+	mdbook build
+
+.PHONY: book-serve
+book-serve:
+	mdbook serve --open

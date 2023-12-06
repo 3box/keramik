@@ -103,7 +103,7 @@ jobs:
       with:
         mdbook-version: '0.4.10'
         # mdbook-version: 'latest'
-    - run: mdbook build
+    - run: make book
     - name: Deploy
       uses: peaceiris/actions-gh-pages@v3
       if: ${{ github.ref == 'refs/heads/main' }}

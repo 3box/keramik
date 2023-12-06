@@ -1,4 +1,5 @@
 # Analysis
+
 Analysis of Keramik results depends on the purpose of the simulation. You may want to just see average latencies, or dive
 deeper into reported metrics. For profiling, you will want to use [datadog](./datadog.md).
 
@@ -67,4 +68,5 @@ Changes should not make performance worse. Performance is defined using these me
 For any simulation of the Ceramic protocol these metrics should apply. Any report about the results of a simulation should include these metrics and we compare them against the established a baseline.
 
 ## Performance Analysis
+
 In addition to the above, we can also use [datadog](./datadog.md) to dive further into performance.

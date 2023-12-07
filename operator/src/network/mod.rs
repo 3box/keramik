@@ -1,6 +1,7 @@
 //! Network is k8s custom resource that defines a Ceramic network.
 
 // Export all spec types
+mod ipfs;
 mod spec;
 pub use spec::*;
 

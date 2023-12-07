@@ -1,5 +1,5 @@
 //! Place all spec types into a single module so they can be used as a lightweight dependency
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use keramik_common::peer_info::Peer;
@@ -33,9 +33,7 @@ pub struct NetworkSpec {
     /// the Admin DID.
     pub private_key_secret: Option<String>,
     /// Ceramic network type
-    pub network_type: Option<String>,
-    /// PubSub topic for Ceramic nodes to use
-    pub pubsub_topic: Option<String>,
+    pub network_type: Option<NetworkType>,
     /// Ethereum RPC URL for Ceramic nodes to use for verifying anchors
     pub eth_rpc_url: Option<String>,
     /// URL for Ceramic Anchor Service (CAS)
@@ -47,6 +45,50 @@ pub struct NetworkSpec {
     /// The number of seconds this network should live.
     /// If unset the network lives forever.
     pub ttl_seconds: Option<u64>,
+}
+
+/// Local network ID.
+/// We can use a hard coded value since nodes from other networks should not be
+/// able to connect.
+pub const NETWORK_LOCAL_ID: usize = 0;
+
+/// NetworkType is the discrete set of networks
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+pub enum NetworkType {
+    /// Mainnet
+    Mainnet,
+    /// Testnet Clay
+    TestnetClay,
+    /// DevUnstable
+    DevUnstable,
+    /// Local (default)
+    #[default]
+    Local,
+    /// InMemory, cannot participate with other nodes
+    InMemory,
+}
+
+impl NetworkType {
+    /// Returns a unique name for the network
+    pub fn name(&self) -> &str {
+        match self {
+            NetworkType::Mainnet => "mainnet",
+            NetworkType::TestnetClay => "testnet-clay",
+            NetworkType::DevUnstable => "dev-unstable",
+            NetworkType::Local => "local",
+            NetworkType::InMemory => "inmemory",
+        }
+    }
+    /// Returns a unique name for a pubsub topic for the network
+    pub fn topic(&self) -> String {
+        match self {
+            NetworkType::Mainnet => "/ceramic/mainnet".to_string(),
+            NetworkType::TestnetClay => "/ceramic/testnet-clay".to_string(),
+            NetworkType::DevUnstable => "/ceramic/dev-unstable".to_string(),
+            NetworkType::Local => format!("/ceramic/local-{NETWORK_LOCAL_ID}"),
+            NetworkType::InMemory => "/ceramic/inmemory".to_string(),
+        }
+    }
 }
 
 /// Current status of the network.
@@ -100,7 +142,7 @@ pub struct CeramicSpec {
     pub resource_limits: Option<ResourceLimitsSpec>,
     /// Extra env values to pass to the image.
     /// CAUTION: Any env vars specified in this set will override any predefined values.
-    pub env: Option<HashMap<String, String>>,
+    pub env: Option<BTreeMap<String, String>>,
 }
 
 /// Describes how the IPFS node for a peer should behave.
@@ -127,7 +169,7 @@ pub struct RustIpfsSpec {
     pub rust_log: Option<String>,
     /// Extra env values to pass to the image.
     /// CAUTION: Any env vars specified in this set will override any predefined values.
-    pub env: Option<HashMap<String, String>>,
+    pub env: Option<BTreeMap<String, String>>,
 }
 
 /// Describes how the Go IPFS node for a peer should behave.
@@ -152,6 +194,8 @@ pub struct CasSpec {
     pub image: Option<String>,
     /// Image pull policy for the bootstrap job.
     pub image_pull_policy: Option<String>,
+    /// Configuration of the IPFS container
+    pub ipfs: Option<IpfsSpec>,
     /// Resource limits for the CAS pod, applies to both requests and limits.
     pub cas_resource_limits: Option<ResourceLimitsSpec>,
     /// Resource limits for the CAS IPFS pod, applies to both requests and limits.

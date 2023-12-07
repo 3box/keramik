@@ -7,17 +7,15 @@ You can configure the Ceramic nodes to use an external instance of the CAS inste
 CAS running in 3Box Labs infrastructure, you will also need to specify the Ceramic network type associated with the
 node, e.g. `dev-unstable`.
 
-In this case, the Ceramic network PubSub topic must be specified as an empty string in order to clear it from the
-Ceramic configuration. Ceramic nodes do not permit the PubSub topic to be specified for a network type that is not one
-of `local` or `inmemory`.
-
 You may also specify an Ethereum RPC endpoint for the Ceramic nodes to be able to verify anchors, or set it to an empty
 string to clear it from the Ceramic configuration. In the latter case, the Ceramic nodes will come up but will not be
 able to verify anchors.
 
-If left unspecified, `networkType` will default to `local`, `pubsubTopic` to `/ceramic/local-keramik`, `ethRpcUrl` to
-`http://ganache:8545`, and `casApiUrl` to `http://cas:8081`. These defaults point to an internal CAS using a local
+If left unspecified, `networkType` will default to `local`, `ethRpcUrl` to `http://ganache:8545`,
+and `casApiUrl` to `http://cas:8081`. These defaults point to an internal CAS using a local
 pubsub topic in a fully isolated network.
+
+Additionally IPFS can be [configured](./ipfs.md) with custom images and resources for both CAS and Ceramic.
 
 ```yaml
 # network configuration
@@ -30,12 +28,12 @@ spec:
   replicas: 2
   privateKeySecret: "small"
   networkType: "dev-unstable"
-  pubsubTopic: ""
   ethRpcUrl: ""
   casApiUrl: "https://some-anchor-service.com"
 ```
 
 # Adjusting Ceramic Environment
+
 Ceramic environment can be adjusted by specifying environment variables in the network configuration
 
 ```yaml
@@ -53,6 +51,7 @@ spec:
 ```
 
 # Disabling AWS Functionality
+
 Certain functionality in CAS depends on AWS services. If you are running Keramik in a non-AWS environment, you can
 disable this by editing the statefulset for CAS
 
@@ -70,6 +69,7 @@ and adding the following environment variables to the `spec/template/spec/contai
 *Note* statefulsets must be edited every time the network is recreated.
 
 # Image Resources
+
 You can also use the [network](./setup_network.md) specification to specify resources for the pods that are running
 
 ```yaml

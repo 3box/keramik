@@ -1,6 +1,7 @@
 use crate::scenario::ceramic::util::goose_error;
 use goose::GooseError;
 
+pub mod cas_push;
 pub mod ceramic;
 pub mod ipfs_block_fetch;
 

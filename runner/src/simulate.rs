@@ -11,7 +11,7 @@ use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
 use tracing::error;
 
 use crate::{
-    scenario::{ceramic, ipfs_block_fetch},
+    scenario::{cas_push, ceramic, ipfs_block_fetch},
     utils::parse_peers_info,
 };
 
@@ -74,6 +74,8 @@ pub enum Scenario {
     CeramicQuery,
     /// Scenario to reuse the same model id and query instances across workers
     CeramicModelReuse,
+    /// Scenario to experiment with CAS pushing events via Recon
+    CasPush,
 }
 
 impl Scenario {
@@ -85,12 +87,13 @@ impl Scenario {
             Scenario::CeramicNewStreams => "ceramic_new_streams",
             Scenario::CeramicQuery => "ceramic_query",
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
+            Scenario::CasPush => "cas_push",
         }
     }
 
     fn target_addr(&self, peer: &Peer) -> Result<String> {
         match self {
-            Self::IpfsRpc => Ok(peer.ipfs_rpc_addr().to_owned()),
+            Self::IpfsRpc | Self::CasPush => Ok(peer.ipfs_rpc_addr().to_owned()),
             Self::CeramicSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
@@ -134,6 +137,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
         Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
         Scenario::CeramicQuery => ceramic::query::scenario().await?,
         Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
+        Scenario::CasPush => cas_push::scenario(topo)?,
     };
     let config = if opts.manager {
         manager_config(peers.len(), opts.users, opts.run_time)

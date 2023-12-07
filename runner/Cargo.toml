@@ -26,3 +26,4 @@ serde_json.workspace = true
 tokio.workspace = true
 tracing-log.workspace = true
 tracing.workspace = true
+multibase.workspace = true

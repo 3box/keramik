@@ -25,6 +25,9 @@ Request {
         "serviceName": "cas-ipfs",
         "template": {
           "metadata": {
+            "annotations": {
+              "prometheus/path": "/metrics"
+            },
             "labels": {
               "app": "cas-ipfs"
             }

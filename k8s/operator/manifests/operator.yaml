@@ -124,7 +124,7 @@ spec:
         - name: OPERATOR_OTLP_ENDPOINT
           value: "https://otel:4317"
         - name: RUST_LOG
-          value: "info,kube=debug,keramik_operator=debug"
+          value: "info"
         #readinessProbe:
         #  httpGet:
         #    path: /health

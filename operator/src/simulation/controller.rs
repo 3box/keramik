@@ -23,7 +23,7 @@ use kube::{
 };
 use rand::{thread_rng, Rng, RngCore};
 
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 
 use crate::{
     labels::MANAGED_BY_LABEL_SELECTOR,
@@ -118,7 +118,7 @@ pub async fn run() {
         .for_each(|rec_res| async move {
             match rec_res {
                 Ok((simulation, _)) => {
-                    debug!(simulation.name, "reconcile success");
+                    info!(simulation.name, "reconcile success");
                 }
                 Err(err) => {
                     error!(?err, "reconcile error")

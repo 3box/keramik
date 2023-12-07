@@ -10,7 +10,7 @@ use opentelemetry::{
     },
 };
 use opentelemetry_otlp::WithExportConfig;
-use tracing_subscriber::{prelude::*, EnvFilter, Registry};
+use tracing_subscriber::{filter::LevelFilter, prelude::*, EnvFilter, Registry};
 
 /// Initialize tracing and metrics
 pub async fn init(otlp_endpoint: String) -> Result<BasicController> {
@@ -60,15 +60,32 @@ pub async fn init(otlp_endpoint: String) -> Result<BasicController> {
         // Build starts the meter and sets it as the global meter provider
         .build()?;
 
-    // Setup tracing layers
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-    let logger = tracing_subscriber::fmt::layer().with_ansi(true).compact();
-    let env_filter = EnvFilter::try_from_default_env().or_else(|_| EnvFilter::try_new("info"))?;
+    // Setup filters
+    // Default to INFO if no env is specified
+    let log_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env()?;
+    let otlp_filter = EnvFilter::builder()
+        .with_default_directive(LevelFilter::INFO.into())
+        .from_env()?;
 
-    let collector = Registry::default()
-        .with(telemetry)
-        .with(logger)
-        .with(env_filter);
+    // Setup tracing layers
+    let telemetry = tracing_opentelemetry::layer()
+        .with_tracer(tracer)
+        .with_filter(otlp_filter);
+    let logger = tracing_subscriber::fmt::layer()
+        .with_ansi(true)
+        .compact()
+        .with_filter(log_filter);
+
+    let collector = Registry::default().with(telemetry).with(logger);
+
+    #[cfg(feature = "tokio-console")]
+    let collector = {
+        let console_filter = EnvFilter::builder().parse("tokio=trace,runtime=trace")?;
+        let console_layer = console_subscriber::spawn().with_filter(console_filter);
+        collector.with(console_layer)
+    };
 
     // Initialize tracing
     tracing::subscriber::set_global_default(collector)?;

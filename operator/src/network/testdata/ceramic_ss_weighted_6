@@ -50,7 +50,7 @@ Request {
                   },
                   {
                     "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-keramik"
+                    "value": "/ceramic/local-0"
                   },
                   {
                     "name": "ETH_RPC_URL",
@@ -155,10 +155,6 @@ Request {
                     "value": "0"
                   },
                   {
-                    "name": "CERAMIC_ONE_METRICS",
-                    "value": "true"
-                  },
-                  {
                     "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
                     "value": "0.0.0.0:9465"
                   },
@@ -176,7 +172,7 @@ Request {
                   },
                   {
                     "name": "RUST_LOG",
-                    "value": "info,ceramic_one=debug,tracing_actix_web=debug,quinn_proto=error"
+                    "value": "info,ceramic_one=debug,multipart=error"
                   }
                 ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -242,7 +238,7 @@ Request {
                   },
                   {
                     "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-keramik"
+                    "value": "/ceramic/local-0"
                   },
                   {
                     "name": "ETH_RPC_URL",

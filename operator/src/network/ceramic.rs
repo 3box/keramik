@@ -494,7 +494,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                     bundle
                         .config
                         .ipfs
-                        .container(&bundle.info, &bundle.net_config),
+                        .container(&bundle.info, bundle.net_config),
                 ],
                 init_containers: Some(vec![Container {
                     command: Some(vec![

@@ -32,47 +32,62 @@ Request {
           "spec": {
             "containers": [
               {
-                "command": [
-                  "/usr/bin/ceramic-one",
-                  "daemon",
-                  "--store-dir",
-                  "/data/ipfs",
-                  "-b",
-                  "0.0.0.0:5001"
-                ],
                 "env": [
                   {
-                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
-                    "value": "6"
+                    "name": "CERAMIC_ONE_BIND_ADDRESS",
+                    "value": "0.0.0.0:5001"
                   },
                   {
                     "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
                     "value": "1"
                   },
                   {
+                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+                    "value": "6"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+                    "value": "0"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
+                    "value": "0.0.0.0:9465"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_NETWORK",
+                    "value": "local"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_STORE_DIR",
+                    "value": "/data/ipfs"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+                    "value": "/ip4/0.0.0.0/tcp/4001"
+                  },
+                  {
                     "name": "RUST_LOG",
-                    "value": "info,ceramic_one=debug,quinn_proto=error"
+                    "value": "info,ceramic_one=debug,multipart=error"
                   }
                 ],
-                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one",
+                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
                 "imagePullPolicy": "Always",
                 "name": "ipfs",
                 "ports": [
                   {
                     "containerPort": 4001,
-                    "name": "swarm-tcp"
+                    "name": "swarm-tcp",
+                    "protocol": "TCP"
                   },
                   {
                     "containerPort": 5001,
-                    "name": "api"
+                    "name": "rpc",
+                    "protocol": "TCP"
                   },
                   {
-                    "containerPort": 8080,
-                    "name": "gateway"
-                  },
-                  {
-                    "containerPort": 9090,
-                    "name": "metrics"
+                    "containerPort": 9465,
+                    "name": "metrics",
+                    "protocol": "TCP"
                   }
                 ],
                 "resources": {
@@ -90,16 +105,16 @@ Request {
                 "volumeMounts": [
                   {
                     "mountPath": "/data/ipfs",
-                    "name": "cas-ipfs-data"
+                    "name": "ipfs-data"
                   }
                 ]
               }
             ],
             "volumes": [
               {
-                "name": "cas-ipfs-data",
+                "name": "ipfs-data",
                 "persistentVolumeClaim": {
-                  "claimName": "cas-ipfs-data"
+                  "claimName": "ipfs-data"
                 }
               }
             ]
@@ -110,7 +125,7 @@ Request {
             "apiVersion": "v1",
             "kind": "PersistentVolumeClaim",
             "metadata": {
-              "name": "cas-ipfs-data"
+              "name": "ipfs-data"
             },
             "spec": {
               "accessModes": [

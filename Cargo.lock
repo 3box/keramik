@@ -2640,7 +2640,6 @@ dependencies = [
  "goose",
  "keramik-common",
  "libipld 0.16.0",
- "multibase 0.9.1",
  "multihash 0.17.0",
  "opentelemetry",
  "rand 0.8.5",

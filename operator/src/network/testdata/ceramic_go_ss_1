@@ -50,7 +50,7 @@ Request {
                   },
                   {
                     "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-keramik"
+                    "value": "/ceramic/local-0"
                   },
                   {
                     "name": "ETH_RPC_URL",
@@ -205,7 +205,7 @@ Request {
                   },
                   {
                     "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-keramik"
+                    "value": "/ceramic/local-0"
                   },
                   {
                     "name": "ETH_RPC_URL",

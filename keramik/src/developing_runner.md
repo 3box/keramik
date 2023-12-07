@@ -55,7 +55,7 @@ metadata:
 spec:
   scenario: ceramic-simple
   users: 10
-  run_time: 4
+  runTime: 4
   image: keramik/runner:dev
   imagePullPolicy: IfNotPresent
 ```

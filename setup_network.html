@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html" class="active"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">5.5.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.6.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.7.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">5.8.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">5.9.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_keramik.html"><strong aria-hidden="true">2.1.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html" class="active"><strong aria-hidden="true">2.2.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">5.</strong> Developing Keramik</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="developing_operator.html"><strong aria-hidden="true">5.1.</strong> Operator</a></li><li class="chapter-item expanded "><a href="developing_runner.html"><strong aria-hidden="true">5.2.</strong> Runner</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">6.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">6.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">6.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">6.4.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">6.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">6.6.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">6.7.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">6.8.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -145,32 +145,24 @@
                     <main>
                         <h1 id="setting-up-a-network"><a class="header" href="#setting-up-a-network">Setting Up a Network</a></h1>
 <p>With the operator running we can now define a Ceramic network.</p>
-<p>Place the following network definition into the file <code>small.yaml</code>. You can also use a <a href="./custom_runner_image.html">custom image</a>
-for the runner when setting up a network.</p>
+<p>Place the following network definition into the file <code>small.yaml</code>.</p>
 <pre><code class="language-yaml"># small.yaml
 ---
 apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
-  name: &lt;initials&gt;-small
+  name: &lt;unique-name&gt;-small
 spec:
   replicas: 2
 </code></pre>
-<p>If you're running a simulation in the cloud, you will want to use <code>version</code> to separate out the metrics and errors for
-your simulation run.</p>
-<pre><code class="language-yaml">datadog:
-  enabled: true
-  version: &quot;unique-simulation-name&quot;
-  profilingEnabled: true
-</code></pre>
-<p>A complete example of a network definition with datadog enabled can be found <a href="./datadog.html">here</a>.</p>
+<p>The <code>&lt;unique-name&gt;</code> can be any unique string, your initials are a good default if you are deploying the network to a cloud cluster.</p>
 <p>Apply this network definition to the k8s cluster:</p>
 <pre><code class="language-shell">kubectl apply -f small.yaml
 </code></pre>
 <p>After a minute or two you should have a functioning Ceramic network.</p>
 <h2 id="checking-the-status-of-the-network"><a class="header" href="#checking-the-status-of-the-network">Checking the status of the network</a></h2>
 <p>Check the status of the network:</p>
-<pre><code class="language-shell">export NETWORK_NAME=&lt;initials&gt;-small
+<pre><code class="language-shell">export NETWORK_NAME=&lt;unique-name&gt;-small
 kubectl describe network $NETWORK_NAME
 </code></pre>
 <p>Keramik places each network into its own namespace named after the name of the network. You can default your context
@@ -180,7 +172,11 @@ to this namespace using:</p>
 <p>Inspect the pods within the network using:</p>
 <pre><code class="language-shell">kubectl get pods
 </code></pre>
-<p>When your pods are ready, you can <a href="./simulation.html">run a simulation</a></p>
+<blockquote>
+<p>HINT: Use tools like  <a href="https://k9scli.io/">k9s</a> to interactively manage your network.</p>
+</blockquote>
+<p>When your pods are ready, you can <a href="./simulation.html">run a simulation</a>.
+If you are running locally, be patient as the first time you setup a network you will need to download several images.</p>
 <blockquote>
 <p>HINT: Use tools like <a href="https://github.com/ahmetb/kubectx">kubectx</a> or <a href="https://github.com/sbstp/kubie">kubie</a> to work with multiple namespaces and contexts.</p>
 </blockquote>
@@ -192,7 +188,7 @@ to this namespace using:</p>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                                                    <a rel="prev" href="deploy_crds.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                                    <a rel="prev" href="deploy_keramik.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
@@ -206,7 +202,7 @@ to this namespace using:</p>
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                                    <a rel="prev" href="deploy_crds.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                    <a rel="prev" href="deploy_keramik.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 

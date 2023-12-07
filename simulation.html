@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html" class="active"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">5.5.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.6.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.7.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">5.8.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">5.9.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_keramik.html"><strong aria-hidden="true">2.1.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.2.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html" class="active"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">5.</strong> Developing Keramik</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="developing_operator.html"><strong aria-hidden="true">5.1.</strong> Operator</a></li><li class="chapter-item expanded "><a href="developing_runner.html"><strong aria-hidden="true">5.2.</strong> Runner</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">6.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">6.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">6.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">6.4.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">6.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">6.6.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">6.7.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">6.8.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -158,15 +158,27 @@ apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Simulation
 metadata:
   name: basic
-  namespace: keramik-small
+  # Must be the same namespace as the network to test
+  namespace: keramik-&lt;unique-name&gt;-small
 spec:
   scenario: ceramic-simple
   users: 10
-  run_time: 4
+  runTime: 4
 </code></pre>
-<p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the 
+<p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the
 namespace is set to the same network applied when <a href="./setup_network.html">the network was setup</a>.
 Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.</p>
+<p>Before running the simulation make sure the <code>network</code> is ready.</p>
+<pre><code>kubectl describe network &lt;unique-name&gt;-small
+</code></pre>
+<p>You should see that the number of <code>Ready Replicas</code> is the same as the <code>Replicas</code>.
+Example simplified output of a ready network:</p>
+<pre><code class="language-txt">Name:         nc-small
+...
+  Ready Replicas:  2
+  Replicas:        2
+...
+</code></pre>
 <p>Once ready, apply this simulation defintion to the k8s cluster:</p>
 <pre><code class="language-shell">kubectl apply -f basic.yaml
 </code></pre>
@@ -175,6 +187,44 @@ The manager and workers will stop once the simulation is complete.</p>
 <p>You can then <a href="analysis.html">analyze</a> the results of the simulation.</p>
 <p>If you want to rerun a simulation with no changes, you can delete the simulation and reapply it.</p>
 <pre><code class="language-shell">kubectl delete -f basic.yaml
+</code></pre>
+<h2 id="simulating-specific-versions"><a class="header" href="#simulating-specific-versions">Simulating Specific Versions</a></h2>
+<p>Often you will want to run a simulation against a specific version of software.
+To do this you will need to build the image and configure your network to run that image.</p>
+<h3 id="example-custom-js-ceramic-image"><a class="header" href="#example-custom-js-ceramic-image">Example Custom JS-Ceramic Image</a></h3>
+<p>Use this example <code>network</code> definition with a custom <code>js-ceramic</code> image.</p>
+<pre><code class="language-yaml"># custom-js-ceramic.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: custom-js-ceramic
+spec:
+  replicas: 2
+  ceramic:
+    - image: ceramicnetwork/composedb:dev
+      imagePullPolicy: IfNotPresent
+</code></pre>
+<pre><code class="language-shell">kubectl apply -f custom-js-ceramic.yaml
+</code></pre>
+<p>You can also run <a href="./mixed_networks.html">mixed networks</a> and various other <a href="./advanced_configuration.html">advanced</a> configurations.</p>
+<h3 id="example-custom-ipfs-image"><a class="header" href="#example-custom-ipfs-image">Example Custom IPFS Image</a></h3>
+<p>Use this example <code>network</code> definition with a custom <code>IPFS</code> image.</p>
+<pre><code class="language-yaml"># custom-ipfs.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: custom-ipfs
+spec:
+  replicas: 2
+  ceramic:
+    - ipfs:
+        rust:
+          image: ceramicnetwork/rust-ceramic:dev
+          imagePullPolicy: IfNotPresent
+</code></pre>
+<pre><code class="language-shell">kubectl apply -f custom-ipfs.yaml
 </code></pre>
 
                     </main>

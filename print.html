@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">5.5.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.6.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.7.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">5.8.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">5.9.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_keramik.html"><strong aria-hidden="true">2.1.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.2.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">5.</strong> Developing Keramik</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="developing_operator.html"><strong aria-hidden="true">5.1.</strong> Operator</a></li><li class="chapter-item expanded "><a href="developing_runner.html"><strong aria-hidden="true">5.2.</strong> Runner</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">6.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">6.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">6.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">6.4.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">6.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">6.6.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">6.7.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">6.8.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -183,71 +183,44 @@ featureGates:
 <p>This configuration enables a feature that allows stateful sets to more rapidly redeploy pods on changes.
 While not required to use keramik it makes deploying and mutating networks significantly faster.</p>
 <pre><code class="language-shell"># Create a new kind cluster (i.e. local k8s)
-kind create cluster --config kind.yaml 
+kind create cluster --config kind.yaml
 </code></pre>
-<p>Now you will need to <a href="./deploy_images.html">deploy images</a> to the cluster.</p>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="deploying-images"><a class="header" href="#deploying-images">Deploying Images</a></h1>
-<p>There are two images that need to be deployed to the cluster if using a <a href="./environment.html#local-environment">local environment</a>
-or if you are trying to develop functionality or <a href="./developing-scenarios.html">scenarios</a>. These images are</p>
-<ul>
-<li><a href="deploy_images.html#operator">Operator</a> - long lived process that manages the network custom resource.</li>
-<li><a href="deploy_images.html#runner">Runner</a> - short lived process that performs various tasks within the network (i.e. bootstrapping)</li>
-</ul>
-<h2 id="operator"><a class="header" href="#operator">Operator</a></h2>
-<p>The <code>operator</code> automates creating and manipulating networks via custom resource definition.
-Any changes to the operator require that you rebuild it and load it into kind again.</p>
-<pre><code class="language-shell">docker buildx build --load -t keramik/operator:dev --target operator .
-kind load docker-image keramik/operator:dev
-</code></pre>
-<p>Next edit <code>./k8s/operator/kustomization.yaml</code> to use the <code>dev</code> tag</p>
-<pre><code class="language-yaml">images:
-  - name: keramik/operator
-    newTag: dev
-</code></pre>
-<p>If you have already <a href="./create_cluster.html">created a cluster</a>, you will need to apply these changes:</p>
-<pre><code class="language-shell">kubectl apply -k ./k8s/operator/
-</code></pre>
-<p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
-<p>Next you will <a href="./deploy_crds.html">deploy custom resource definitions</a> to the cluster. If you've already deployed CRDS and setup a network, you will 
-need to <a href="./setup_network.html">setup a network</a> again to use your new runner.</p>
+<p>Now you will need to <a href="./deploy_keramik.html">deploy Keramik</a> to the cluster.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="deploy-keramik"><a class="header" href="#deploy-keramik">Deploy Keramik</a></h1>
-<p>To deploy keramik, we will need to deploy custom resource definitions (CRDs) and the keramik operator.</p>
-<pre><code class="language-shell"># Create keramik namespace
-kubectl create namespace keramik
-# Create CRDs
-cargo run --bin crdgen | kubectl create -f - 
-# Start up keramik operator
-kubectl apply -k ./k8s/operator/             
+<p>To deploy keramik, we will need to deploy custom resource definitions (CRDs) and apply the Keramik operator.</p>
+<h2 id="deploy-crds"><a class="header" href="#deploy-crds">Deploy CRDS</a></h2>
+<p>Custom resource definitions tell k8s about our network and simulation resources.
+When deploying a new cluster and anytime they change you need to apply them:</p>
+<pre><code class="language-shell">cargo run --bin crdgen | kubectl apply -f -
 </code></pre>
-<p>Once that is complete, we will <a href="./setup_network.html">setup a network</a>.</p>
+<h2 id="deploy-keramik--operator"><a class="header" href="#deploy-keramik--operator">Deploy Keramik  Operator</a></h2>
+<p>The last piece to running Keramik is the operator itself. Apply the operator into the <code>keramik</code> namespace.</p>
+<pre><code># Create keramik namespace
+kubectl create namespace keramik
+# Apply the keramik operator
+kubectl apply -k ./k8s/operator/
+</code></pre>
+<p>Once that is complete, you can now <a href="./setup_network.html">setup a network</a>.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="setting-up-a-network"><a class="header" href="#setting-up-a-network">Setting Up a Network</a></h1>
 <p>With the operator running we can now define a Ceramic network.</p>
-<p>Place the following network definition into the file <code>small.yaml</code>. You can also use a <a href="./custom_runner_image.html">custom image</a>
-for the runner when setting up a network.</p>
+<p>Place the following network definition into the file <code>small.yaml</code>.</p>
 <pre><code class="language-yaml"># small.yaml
 ---
 apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
-  name: &lt;initials&gt;-small
+  name: &lt;unique-name&gt;-small
 spec:
   replicas: 2
 </code></pre>
-<p>If you're running a simulation in the cloud, you will want to use <code>version</code> to separate out the metrics and errors for
-your simulation run.</p>
-<pre><code class="language-yaml">datadog:
-  enabled: true
-  version: &quot;unique-simulation-name&quot;
-  profilingEnabled: true
-</code></pre>
-<p>A complete example of a network definition with datadog enabled can be found <a href="./datadog.html">here</a>.</p>
+<p>The <code>&lt;unique-name&gt;</code> can be any unique string, your initials are a good default if you are deploying the network to a cloud cluster.</p>
 <p>Apply this network definition to the k8s cluster:</p>
 <pre><code class="language-shell">kubectl apply -f small.yaml
 </code></pre>
 <p>After a minute or two you should have a functioning Ceramic network.</p>
 <h2 id="checking-the-status-of-the-network"><a class="header" href="#checking-the-status-of-the-network">Checking the status of the network</a></h2>
 <p>Check the status of the network:</p>
-<pre><code class="language-shell">export NETWORK_NAME=&lt;initials&gt;-small
+<pre><code class="language-shell">export NETWORK_NAME=&lt;unique-name&gt;-small
 kubectl describe network $NETWORK_NAME
 </code></pre>
 <p>Keramik places each network into its own namespace named after the name of the network. You can default your context
@@ -257,7 +230,11 @@ to this namespace using:</p>
 <p>Inspect the pods within the network using:</p>
 <pre><code class="language-shell">kubectl get pods
 </code></pre>
-<p>When your pods are ready, you can <a href="./simulation.html">run a simulation</a></p>
+<blockquote>
+<p>HINT: Use tools like  <a href="https://k9scli.io/">k9s</a> to interactively manage your network.</p>
+</blockquote>
+<p>When your pods are ready, you can <a href="./simulation.html">run a simulation</a>.
+If you are running locally, be patient as the first time you setup a network you will need to download several images.</p>
 <blockquote>
 <p>HINT: Use tools like <a href="https://github.com/ahmetb/kubectx">kubectx</a> or <a href="https://github.com/sbstp/kubie">kubie</a> to work with multiple namespaces and contexts.</p>
 </blockquote>
@@ -279,15 +256,27 @@ apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Simulation
 metadata:
   name: basic
-  namespace: keramik-small
+  # Must be the same namespace as the network to test
+  namespace: keramik-&lt;unique-name&gt;-small
 spec:
   scenario: ceramic-simple
   users: 10
-  run_time: 4
+  runTime: 4
 </code></pre>
-<p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the 
+<p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the
 namespace is set to the same network applied when <a href="./setup_network.html">the network was setup</a>.
 Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.</p>
+<p>Before running the simulation make sure the <code>network</code> is ready.</p>
+<pre><code>kubectl describe network &lt;unique-name&gt;-small
+</code></pre>
+<p>You should see that the number of <code>Ready Replicas</code> is the same as the <code>Replicas</code>.
+Example simplified output of a ready network:</p>
+<pre><code class="language-txt">Name:         nc-small
+...
+  Ready Replicas:  2
+  Replicas:        2
+...
+</code></pre>
 <p>Once ready, apply this simulation defintion to the k8s cluster:</p>
 <pre><code class="language-shell">kubectl apply -f basic.yaml
 </code></pre>
@@ -296,6 +285,44 @@ The manager and workers will stop once the simulation is complete.</p>
 <p>You can then <a href="analysis.html">analyze</a> the results of the simulation.</p>
 <p>If you want to rerun a simulation with no changes, you can delete the simulation and reapply it.</p>
 <pre><code class="language-shell">kubectl delete -f basic.yaml
+</code></pre>
+<h2 id="simulating-specific-versions"><a class="header" href="#simulating-specific-versions">Simulating Specific Versions</a></h2>
+<p>Often you will want to run a simulation against a specific version of software.
+To do this you will need to build the image and configure your network to run that image.</p>
+<h3 id="example-custom-js-ceramic-image"><a class="header" href="#example-custom-js-ceramic-image">Example Custom JS-Ceramic Image</a></h3>
+<p>Use this example <code>network</code> definition with a custom <code>js-ceramic</code> image.</p>
+<pre><code class="language-yaml"># custom-js-ceramic.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: custom-js-ceramic
+spec:
+  replicas: 2
+  ceramic:
+    - image: ceramicnetwork/composedb:dev
+      imagePullPolicy: IfNotPresent
+</code></pre>
+<pre><code class="language-shell">kubectl apply -f custom-js-ceramic.yaml
+</code></pre>
+<p>You can also run <a href="./mixed_networks.html">mixed networks</a> and various other <a href="./advanced_configuration.html">advanced</a> configurations.</p>
+<h3 id="example-custom-ipfs-image"><a class="header" href="#example-custom-ipfs-image">Example Custom IPFS Image</a></h3>
+<p>Use this example <code>network</code> definition with a custom <code>IPFS</code> image.</p>
+<pre><code class="language-yaml"># custom-ipfs.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: custom-ipfs
+spec:
+  replicas: 2
+  ceramic:
+    - ipfs:
+        rust:
+          image: ceramicnetwork/rust-ceramic:dev
+          imagePullPolicy: IfNotPresent
+</code></pre>
+<pre><code class="language-shell">kubectl apply -f custom-ipfs.yaml
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="analysis"><a class="header" href="#analysis">Analysis</a></h1>
 <p>Analysis of Keramik results depends on the purpose of the simulation. You may want to just see average latencies, or dive
@@ -454,18 +481,46 @@ to be done the </p>
 <pre><code>kubectl delete -f network.yaml
 helm delete my-datadog-operator
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h1>
-<p>For more advanced usage of keramik, please see</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="developing-keramik"><a class="header" href="#developing-keramik">Developing Keramik</a></h1>
+<p>When you need to add features to Keramik networks or simulations you will need to run local builds of the operator and the runner.</p>
 <ul>
-<li><a href="./custom_runner_image.html">Custom Runner Image</a></li>
-<li><a href="./advanced_configuration.html">Advanced CAS and Ceramic Configuration</a></li>
-<li><a href="./metrics.html">Metrics</a></li>
-<li><a href="./ipfs.html">IPFS</a></li>
-<li><a href="./secrets.html">Secrets</a></li>
-<li><a href="./advanced_bootstrap.html">Custom Bootstrap Configuration</a></li>
+<li><a href="./developing_operator.html">Operator</a> - long lived process that manages the network custom resource.</li>
+<li><a href="./developing_runner.html">Runner</a> - short lived process that performs various tasks within the network (i.e. bootstrapping)</li>
 </ul>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="using-a-custom-runner-image"><a class="header" href="#using-a-custom-runner-image">Using a custom runner image</a></h1>
-<h2 id="load-the-runner-image"><a class="header" href="#load-the-runner-image">Load the Runner Image</a></h2>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="operator"><a class="header" href="#operator">Operator</a></h1>
+<p>The <code>operator</code> automates creating and manipulating networks via custom resource definition.
+Any changes to the operator require that you rebuild it and load it into kind again.</p>
+<pre><code class="language-shell">docker buildx build --load -t keramik/operator:dev --target operator .
+kind load docker-image keramik/operator:dev
+</code></pre>
+<p>Now we need to update the k8s operator definition to use our new image:</p>
+<p>Edit <code>./k8s/operator/kustomization.yaml</code> to use the <code>dev</code> tag</p>
+<pre><code class="language-yaml">images:
+  - name: keramik/operator
+    newTag: dev
+</code></pre>
+<p>Edit <code>./k8s/operator/manifests/operator.yaml</code> to use <code>IfNotPresent</code> for the <code>imagePullPolicy</code>.</p>
+<pre><code class="language-yaml"># ...
+      containers:
+      - name: keramik-operator
+        image: &quot;keramik/operator&quot;
+        imagePullPolicy: IfNotPresent
+# ...
+</code></pre>
+<p>Update the CRD definitions and apply the Keramik operator:</p>
+<pre><code class="language-shell">cargo run --bin crdgen | kubectl apply -f -
+kubectl apply -k ./k8s/operator/
+</code></pre>
+<p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="runner"><a class="header" href="#runner">Runner</a></h1>
+<p>The <code>runner</code> is a utility for running various jobs to initialize the network and run workloads against it.
+Currently the runner provides two utilites:</p>
+<ul>
+<li>Bootstrap nodes</li>
+<li>Run simulations</li>
+</ul>
+<p>If you intend to develop either of these features you will need to build the runner image and configure your network or simulation to use your local image.</p>
+<h2 id="build-and-load-the-runner-image"><a class="header" href="#build-and-load-the-runner-image">Build and Load the Runner Image</a></h2>
 <p>The <code>runner</code> is a utility for running various jobs to initialize the network and run workloads against it.
 Any changes to the runner require that you rebuild it and load it into kind again.</p>
 <pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
@@ -503,6 +558,18 @@ spec:
   image: keramik/runner:dev
   imagePullPolicy: IfNotPresent
 </code></pre>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-topics"><a class="header" href="#advanced-topics">Advanced Topics</a></h1>
+<p>For more advanced usage of keramik, please see</p>
+<ul>
+<li><a href="./advanced_configuration.html">Advanced CAS and Ceramic Configuration</a></li>
+<li><a href="./metrics.html">Metrics</a></li>
+<li><a href="./ipfs.html">IPFS</a></li>
+<li><a href="./mixed_networks.html">Mixed Networks</a></li>
+<li><a href="./secrets.html">Secrets</a></li>
+<li><a href="./operator.html">Operator Design</a></li>
+<li><a href="./migration.html">Migration Tests</a></li>
+<li><a href="./advanced_bootstrap.html">Custom Bootstrap Configuration</a></li>
+</ul>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="advanced-cas-and-ceramic-configuration"><a class="header" href="#advanced-cas-and-ceramic-configuration">Advanced CAS and Ceramic Configuration</a></h1>
 <p>By default, Keramik will instantiate all the resources required for a functional CAS service, including a Ganache
 blockchain.</p>

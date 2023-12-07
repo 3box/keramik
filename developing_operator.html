@@ -3,7 +3,7 @@
     <head>
         <!-- Book generated using mdBook -->
         <meta charset="UTF-8">
-        <title>Custom Runner Image - Keramik</title>
+        <title>Operator - Keramik</title>
                 
 
         <!-- Custom HTML head -->
@@ -82,7 +82,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_images.html"><strong aria-hidden="true">2.1.</strong> Deploying Images</a></li><li class="chapter-item expanded "><a href="deploy_crds.html"><strong aria-hidden="true">2.2.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.3.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">5.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="custom_runner_image.html" class="active"><strong aria-hidden="true">5.1.</strong> Custom Runner Image</a></li><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">5.2.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">5.3.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">5.4.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">5.5.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">5.6.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">5.7.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">5.8.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">5.9.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_keramik.html"><strong aria-hidden="true">2.1.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.2.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">5.</strong> Developing Keramik</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="developing_operator.html" class="active"><strong aria-hidden="true">5.1.</strong> Operator</a></li><li class="chapter-item expanded "><a href="developing_runner.html"><strong aria-hidden="true">5.2.</strong> Runner</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">6.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">6.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">6.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">6.4.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">6.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">6.6.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">6.7.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">6.8.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -143,55 +143,41 @@
 
                 <div id="content" class="content">
                     <main>
-                        <h1 id="using-a-custom-runner-image"><a class="header" href="#using-a-custom-runner-image">Using a custom runner image</a></h1>
-<h2 id="load-the-runner-image"><a class="header" href="#load-the-runner-image">Load the Runner Image</a></h2>
-<p>The <code>runner</code> is a utility for running various jobs to initialize the network and run workloads against it.
-Any changes to the runner require that you rebuild it and load it into kind again.</p>
-<pre><code class="language-shell">docker buildx build --load -t keramik/runner:dev --target runner .
-kind load docker-image keramik/runner:dev
+                        <h1 id="operator"><a class="header" href="#operator">Operator</a></h1>
+<p>The <code>operator</code> automates creating and manipulating networks via custom resource definition.
+Any changes to the operator require that you rebuild it and load it into kind again.</p>
+<pre><code class="language-shell">docker buildx build --load -t keramik/operator:dev --target operator .
+kind load docker-image keramik/operator:dev
 </code></pre>
-<h2 id="setup-network-with-runner-image"><a class="header" href="#setup-network-with-runner-image">Setup network with Runner Image</a></h2>
-<p>To use a custom runner image when you <a href="./setup_network.html">setup your network</a>, you will need to adjust the yaml you
-use to specify how to bootstrap the runner.</p>
-<pre><code class="language-yaml"># small.yaml
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Network
-metadata:
-  name: small
-spec:
-  replicas: 2
-  # Use custom runner image for bootstrapping
-  bootstrap:
-    image: keramik/runner:dev
-    imagePullPolicy: IfNotPresent
+<p>Now we need to update the k8s operator definition to use our new image:</p>
+<p>Edit <code>./k8s/operator/kustomization.yaml</code> to use the <code>dev</code> tag</p>
+<pre><code class="language-yaml">images:
+  - name: keramik/operator
+    newTag: dev
 </code></pre>
-<h2 id="setup-simulation-with-runner-image"><a class="header" href="#setup-simulation-with-runner-image">Setup simulation with Runner Image</a></h2>
-<p>You will also need to specify the image in your <a href="./simulation.html">simulation</a> yaml.</p>
-<pre><code class="language-yaml"># Custom runner
----
-apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
-kind: Simulation
-metadata:
-  name: basic
-  namespace: keramik-small
-spec:
-  scenario: ceramic-simple
-  users: 10
-  run_time: 4
-  image: keramik/runner:dev
-  imagePullPolicy: IfNotPresent
+<p>Edit <code>./k8s/operator/manifests/operator.yaml</code> to use <code>IfNotPresent</code> for the <code>imagePullPolicy</code>.</p>
+<pre><code class="language-yaml"># ...
+      containers:
+      - name: keramik-operator
+        image: &quot;keramik/operator&quot;
+        imagePullPolicy: IfNotPresent
+# ...
 </code></pre>
+<p>Update the CRD definitions and apply the Keramik operator:</p>
+<pre><code class="language-shell">cargo run --bin crdgen | kubectl apply -f -
+kubectl apply -k ./k8s/operator/
+</code></pre>
+<p>See the <a href="./operator.html">operator background</a> for details on certain design patterns of the operator.</p>
 
                     </main>
 
                     <nav class="nav-wrapper" aria-label="Page navigation">
                         <!-- Mobile navigation buttons -->
-                                                    <a rel="prev" href="advanced.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                                    <a rel="prev" href="developing.html" class="mobile-nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                                 <i class="fa fa-angle-left"></i>
                             </a>
                         
-                                                    <a rel="next" href="advanced_configuration.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                                    <a rel="next" href="developing_runner.html" class="mobile-nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                                 <i class="fa fa-angle-right"></i>
                             </a>
                         
@@ -201,11 +187,11 @@ spec:
             </div>
 
             <nav class="nav-wide-wrapper" aria-label="Page navigation">
-                                    <a rel="prev" href="advanced.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
+                                    <a rel="prev" href="developing.html" class="nav-chapters previous" title="Previous chapter" aria-label="Previous chapter" aria-keyshortcuts="Left">
                         <i class="fa fa-angle-left"></i>
                     </a>
                 
-                                    <a rel="next" href="advanced_configuration.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
+                                    <a rel="next" href="developing_runner.html" class="nav-chapters next" title="Next chapter" aria-label="Next chapter" aria-keyshortcuts="Right">
                         <i class="fa fa-angle-right"></i>
                     </a>
                             </nav>

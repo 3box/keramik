@@ -16,23 +16,30 @@ use k8s_openapi::{
 };
 use kube::core::ObjectMeta;
 
-use crate::labels::{managed_labels, selector_labels};
-use crate::network::{resource_limits::ResourceLimitsConfig, CasSpec};
-
 use crate::network::{
+    ceramic::NetworkConfig,
     controller::{
         CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
         CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME, LOCALSTACK_APP,
         LOCALSTACK_SERVICE_NAME,
     },
     datadog::DataDogConfig,
+    ipfs::{IpfsConfig, IPFS_DATA_PV_CLAIM},
+    resource_limits::ResourceLimitsConfig,
+    CasSpec,
 };
+use crate::{
+    labels::{managed_labels, selector_labels},
+    network::ipfs::IpfsInfo,
+};
+
+const CAS_IPFS_INFO_SUFFIX: &str = "cas";
 
 pub struct CasConfig {
     pub image: String,
     pub image_pull_policy: String,
+    pub ipfs: IpfsConfig,
     pub cas_resource_limits: ResourceLimitsConfig,
-    pub ipfs_resource_limits: ResourceLimitsConfig,
     pub ganache_resource_limits: ResourceLimitsConfig,
     pub postgres_resource_limits: ResourceLimitsConfig,
     pub localstack_resource_limits: ResourceLimitsConfig,
@@ -49,11 +56,7 @@ impl Default for CasConfig {
                 memory: Quantity("1Gi".to_owned()),
                 storage: Quantity("1Gi".to_owned()),
             },
-            ipfs_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("512Mi".to_owned()),
-                storage: Quantity("1Gi".to_owned()),
-            },
+            ipfs: Default::default(),
             ganache_resource_limits: ResourceLimitsConfig {
                 cpu: Quantity("250m".to_owned()),
                 memory: Quantity("1Gi".to_owned()),
@@ -92,10 +95,7 @@ impl From<CasSpec> for CasConfig {
                 value.cas_resource_limits,
                 default.cas_resource_limits,
             ),
-            ipfs_resource_limits: ResourceLimitsConfig::from_spec(
-                value.ipfs_resource_limits,
-                default.ipfs_resource_limits,
-            ),
+            ipfs: value.ipfs.map(Into::into).unwrap_or(default.ipfs),
             ganache_resource_limits: ResourceLimitsConfig::from_spec(
                 value.ganache_resource_limits,
                 default.ganache_resource_limits,
@@ -110,6 +110,12 @@ impl From<CasSpec> for CasConfig {
             ),
         }
     }
+}
+
+pub fn config_maps(config: impl Into<CasConfig>) -> BTreeMap<String, BTreeMap<String, String>> {
+    let config = config.into();
+    let ipfs_info = IpfsInfo::new(CAS_IPFS_INFO_SUFFIX.to_string());
+    config.ipfs.config_maps(ipfs_info)
 }
 
 // TODO make this a deployment
@@ -513,8 +519,24 @@ pub fn cas_service_spec() -> ServiceSpec {
     }
 }
 
-pub fn cas_ipfs_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+pub fn cas_ipfs_stateful_set_spec(
+    config: impl Into<CasConfig>,
+    net_config: &NetworkConfig,
+) -> StatefulSetSpec {
     let config = config.into();
+
+    let mut volumes = vec![Volume {
+        name: IPFS_DATA_PV_CLAIM.to_owned(),
+        persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
+            claim_name: IPFS_DATA_PV_CLAIM.to_owned(),
+            ..Default::default()
+        }),
+        ..Default::default()
+    }];
+
+    let ipfs_info = IpfsInfo::new(CAS_IPFS_INFO_SUFFIX.to_string());
+    volumes.append(&mut config.ipfs.volumes(ipfs_info.clone()));
+
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {
@@ -528,83 +550,14 @@ pub fn cas_ipfs_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
                 ..Default::default()
             }),
             spec: Some(PodSpec {
-                containers: vec![Container {
-                    command: Some(vec![
-                        "/usr/bin/ceramic-one".to_owned(),
-                        "daemon".to_owned(),
-                        "--store-dir".to_owned(),
-                        "/data/ipfs".to_owned(),
-                        "-b".to_owned(),
-                        "0.0.0.0:5001".to_owned(),
-                    ]),
-                    env: Some(vec![
-                        EnvVar {
-                            name: "CERAMIC_ONE_KADEMLIA_REPLICATION".to_owned(),
-                            value: Some("6".to_owned()),
-                            ..Default::default()
-                        },
-                        EnvVar {
-                            name: "CERAMIC_ONE_KADEMLIA_PARALLELISM".to_owned(),
-                            value: Some("1".to_owned()),
-                            ..Default::default()
-                        },
-                        EnvVar {
-                            name: "RUST_LOG".to_owned(),
-                            value: Some("info,ceramic_one=debug,quinn_proto=error".to_owned()),
-                            ..Default::default()
-                        },
-                    ]),
-                    image: Some("public.ecr.aws/r5b3e0r5/3box/ceramic-one".to_owned()),
-                    image_pull_policy: Some("Always".to_owned()),
-                    name: "ipfs".to_owned(),
-                    ports: Some(vec![
-                        ContainerPort {
-                            container_port: 4001,
-                            name: Some("swarm-tcp".to_owned()),
-                            ..Default::default()
-                        },
-                        ContainerPort {
-                            container_port: 5001,
-                            name: Some("api".to_owned()),
-                            ..Default::default()
-                        },
-                        ContainerPort {
-                            container_port: 8080,
-                            name: Some("gateway".to_owned()),
-                            ..Default::default()
-                        },
-                        ContainerPort {
-                            container_port: 9090,
-                            name: Some("metrics".to_owned()),
-                            ..Default::default()
-                        },
-                    ]),
-                    resources: Some(ResourceRequirements {
-                        limits: Some(config.ipfs_resource_limits.clone().into()),
-                        requests: Some(config.ipfs_resource_limits.into()),
-                        ..Default::default()
-                    }),
-                    volume_mounts: Some(vec![VolumeMount {
-                        mount_path: "/data/ipfs".to_owned(),
-                        name: "cas-ipfs-data".to_owned(),
-                        ..Default::default()
-                    }]),
-                    ..Default::default()
-                }],
-                volumes: Some(vec![Volume {
-                    name: "cas-ipfs-data".to_owned(),
-                    persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
-                        claim_name: "cas-ipfs-data".to_owned(),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }]),
+                containers: vec![config.ipfs.container(ipfs_info, net_config)],
+                volumes: Some(volumes),
                 ..Default::default()
             }),
         },
         volume_claim_templates: Some(vec![PersistentVolumeClaim {
             metadata: ObjectMeta {
-                name: Some("cas-ipfs-data".to_owned()),
+                name: Some(IPFS_DATA_PV_CLAIM.to_owned()),
                 ..Default::default()
             },
             spec: Some(PersistentVolumeClaimSpec {

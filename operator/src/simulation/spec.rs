@@ -19,7 +19,7 @@ pub struct SimulationSpec {
     pub scenario: String,
     /// Number of users
     pub users: u32,
-    /// Time to run simulation
+    /// Time in seconds to run the simulation
     pub run_time: u32,
     /// Image for all jobs created by the simulation.
     pub image: Option<String>,

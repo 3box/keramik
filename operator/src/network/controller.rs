@@ -36,7 +36,7 @@ use crate::{
         ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo, NetworkConfig},
         datadog::DataDogConfig,
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
-        peers, CasSpec, Network, NetworkStatus,
+        peers, CasSpec, Network, NetworkStatus, NetworkType,
     },
     utils::Clock,
     CONTROLLER_NAME,
@@ -79,7 +79,6 @@ pub const CAS_POSTGRES_APP: &str = "cas-postgres";
 pub const CAS_IPFS_APP: &str = "cas-ipfs";
 pub const GANACHE_APP: &str = "ganache";
 pub const LOCALSTACK_APP: &str = "localstack";
-pub const CERAMIC_LOCAL_NETWORK_TYPE: &str = "local";
 
 pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 
@@ -218,8 +217,16 @@ async fn reconcile(
     let datadog: DataDogConfig = (&spec.datadog).into();
 
     // Only create CAS resources if the Ceramic network was "local"
-    if net_config.network_type == CERAMIC_LOCAL_NETWORK_TYPE {
-        apply_cas(cx.clone(), &ns, network.clone(), spec.cas.clone(), &datadog).await?;
+    if net_config.network_type == NetworkType::Local {
+        apply_cas(
+            cx.clone(),
+            &ns,
+            network.clone(),
+            spec.cas.clone(),
+            &datadog,
+            &net_config,
+        )
+        .await?;
     }
 
     if is_admin_secret_missing(cx.clone(), &ns).await? {
@@ -356,14 +363,21 @@ async fn apply_cas(
     network: Arc<Network>,
     cas_spec: Option<CasSpec>,
     datadog: &DataDogConfig,
+    net_config: &NetworkConfig,
 ) -> Result<(), kube::error::Error> {
-    if is_cas_postgres_secret_missing(cx.clone(), ns).await? {
-        create_cas_postgres_secret(cx.clone(), ns, network.clone()).await?;
-    }
+    let config_maps = cas::config_maps(cas_spec.clone());
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
         .unwrap_or_default();
+
+    for (name, data) in config_maps {
+        apply_config_map(cx.clone(), ns, orefs.clone(), &name, data).await?;
+    }
+
+    if is_cas_postgres_secret_missing(cx.clone(), ns).await? {
+        create_cas_postgres_secret(cx.clone(), ns, network.clone()).await?;
+    }
 
     apply_service(
         cx.clone(),
@@ -419,7 +433,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas-ipfs",
-        cas::cas_ipfs_stateful_set_spec(cas_spec.clone()),
+        cas::cas_ipfs_stateful_set_spec(cas_spec.clone(), net_config),
     )
     .await?;
     apply_stateful_set(
@@ -769,8 +783,7 @@ async fn reset_bootstrap_job(
 // Stub tests relying on stub.rs and its apiserver stubs
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, time::Duration};
-    use std::{collections::HashMap, sync::Arc};
+    use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
     use super::{reconcile, Network};
 
@@ -780,7 +793,7 @@ mod tests {
             ipfs_rpc::{tests::MockIpfsRpcClientTest, PeerStatus},
             stub::{CeramicStub, Stub},
             BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, NetworkSpec,
-            NetworkStatus, ResourceLimitsSpec, RustIpfsSpec,
+            NetworkStatus, NetworkType, ResourceLimitsSpec, RustIpfsSpec,
         },
         utils::{
             test::{timeout_after_1s, ApiServerVerifier, WithStatus},
@@ -2306,7 +2319,7 @@ mod tests {
                             memory: Some(Quantity("4Gi".to_owned())),
                             storage: Some(Quantity("4Gi".to_owned())),
                         }),
-                        env: Some(HashMap::from_iter([
+                        env: Some(BTreeMap::from_iter([
                             ("ENV_KEY_A".to_string(), "ENV_VALUE_A".to_string()),
                             ("ENV_KEY_B".to_string(), "ENV_VALUE_B".to_string()),
                             // Override one existing var
@@ -2861,10 +2874,9 @@ mod tests {
         // Setup network spec and status
         let network = Network::test()
             .with_spec(NetworkSpec {
-                network_type: Some("dev-unstable".to_owned()),
+                network_type: Some(NetworkType::DevUnstable),
                 cas_api_url: Some("https://some-external-cas.com:8080".to_owned()),
-                // Explicitly clear the PubSub topic and Ethereum RPC endpoint from the Ceramic configuration
-                pubsub_topic: Some("".to_owned()),
+                // Explicitly clear the Ethereum RPC endpoint from the Ceramic configuration
                 eth_rpc_url: Some("".to_owned()),
                 ..Default::default()
             })
@@ -3297,7 +3309,7 @@ mod tests {
     #[tokio::test]
     async fn ceramic_environment() {
         // Setup network spec and status
-        let mut env = HashMap::default();
+        let mut env = BTreeMap::default();
         env.insert("SOME_ENV_VAR".to_string(), "SOME_ENV_VALUE".to_string());
         let network = Network::test().with_spec(NetworkSpec {
             ceramic: Some(vec![CeramicSpec {

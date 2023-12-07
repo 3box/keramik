@@ -547,6 +547,10 @@ pub fn cas_ipfs_stateful_set_spec(
         template: PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 labels: selector_labels(CAS_IPFS_APP),
+                annotations: Some(BTreeMap::from_iter(vec![(
+                    "prometheus/path".to_owned(),
+                    "/metrics".to_owned(),
+                )])),
                 ..Default::default()
             }),
             spec: Some(PodSpec {

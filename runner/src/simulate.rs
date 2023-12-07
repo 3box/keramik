@@ -178,6 +178,8 @@ fn manager_config(count: usize, users: usize, run_time: String) -> GooseConfigur
 }
 fn worker_config(target_peer_addr: String, throttle_requests: Option<usize>) -> GooseConfiguration {
     let mut config = GooseConfiguration::default();
+    config.scenario_log = "scenario.log".to_owned();
+    config.transaction_log = "transaction.log".to_owned();
     config.request_log = "request.log".to_owned();
     config.log_level = 2;
     config.worker = true;

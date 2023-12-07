@@ -7,15 +7,17 @@ edition = "2021"
 [features]
 default = []
 telemetry = [
-    "opentelemetry",
-    "opentelemetry-otlp",
-    "tracing-opentelemetry",
-    "tracing-subscriber",
-    "tracing",
+    "dep:opentelemetry",
+    "dep:opentelemetry-otlp",
+    "dep:tracing-opentelemetry",
+    "dep:tracing-subscriber",
+    "dep:tracing",
 ]
+tokio-console = ["telemetry", "dep:console-subscriber"]
 
 [dependencies]
 anyhow.workspace = true
+console-subscriber = { workspace = true, optional = true }
 gethostname = "0.4.2"
 opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }

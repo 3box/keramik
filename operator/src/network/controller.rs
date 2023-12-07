@@ -156,7 +156,7 @@ pub async fn run() {
         .for_each(|rec_res| async move {
             match rec_res {
                 Ok((network, _)) => {
-                    debug!(network.name, "reconcile success");
+                    info!(network.name, "reconcile success");
                 }
                 Err(err) => {
                     error!(?err, "reconcile error")
@@ -242,7 +242,6 @@ async fn reconcile(
     let total_weight = ceramic_configs.0.iter().fold(0, |acc, c| acc + c.weight) as f64;
     let mut ceramics = Vec::with_capacity(ceramic_configs.0.len());
     for i in 0..MAX_CERAMICS {
-        debug!(i, "ceramic check");
         let suffix = format!("{}", i);
         if let Some(config) = ceramic_configs.0.get(i) {
             let replicas = ((config.weight as f64 / total_weight) * spec.replicas as f64) as i32;
@@ -256,7 +255,7 @@ async fn reconcile(
             })
         } else {
             let info = CeramicInfo::new(&suffix, 0);
-            debug!(?info, "deleting extra ceramic");
+            trace!(?info, "deleting extra ceramic");
             delete_ceramic(cx.clone(), &ns, &info).await?;
         }
     }
@@ -2586,7 +2585,7 @@ mod tests {
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -92,14 +92,14 @@
+            @@ -95,14 +95,14 @@
                              ],
                              "resources": {
                                "limits": {

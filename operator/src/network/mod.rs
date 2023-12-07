@@ -1,7 +1,6 @@
 //! Network is k8s custom resource that defines a Ceramic network.
 
 // Export all spec types
-mod ipfs;
 mod spec;
 pub use spec::*;
 
@@ -16,6 +15,8 @@ pub(crate) mod ceramic;
 pub(crate) mod controller;
 #[cfg(feature = "controller")]
 pub(crate) mod datadog;
+#[cfg(feature = "controller")]
+pub(crate) mod ipfs;
 #[cfg(feature = "controller")]
 pub(crate) mod ipfs_rpc;
 #[cfg(feature = "controller")]

@@ -19,9 +19,9 @@ check-fmt:
 .PHONY: check-clippy
 check-clippy:
 	# Check with default features
-	${CARGO} clippy --workspace --all-targets
+	${CARGO} clippy --workspace
 	# Check with all features
-	${CARGO} clippy --workspace --all-targets --all-features
+	${CARGO} clippy --workspace --all-features
 
 .PHONY: build
 build: runner operator

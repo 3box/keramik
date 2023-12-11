@@ -3079,7 +3079,7 @@ mod tests {
                        "spec": {
             @@ -132,6 +138,22 @@
                                {
-                                 "name": "METRICS_PROMETHEUS_PORT",
+                                 "name": "METRICS_PORT",
                                  "value": "9464"
             +                  },
             +                  {

@@ -130,7 +130,7 @@ Request {
                     "value": "8081"
                   },
                   {
-                    "name": "METRICS_PROMETHEUS_PORT",
+                    "name": "METRICS_PORT",
                     "value": "9464"
                   }
                 ],

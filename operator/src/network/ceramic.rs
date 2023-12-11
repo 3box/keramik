@@ -139,6 +139,7 @@ pub struct CeramicConfig {
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
     pub env: Option<HashMap<String, String>>,
+    pub name_prefix: Option<String>,
 }
 
 /// Bundles all relevant config for a ceramic spec.
@@ -200,11 +201,14 @@ pub struct CeramicInfo {
 }
 
 impl CeramicInfo {
-    pub fn new(suffix: &str, replicas: i32) -> Self {
+    pub fn new(suffix: &str, replicas: i32, prefix: Option<&str>) -> Self {
         Self {
             replicas,
             suffix: suffix.to_owned(),
-            stateful_set: format!("ceramic-{suffix}"),
+            stateful_set: prefix.map_or_else(
+                || format!("ceramic-{suffix}"),
+                |p| format!("{p}-ceramic-{suffix}"),
+            ),
             service: format!("ceramic-{suffix}"),
         }
     }
@@ -352,6 +356,7 @@ impl Default for CeramicConfig {
                 storage: Quantity("1Gi".to_owned()),
             },
             env: None,
+            name_prefix: None,
         }
     }
 }
@@ -386,6 +391,7 @@ impl From<CeramicSpec> for CeramicConfig {
                 default.resource_limits,
             ),
             env: value.env,
+            name_prefix: value.name_prefix,
         }
     }
 }

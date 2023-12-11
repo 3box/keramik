@@ -239,7 +239,7 @@ async fn reconcile(
         let suffix = format!("{}", i);
         if let Some(config) = ceramic_configs.0.get(i) {
             let replicas = ((config.weight as f64 / total_weight) * spec.replicas as f64) as i32;
-            let info = CeramicInfo::new(&suffix, replicas);
+            let info = CeramicInfo::new(&suffix, replicas, config.name_prefix.as_deref());
 
             ceramics.push(CeramicBundle {
                 info,
@@ -248,7 +248,7 @@ async fn reconcile(
                 datadog: &datadog,
             })
         } else {
-            let info = CeramicInfo::new(&suffix, 0);
+            let info = CeramicInfo::new(&suffix, 0, None);
             debug!(?info, "deleting extra ceramic");
             delete_ceramic(cx.clone(), &ns, &info).await?;
         }

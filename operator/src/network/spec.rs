@@ -88,6 +88,8 @@ pub struct BootstrapSpec {
 pub struct CeramicSpec {
     /// Relative weight of the spec compared to others.
     pub weight: Option<i32>,
+    /// An arbitrary string to use as a prefix for the ceramic pod name.
+    pub name_prefix: Option<String>,
     /// Name of a config map with a ceramic-init.sh script that runs as an initialization step.
     pub init_config_map: Option<String>,
     /// Image of the ceramic container.

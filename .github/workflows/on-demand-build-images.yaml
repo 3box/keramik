@@ -6,6 +6,8 @@ on:
       tag_name:
         required: true
         description: "Tag name will be prefaced with 'on-demand-'."
+env:
+  IMAGE_REPO: public.ecr.aws/r5b3e0r5/3box/
 
 jobs:
   build:
@@ -23,18 +25,18 @@ jobs:
       - name: Set Final Tag
         run: echo "TAG=on-demand-${{ inputs.tag_name }}" >> "$GITHUB_ENV"
 
-      - name: Build Docker Image
+      - name: Build Docker runner Image
         run: |
-          docker buildx build --load -t 3box/keramik-runner:$TAG --target runner .
-          docker push public.ecr.aws/r5b3e0r5/3box/keramik-runner:$TAG
+          docker buildx build --load -t $IMAGE_REPO/keramik-runner:$TAG --target runner .
+          docker push $IMAGE_REPO/keramik-runner:$TAG
 
-      - name: Build Docker Image
+      - name: Build Docker operator Image
         run: |
-          docker buildx build --load -t 3box/keramik-operator:$TAG --target operator .
-          docker push public.ecr.aws/r5b3e0r5/3box/keramik-operator:$TAG
+          docker buildx build --load -t $IMAGE_REPO/keramik-operator:$TAG --target operator .
+          docker push $IMAGE_REPO/keramik-operator:$TAG
 
-      - name: Print Image ID
+      - name: Print Image names
         run: |
-          echo public.ecr.aws/r5b3e0r5/3box/keramik-runner:$TAG
-          echo public.ecr.aws/r5b3e0r5/3box/keramik-operator:$TAG
+          echo $IMAGE_REPO/keramik-runner:$TAG
+          echo $IMAGE_REPO/keramik-operator:$TAG
 

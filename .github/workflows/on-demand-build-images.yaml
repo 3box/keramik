@@ -7,7 +7,7 @@ on:
         required: true
         description: "Tag name will be prefaced with 'on-demand-'."
 env:
-  IMAGE_REPO: public.ecr.aws/r5b3e0r5/3box/
+  IMAGE_REPO: public.ecr.aws/r5b3e0r5/3box
 
 jobs:
   build:

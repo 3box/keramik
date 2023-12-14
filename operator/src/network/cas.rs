@@ -403,9 +403,48 @@ pub fn cas_stateful_set_spec(
                             ]
                             .concat(),
                         ),
+                        image: Some(config.image.clone()),
+                        image_pull_policy: Some(config.image_pull_policy.clone()),
+                        name: "cas-worker".to_owned(),
+                        resources: Some(ResourceRequirements {
+                            limits: Some(config.cas_resource_limits.clone().into()),
+                            requests: Some(config.cas_resource_limits.clone().into()),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
+                    Container {
+                        env: Some(
+                            [
+                                cas_node_env.clone(),
+                                vec![
+                                    EnvVar {
+                                        name: "APP_MODE".to_owned(),
+                                        value: Some("pubsub-responder".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "IPFS_API_URL".to_owned(),
+                                        value: Some(format!("http://{CAS_IPFS_SERVICE_NAME}:5001")),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "IPFS_API_TIMEOUT".to_owned(),
+                                        value: Some("120000".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "IPFS_PUBSUB_TOPIC".to_owned(),
+                                        value: Some("/ceramic/local-keramik".to_owned()),
+                                        ..Default::default()
+                                    },
+                                ],
+                            ]
+                            .concat(),
+                        ),
                         image: Some(config.image),
                         image_pull_policy: Some(config.image_pull_policy),
-                        name: "cas-worker".to_owned(),
+                        name: "cas-pubsub-responder".to_owned(),
                         resources: Some(ResourceRequirements {
                             limits: Some(config.cas_resource_limits.clone().into()),
                             requests: Some(config.cas_resource_limits.clone().into()),
@@ -438,6 +477,14 @@ pub fn cas_stateful_set_spec(
                                     EnvVar {
                                         name: "ANCHOR_BATCH_MONITOR_TICK".to_owned(),
                                         value: Some("9223372036854775807ns".to_owned()),
+                                        ..Default::default()
+                                    },
+                                    EnvVar {
+                                        name: "IPFS_MULTIADDRESSES".to_owned(),
+                                        value: Some(
+                                            format!("/dns4/{CAS_IPFS_SERVICE_NAME}/tcp/5001")
+                                                .to_owned(),
+                                        ),
                                         ..Default::default()
                                     },
                                     EnvVar {

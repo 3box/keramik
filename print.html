@@ -576,15 +576,13 @@ blockchain.</p>
 <p>You can configure the Ceramic nodes to use an external instance of the CAS instead of one inside the cluster. If using a
 CAS running in 3Box Labs infrastructure, you will also need to specify the Ceramic network type associated with the
 node, e.g. <code>dev-unstable</code>.</p>
-<p>In this case, the Ceramic network PubSub topic must be specified as an empty string in order to clear it from the
-Ceramic configuration. Ceramic nodes do not permit the PubSub topic to be specified for a network type that is not one
-of <code>local</code> or <code>inmemory</code>.</p>
 <p>You may also specify an Ethereum RPC endpoint for the Ceramic nodes to be able to verify anchors, or set it to an empty
 string to clear it from the Ceramic configuration. In the latter case, the Ceramic nodes will come up but will not be
 able to verify anchors.</p>
-<p>If left unspecified, <code>networkType</code> will default to <code>local</code>, <code>pubsubTopic</code> to <code>/ceramic/local-keramik</code>, <code>ethRpcUrl</code> to
-<code>http://ganache:8545</code>, and <code>casApiUrl</code> to <code>http://cas:8081</code>. These defaults point to an internal CAS using a local
+<p>If left unspecified, <code>networkType</code> will default to <code>local</code>, <code>ethRpcUrl</code> to <code>http://ganache:8545</code>,
+and <code>casApiUrl</code> to <code>http://cas:8081</code>. These defaults point to an internal CAS using a local
 pubsub topic in a fully isolated network.</p>
+<p>Additionally IPFS can be <a href="./ipfs.html">configured</a> with custom images and resources for both CAS and Ceramic.</p>
 <pre><code class="language-yaml"># network configuration
 ---
 apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
@@ -595,7 +593,6 @@ spec:
   replicas: 2
   privateKeySecret: &quot;small&quot;
   networkType: &quot;dev-unstable&quot;
-  pubsubTopic: &quot;&quot;
   ethRpcUrl: &quot;&quot;
   casApiUrl: &quot;https://some-anchor-service.com&quot;
 </code></pre>
@@ -684,9 +681,10 @@ kubectl port-forward jaeger-0 16686
 </code></pre>
 <p>Then navigate to http://localhost:9090 for metrics and http://localhost:16686 for traces.</p>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="ipfs"><a class="header" href="#ipfs">IPFS</a></h1>
-<p>The IPFS behavior used by Ceramic can be customized.</p>
+<p>The IPFS behavior used by CAS and Ceramic can be customized using the same IPFS spec.</p>
 <h2 id="rust-ipfs"><a class="header" href="#rust-ipfs">Rust IPFS</a></h2>
-<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with its defaults.</p>
+<h3 id="ceramic"><a class="header" href="#ceramic">Ceramic</a></h3>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with its defaults for Ceramic.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -697,7 +695,7 @@ spec:
     - ipfs:
         rust: {}
 </code></pre>
-<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with a specific image.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with a specific image for Ceramic.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -710,8 +708,34 @@ spec:
          image: rust-ceramic/ceramic-one:dev
          imagePullPolicy: IfNotPresent
 </code></pre>
+<h3 id="cas"><a class="header" href="#cas">CAS</a></h3>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with a specific image for CAS.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-vanilla-ceramic-one
+spec:
+  replicas: 5
+  cas:
+    ipfs:
+      rust: {}
+</code></pre>
+<p>Example <a href="./setup_network.html">network config</a> that uses Rust based IPFS (i.e. ceramic-one) with a specific image for CAS.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-ceramic-one
+spec:
+  replicas: 5
+  cas:
+    ipfs:
+     rust:
+       image: rust-ceramic/ceramic-one:dev
+       imagePullPolicy: IfNotPresent
+</code></pre>
 <h2 id="kubo-ipfs"><a class="header" href="#kubo-ipfs">Kubo IPFS</a></h2>
-<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with its defaults.</p>
+<h3 id="ceramic-1"><a class="header" href="#ceramic-1">Ceramic</a></h3>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with its defaults for Ceramic.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -722,7 +746,7 @@ spec:
     - ipfs:
         go: {}
 </code></pre>
-<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with a specific image.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with a specific image for Ceramic.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -735,7 +759,7 @@ spec:
          image: ceramicnetwork/go-ipfs-daemon:develop
          imagePullPolicy: IfNotPresent
 </code></pre>
-<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with extra configuration commands.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with extra configuration commands for Ceramic.</p>
 <pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
 kind: Network
 metadata:
@@ -749,6 +773,46 @@ spec:
          imagePullPolicy: IfNotPresent
          commands:
            - ipfs config --json Swarm.RelayClient.Enabled false
+</code></pre>
+<h3 id="cas-1"><a class="header" href="#cas-1">CAS</a></h3>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with its defaults for CAS.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-vanilla-kubo
+spec:
+  replicas: 5
+  cas:
+    ipfs:
+      go: {}
+</code></pre>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with a specific image for CAS.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  cas:
+    ipfs:
+     go:
+       image: ceramicnetwork/go-ipfs-daemon:develop
+       imagePullPolicy: IfNotPresent
+</code></pre>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with extra configuration commands for CAS.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: example-custom-kubo
+spec:
+  replicas: 5
+  cas:
+    ipfs:
+     go:
+       image: ceramicnetwork/go-ipfs-daemon:develop
+       imagePullPolicy: IfNotPresent
+       commands:
+         - ipfs config --json Swarm.RelayClient.Enabled false
 </code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="mixed-networks"><a class="header" href="#mixed-networks">Mixed Networks</a></h1>
 <p>It is possible to configure multiple sets of Ceramic nodes that different from one another.

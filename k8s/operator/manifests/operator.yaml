@@ -102,7 +102,7 @@ spec:
       containers:
       - name: keramik-operator
         image: "keramik/operator"
-        imagePullPolicy: Always # Should be IfNotPresent when using imageTag: dev, but Always if using imageTag: latest
+        imagePullPolicy: IfNotPresent # Should be IfNotPresent when using imageTag: dev, but Always if using imageTag: latest
         command:
           - "/usr/bin/keramik-operator"
           - "daemon"

@@ -14,15 +14,15 @@ resources:
 #
 # Additionally ensure that ./k8s/operator/manifests/operator.yaml uses Always as the imagePullPolicy
 #
-images:
-  - name: keramik/operator
-    newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
-    newTag: latest
+# images:
+#   - name: keramik/operator
+#     newName: public.ecr.aws/r5b3e0r5/3box/keramik-operator
+#     newTag: latest
 
 # Uncomment for development
 #
 # Additionally ensure that ./k8s/operator/manifests/operator.yaml uses IfNotPresent as the imagePullPolicy
 #
-#images:
-#  - name: keramik/operator
-#    newTag: dev
+images:
+ - name: keramik/operator
+   newTag: dev

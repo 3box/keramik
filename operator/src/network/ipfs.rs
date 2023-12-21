@@ -92,8 +92,8 @@ impl Default for RustIpfsConfig {
             image: "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
             resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("512Mi".to_owned()),
+                cpu: None,
+                memory: None,
                 storage: Quantity("1Gi".to_owned()),
             },
             rust_log: "info,ceramic_one=debug,multipart=error".to_owned(),
@@ -231,8 +231,8 @@ impl Default for GoIpfsConfig {
             image: "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d".to_owned(),
             image_pull_policy: "IfNotPresent".to_owned(),
             resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("512Mi".to_owned()),
+                cpu: None,
+                memory: None,
                 storage: Quantity("1Gi".to_owned()),
             },
             commands: vec![],

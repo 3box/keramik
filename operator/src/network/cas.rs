@@ -52,24 +52,24 @@ impl Default for CasConfig {
             image: "ceramicnetwork/ceramic-anchor-service:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
             cas_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
+                cpu: None,
+                memory: None,
                 storage: Quantity("1Gi".to_owned()),
             },
             ipfs: Default::default(),
             ganache_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
+                cpu: None,
+                memory: None,
                 storage: Quantity("1Gi".to_owned()),
             },
             postgres_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("512Mi".to_owned()),
+                cpu: None,
+                memory: None,
                 storage: Quantity("1Gi".to_owned()),
             },
             localstack_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
+                cpu: None,
+                memory: None,
                 storage: Quantity("1Gi".to_owned()),
             },
         }

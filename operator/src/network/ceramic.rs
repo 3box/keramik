@@ -235,9 +235,9 @@ impl Default for CeramicConfig {
             image_pull_policy: "Always".to_owned(),
             ipfs: IpfsConfig::default(),
             resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
-                storage: Quantity("1Gi".to_owned()),
+                cpu: None,
+                memory: None,
+                storage: Quantity("2Gi".to_owned()),
             },
             env: None,
         }

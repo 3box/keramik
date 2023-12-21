@@ -67,16 +67,14 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         ..Default::default()
                     }]),
                     resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
+                        limits: Some(BTreeMap::from_iter(vec![(
+                            "ephemeral-storage".to_owned(),
+                            Quantity("1Gi".to_owned()),
+                        )])),
+                        requests: Some(BTreeMap::from_iter(vec![(
+                            "ephemeral-storage".to_owned(),
+                            Quantity("1Gi".to_owned()),
+                        )])),
                         ..Default::default()
                     }),
                     ..Default::default()

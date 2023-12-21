@@ -9,8 +9,10 @@ edition = "2021"
 [dependencies]
 anyhow.workspace = true
 ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs.git", branch = "main", default-features = false }
-#ceramic-http-client = { path = "../../ceramic-http-client-rs", default-features = false }
-cid = "0.9"
+ceramic-pocket-knife = { git = "https://github.com/nathanielc/ceramic-pocket-knife.git", branch = "main", default-features = false, features = [
+    "ceramic",
+] }
+cid = "0.10"
 clap.workspace = true
 goose = { version = "0.16", features = ["gaggle"] }
 keramik-common = { workspace = true, features = ["telemetry"] }
@@ -27,3 +29,9 @@ tokio.workspace = true
 tracing-log.workspace = true
 tracing.workspace = true
 multibase.workspace = true
+tdigest = "0.2.3"
+tokio-util = { version = "0.7.10", features = ["rt"] }
+futures = "0.3.29"
+tokio-stream = "0.1.14"
+signal-hook = "0.3.17"
+signal-hook-tokio = { version = "0.3.1", features = ["futures-v0_3"] }

@@ -1,8 +1,8 @@
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use keramik_common::peer_info::IpfsPeerInfo;
+use libp2p_identity::PeerId;
 use multiaddr::{Multiaddr, Protocol};
-use multihash::Multihash;
 use serde::Deserialize;
 
 /// Define the behavior we consume from the IPFS RPC API.
@@ -48,7 +48,7 @@ impl IpfsRpcClient for HttpRpcClient {
         }
         let data: Response = resp.json().await?;
 
-        let p2p_proto = Protocol::P2p(Multihash::from_bytes(
+        let p2p_proto = Protocol::P2p(PeerId::from_bytes(
             &multibase::Base::Base58Btc.decode(data.id.clone())?,
         )?);
         // We expect to find at least one non loop back address

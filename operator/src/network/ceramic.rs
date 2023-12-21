@@ -425,106 +425,106 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             }),
             spec: Some(PodSpec {
                 containers: vec![
-                    Container {
-                        command: Some(vec![
-                            "/js-ceramic/packages/cli/bin/ceramic.js".to_owned(),
-                            "daemon".to_owned(),
-                            "--config".to_owned(),
-                            "/config/daemon-config.json".to_owned(),
-                        ]),
-                        env: Some(ceramic_env),
-                        image: Some(bundle.config.image.clone()),
-                        image_pull_policy: Some(bundle.config.image_pull_policy.clone()),
-                        name: "ceramic".to_owned(),
-                        ports: Some(vec![
-                            ContainerPort {
-                                container_port: CERAMIC_SERVICE_API_PORT,
-                                name: Some("api".to_owned()),
-                                ..Default::default()
-                            },
-                            ContainerPort {
-                                container_port: 9464,
-                                name: Some("metrics".to_owned()),
-                                protocol: Some("TCP".to_owned()),
-                                ..Default::default()
-                            },
-                        ]),
-                        readiness_probe: Some(Probe {
-                            http_get: Some(HTTPGetAction {
-                                path: Some("/api/v0/node/healthcheck".to_owned()),
-                                port: IntOrString::String("api".to_owned()),
-                                ..Default::default()
-                            }),
-                            initial_delay_seconds: Some(60),
-                            period_seconds: Some(15),
-                            timeout_seconds: Some(30),
-                            ..Default::default()
-                        }),
-                        liveness_probe: Some(Probe {
-                            http_get: Some(HTTPGetAction {
-                                path: Some("/api/v0/node/healthcheck".to_owned()),
-                                port: IntOrString::String("api".to_owned()),
-                                ..Default::default()
-                            }),
-                            initial_delay_seconds: Some(60),
-                            period_seconds: Some(15),
-                            timeout_seconds: Some(30),
-                            ..Default::default()
-                        }),
+                    //Container {
+                    //    command: Some(vec![
+                    //        "/js-ceramic/packages/cli/bin/ceramic.js".to_owned(),
+                    //        "daemon".to_owned(),
+                    //        "--config".to_owned(),
+                    //        "/config/daemon-config.json".to_owned(),
+                    //    ]),
+                    //    env: Some(ceramic_env),
+                    //    image: Some(bundle.config.image.clone()),
+                    //    image_pull_policy: Some(bundle.config.image_pull_policy.clone()),
+                    //    name: "ceramic".to_owned(),
+                    //    ports: Some(vec![
+                    //        ContainerPort {
+                    //            container_port: CERAMIC_SERVICE_API_PORT,
+                    //            name: Some("api".to_owned()),
+                    //            ..Default::default()
+                    //        },
+                    //        ContainerPort {
+                    //            container_port: 9464,
+                    //            name: Some("metrics".to_owned()),
+                    //            protocol: Some("TCP".to_owned()),
+                    //            ..Default::default()
+                    //        },
+                    //    ]),
+                    //    readiness_probe: Some(Probe {
+                    //        http_get: Some(HTTPGetAction {
+                    //            path: Some("/api/v0/node/healthcheck".to_owned()),
+                    //            port: IntOrString::String("api".to_owned()),
+                    //            ..Default::default()
+                    //        }),
+                    //        initial_delay_seconds: Some(60),
+                    //        period_seconds: Some(15),
+                    //        timeout_seconds: Some(30),
+                    //        ..Default::default()
+                    //    }),
+                    //    liveness_probe: Some(Probe {
+                    //        http_get: Some(HTTPGetAction {
+                    //            path: Some("/api/v0/node/healthcheck".to_owned()),
+                    //            port: IntOrString::String("api".to_owned()),
+                    //            ..Default::default()
+                    //        }),
+                    //        initial_delay_seconds: Some(60),
+                    //        period_seconds: Some(15),
+                    //        timeout_seconds: Some(30),
+                    //        ..Default::default()
+                    //    }),
 
-                        resources: Some(ResourceRequirements {
-                            limits: Some(bundle.config.resource_limits.clone().into()),
-                            requests: Some(bundle.config.resource_limits.clone().into()),
-                            ..Default::default()
-                        }),
-                        volume_mounts: Some(vec![
-                            VolumeMount {
-                                mount_path: "/config".to_owned(),
-                                name: "config-volume".to_owned(),
-                                ..Default::default()
-                            },
-                            VolumeMount {
-                                mount_path: "/ceramic-data".to_owned(),
-                                name: "ceramic-data".to_owned(),
-                                ..Default::default()
-                            },
-                        ]),
-                        ..Default::default()
-                    },
+                    //    resources: Some(ResourceRequirements {
+                    //        limits: Some(bundle.config.resource_limits.clone().into()),
+                    //        requests: Some(bundle.config.resource_limits.clone().into()),
+                    //        ..Default::default()
+                    //    }),
+                    //    volume_mounts: Some(vec![
+                    //        VolumeMount {
+                    //            mount_path: "/config".to_owned(),
+                    //            name: "config-volume".to_owned(),
+                    //            ..Default::default()
+                    //        },
+                    //        VolumeMount {
+                    //            mount_path: "/ceramic-data".to_owned(),
+                    //            name: "ceramic-data".to_owned(),
+                    //            ..Default::default()
+                    //        },
+                    //    ]),
+                    //    ..Default::default()
+                    //},
                     bundle
                         .config
                         .ipfs
                         .container(&bundle.info, bundle.net_config),
                 ],
-                init_containers: Some(vec![Container {
-                    command: Some(vec![
-                        "/bin/bash".to_owned(),
-                        "-c".to_owned(),
-                        "/ceramic-init/ceramic-init.sh".to_owned(),
-                    ]),
-                    env: Some(init_env),
-                    image: Some(bundle.config.image.to_owned()),
-                    image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
-                    name: "init-ceramic-config".to_owned(),
-                    resources: Some(ResourceRequirements {
-                        limits: Some(bundle.config.resource_limits.clone().into()),
-                        requests: Some(bundle.config.resource_limits.clone().into()),
-                        ..Default::default()
-                    }),
-                    volume_mounts: Some(vec![
-                        VolumeMount {
-                            mount_path: "/config".to_owned(),
-                            name: "config-volume".to_owned(),
-                            ..Default::default()
-                        },
-                        VolumeMount {
-                            mount_path: "/ceramic-init".to_owned(),
-                            name: "ceramic-init".to_owned(),
-                            ..Default::default()
-                        },
-                    ]),
-                    ..Default::default()
-                }]),
+                //init_containers: Some(vec![Container {
+                //    command: Some(vec![
+                //        "/bin/bash".to_owned(),
+                //        "-c".to_owned(),
+                //        "/ceramic-init/ceramic-init.sh".to_owned(),
+                //    ]),
+                //    env: Some(init_env),
+                //    image: Some(bundle.config.image.to_owned()),
+                //    image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
+                //    name: "init-ceramic-config".to_owned(),
+                //    resources: Some(ResourceRequirements {
+                //        limits: Some(bundle.config.resource_limits.clone().into()),
+                //        requests: Some(bundle.config.resource_limits.clone().into()),
+                //        ..Default::default()
+                //    }),
+                //    volume_mounts: Some(vec![
+                //        VolumeMount {
+                //            mount_path: "/config".to_owned(),
+                //            name: "config-volume".to_owned(),
+                //            ..Default::default()
+                //        },
+                //        VolumeMount {
+                //            mount_path: "/ceramic-init".to_owned(),
+                //            name: "ceramic-init".to_owned(),
+                //            ..Default::default()
+                //        },
+                //    ]),
+                //    ..Default::default()
+                //}]),
                 volumes: Some(volumes),
                 ..Default::default()
             }),

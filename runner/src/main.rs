@@ -2,6 +2,7 @@
 #![deny(missing_docs)]
 
 mod bootstrap;
+mod cas_push;
 mod scenario;
 mod simulate;
 mod utils;
@@ -14,7 +15,7 @@ use opentelemetry::{global, KeyValue};
 use opentelemetry::{global::shutdown_tracer_provider, Context};
 use tracing::info;
 
-use crate::{bootstrap::bootstrap, simulate::simulate};
+use crate::{bootstrap::bootstrap, cas_push::cas_push, simulate::simulate};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -37,6 +38,8 @@ pub enum Command {
     Bootstrap(bootstrap::Opts),
     /// Simulate a load scenario against the network
     Simulate(simulate::Opts),
+    /// Run CAS Push Simulation
+    CasPush(cas_push::Opts),
     /// Do nothing and exit
     Noop,
 }
@@ -46,12 +49,13 @@ impl Command {
         match self {
             Command::Bootstrap(_) => "bootstrap",
             Command::Simulate(_) => "simulate",
+            Command::CasPush(_) => "cas-push",
             Command::Noop => "noop",
         }
     }
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     tracing_log::LogTracer::init()?;
 
@@ -71,6 +75,7 @@ async fn main() -> Result<()> {
     match args.command {
         Command::Bootstrap(opts) => bootstrap(opts).await?,
         Command::Simulate(opts) => simulate(opts).await?,
+        Command::CasPush(opts) => cas_push(opts).await?,
         Command::Noop => {}
     }
 

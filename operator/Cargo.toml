@@ -70,6 +70,7 @@ thiserror = { version = "1", optional = true }
 tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
 tracing-log = { workspace = true, optional = true }
+libp2p-identity = "0.2"
 
 [dev-dependencies]
 expect-patch.workspace = true

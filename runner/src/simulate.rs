@@ -178,6 +178,7 @@ fn manager_config(count: usize, users: usize, run_time: String) -> GooseConfigur
     config.expect_workers = Some(count);
     config.startup_time = "10s".to_owned();
     config.run_time = run_time;
+    config.no_hash_check = true;
     config
 }
 fn worker_config(target_peer_addr: String, throttle_requests: Option<usize>) -> GooseConfiguration {

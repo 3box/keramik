@@ -5,12 +5,20 @@ resolver = "2"
 [workspace.dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive", "env"] }
+<<<<<<< Updated upstream
+=======
+<<<<<<< Updated upstream
+console-subscriber = "0.2"
+=======
+console-subscriber = "0.2.0"
+>>>>>>> Stashed changes
+>>>>>>> Stashed changes
 env_logger = "0.10.0"
 expect-patch = { path = "./expect-patch/" }
 keramik-common = { path = "./common/", default-features = false }
-multiaddr = "0.17"
+multiaddr = "0.18"
 multibase = "0.9.1"
-multihash = "0.17"
+multihash = "0.18"
 opentelemetry = { version = "0.18", features = [
     "metrics",
     "trace",

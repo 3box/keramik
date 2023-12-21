@@ -53,6 +53,16 @@ pub struct CeramicPeerInfo {
     /// Each address contains the /p2p/<peer_id> protocol.
     pub p2p_addrs: Vec<String>,
 }
+
+impl From<CeramicPeerInfo> for IpfsPeerInfo {
+    fn from(value: CeramicPeerInfo) -> Self {
+        Self {
+            peer_id: value.peer_id,
+            ipfs_rpc_addr: value.ipfs_rpc_addr,
+            p2p_addrs: value.p2p_addrs,
+        }
+    }
+}
 /// Describes a peer that only participates using IPFS protocols.
 #[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]

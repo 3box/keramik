@@ -13,7 +13,7 @@ use std::{sync::Arc, time::Duration};
 use tracing::instrument;
 
 #[derive(Clone)]
-pub struct LoadTestUserData {
+struct ModelReuseLoadTestUserData {
     cli: CeramicHttpClient<JwkSigner>,
     redis_cli: redis::Client,
     model_id: StreamId,
@@ -78,7 +78,7 @@ async fn setup(
         get_model_id(&mut conn).await
     };
 
-    let user_data = LoadTestUserData {
+    let user_data = ModelReuseLoadTestUserData {
         cli,
         redis_cli,
         model_id,
@@ -90,8 +90,8 @@ async fn setup(
 }
 
 async fn create_instance(user: &mut GooseUser) -> TransactionResult {
-    let user_data: LoadTestUserData = {
-        let data: &LoadTestUserData = user.get_session_data_unchecked();
+    let user_data: ModelReuseLoadTestUserData = {
+        let data: &ModelReuseLoadTestUserData = user.get_session_data_unchecked();
         data.clone()
     };
     let cli = &user_data.cli;
@@ -131,7 +131,7 @@ async fn get_model_instance_id(conn: &mut redis::aio::Connection) -> StreamId {
 }
 
 async fn get_instance(user: &mut GooseUser) -> TransactionResult {
-    let user_data: &LoadTestUserData = user.get_session_data_unchecked();
+    let user_data: &ModelReuseLoadTestUserData = user.get_session_data_unchecked();
     let cli: &CeramicClient = &user_data.cli;
     let mut redis_conn = user_data.redis_cli.get_async_connection().await.unwrap();
     let model_instance_id = get_model_instance_id(&mut redis_conn).await;

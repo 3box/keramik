@@ -5,7 +5,9 @@ use std::{sync::Arc, time::Duration};
 
 use crate::scenario::ceramic::util::goose_error;
 use crate::scenario::ceramic::{
-    models, setup, Credentials, LoadTestUserData, RandomModelInstance, StreamsResponseOrError,
+    models,
+    simple::{setup, LoadTestUserData},
+    Credentials, RandomModelInstance, StreamsResponseOrError,
 };
 
 pub async fn scenario() -> Result<Scenario, GooseError> {

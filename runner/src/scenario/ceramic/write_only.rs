@@ -2,8 +2,10 @@ use ceramic_http_client::CeramicHttpClient;
 use goose::prelude::*;
 use std::{sync::Arc, time::Duration};
 
+use crate::scenario::ceramic::simple::{setup, update_large_model, update_small_model};
 use crate::scenario::ceramic::util::goose_error;
-use crate::scenario::ceramic::{setup, update_large_model, update_small_model, Credentials};
+
+use super::Credentials;
 
 pub async fn scenario() -> Result<Scenario, GooseError> {
     let creds = Credentials::from_env().await.map_err(goose_error)?;

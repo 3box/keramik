@@ -13,7 +13,7 @@ use std::{sync::Arc, time::Duration};
 use tracing::instrument;
 
 #[derive(Clone)]
-pub struct LoadTestUserData {
+struct QueryLoadTestUserData {
     cli: CeramicHttpClient<JwkSigner>,
     model_id: StreamId,
     model_instance_id1: StreamId,
@@ -25,7 +25,7 @@ const INSTANCE1_STARTING_INT_VALUE: i64 = 10;
 const INSTANCE2_STARTING_INT_VALUE: i64 = 20;
 const INSTANCE3_STARTING_INT_VALUE: i64 = 30;
 
-impl LoadTestUserData {
+impl QueryLoadTestUserData {
     fn model_id_for_user(&self, user: &GooseUser) -> &StreamId {
         match user.weighted_users_index % 3 {
             0 => &self.model_instance_id1,
@@ -53,9 +53,8 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
     let creds = Credentials::from_env().await.map_err(goose_error)?;
     let cli = CeramicHttpClient::new(creds.signer);
 
-    let setup_cli = cli;
     let test_start = Transaction::new(Arc::new(move |user| {
-        Box::pin(setup(user, setup_cli.clone()))
+        Box::pin(setup(user, cli.clone()))
     }))
     .set_name("setup")
     .set_on_start();
@@ -120,7 +119,7 @@ async fn setup(user: &mut GooseUser, cli: CeramicClient) -> TransactionResult {
     )
     .await?;
 
-    let user_data = LoadTestUserData {
+    let user_data = QueryLoadTestUserData {
         cli,
         model_id,
         model_instance_id1: id1,
@@ -140,7 +139,7 @@ async fn query_models_pre_update(user: &mut GooseUser) -> TransactionResult {
         OperationFilter::EqualTo("a".into()),
     );
     let filter = FilterQuery::Where(where_filter);
-    let user_data: &LoadTestUserData = user.get_session_data_unchecked();
+    let user_data: &QueryLoadTestUserData = user.get_session_data_unchecked();
     let req = user_data
         .cli
         .create_query_request(&user_data.model_id, Some(filter), Pagination::default())
@@ -191,7 +190,7 @@ async fn get_data_and_response<'a>(
 
 async fn update_models(user: &mut GooseUser) -> TransactionResult {
     let user_data = {
-        let data: &LoadTestUserData = user.get_session_data_unchecked();
+        let data: &QueryLoadTestUserData = user.get_session_data_unchecked();
         data.clone()
     };
     let new_value = user_data.int_value_for_user(user);
@@ -234,7 +233,7 @@ async fn update_models(user: &mut GooseUser) -> TransactionResult {
 }
 
 async fn query_models_post_update(user: &mut GooseUser) -> TransactionResult {
-    let user_data: &LoadTestUserData = user.get_session_data_unchecked();
+    let user_data: &QueryLoadTestUserData = user.get_session_data_unchecked();
 
     let expected_value = user_data.int_value_for_user(user);
 

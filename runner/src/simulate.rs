@@ -129,7 +129,7 @@ pub async fn simulate(opts: Opts) -> Result<()> {
 
     let scenario = match opts.scenario {
         Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
-        Scenario::CeramicSimple => ceramic::scenario().await?,
+        Scenario::CeramicSimple => ceramic::simple::scenario().await?,
         Scenario::CeramicWriteOnly => ceramic::write_only::scenario().await?,
         Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
         Scenario::CeramicQuery => ceramic::query::scenario().await?,

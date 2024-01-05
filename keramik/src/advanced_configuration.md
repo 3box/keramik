@@ -132,3 +132,24 @@ spec:
       cpu: "250m"
       memory: "1Gi"
 ```
+
+# Enabling Recon
+
+You can also use Recon for reconciliation by setting 'CERAMIC_ONE_RECON' env variable to true. 
+
+```yaml
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    - ipfs:
+        rust:
+          imagePullPolicy: Always
+          env:
+            CERAMIC_ONE_RECON: "true"
+```

@@ -1,8 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use keramik_common::peer_info::IpfsPeerInfo;
-use multiaddr::{Multiaddr, Protocol};
-use multihash::Multihash;
+use multiaddr::{Multiaddr, multihash::Multihash, Protocol};
 use serde::Deserialize;
 
 /// Define the behavior we consume from the IPFS RPC API.

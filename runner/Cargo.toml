@@ -8,9 +8,9 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+ceramic-core.workspace = true
 ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs.git", branch = "main", default-features = false }
 #ceramic-http-client = { path = "../../ceramic-http-client-rs", default-features = false }
-cid = "0.9"
 clap.workspace = true
 goose = { version = "0.16", features = ["gaggle"] }
 keramik-common = { workspace = true, features = ["telemetry", "tokio-console"] }

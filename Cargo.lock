@@ -577,6 +577,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bs58"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5353f36341f7451062466f0b755b96ac3a9547e4d7f6b70d603fc721a7d7896"
+dependencies = [
+ "tinyvec",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -660,7 +669,7 @@ dependencies = [
  "did-pkh",
  "hex",
  "int-enum",
- "libp2p-identity",
+ "libp2p-identity 0.1.3",
  "minicbor",
  "multibase 0.9.1",
  "once_cell",
@@ -674,12 +683,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "ceramic-core"
+version = "0.9.0"
+source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#58dc5b684ad57aecb38e7ea65ed7744a2bc3ca77"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "base64 0.21.4",
+ "cid 0.10.1",
+ "did-method-key",
+ "did-pkh",
+ "hex",
+ "int-enum",
+ "libp2p-identity 0.2.3",
+ "minicbor",
+ "multibase 0.9.1",
+ "once_cell",
+ "regex",
+ "serde",
+ "serde_bytes",
+ "serde_ipld_dagcbor",
+ "serde_json",
+ "ssi 0.7.0",
+ "unsigned-varint",
+]
+
+[[package]]
 name = "ceramic-event"
 version = "0.1.0"
 source = "git+https://github.com/3box/rust-ceramic?branch=main#ffc75b3af3bc25216f0dd54b9bd64c8a1353f7f9"
 dependencies = [
  "anyhow",
- "ceramic-core",
+ "ceramic-core 0.1.0",
  "multibase 0.9.1",
  "multihash 0.17.0",
  "once_cell",
@@ -761,6 +796,7 @@ dependencies = [
  "multibase 0.9.1",
  "multihash 0.18.1",
  "serde",
+ "serde_bytes",
  "unsigned-varint",
 ]
 
@@ -1390,7 +1426,7 @@ checksum = "074c4ae82880d60a25048cd3bf2e8aaaa881922d7c73fbb9ec29fc67fa0d33e4"
 dependencies = [
  "async-trait",
  "bech32",
- "bs58",
+ "bs58 0.4.0",
  "chrono",
  "iref",
  "serde",
@@ -2670,7 +2706,7 @@ dependencies = [
  "mockall",
  "multiaddr",
  "multibase 0.9.1",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "opentelemetry",
  "rand 0.8.5",
  "reqwest",
@@ -2691,14 +2727,14 @@ name = "keramik-runner"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "ceramic-core 0.9.0",
  "ceramic-http-client",
- "cid 0.9.0",
  "clap",
  "goose",
  "keramik-common",
  "libipld 0.16.0",
  "multibase 0.9.1",
- "multihash 0.17.0",
+ "multihash 0.18.1",
  "opentelemetry",
  "rand 0.8.5",
  "redis",
@@ -3100,11 +3136,28 @@ version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "276bb57e7af15d8f100d3c11cbdd32c6752b7eef4ba7a18ecf464972c07abcce"
 dependencies = [
- "bs58",
+ "bs58 0.4.0",
  "ed25519-dalek 2.0.0",
  "log",
  "multiaddr",
  "multihash 0.17.0",
+ "quick-protobuf",
+ "rand 0.8.5",
+ "sha2 0.10.7",
+ "thiserror",
+ "zeroize",
+]
+
+[[package]]
+name = "libp2p-identity"
+version = "0.2.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "686e73aff5e23efbb99bc85340ea6fd8686986aa7b283a881ba182cfca535ca9"
+dependencies = [
+ "bs58 0.5.0",
+ "ed25519-dalek 2.0.0",
+ "log",
+ "multihash 0.19.1",
  "quick-protobuf",
  "rand 0.8.5",
  "sha2 0.10.7",
@@ -3393,8 +3446,20 @@ dependencies = [
  "core2",
  "digest 0.10.7",
  "multihash-derive",
+ "serde",
+ "serde-big-array",
  "sha2 0.10.7",
  "sha3",
+ "unsigned-varint",
+]
+
+[[package]]
+name = "multihash"
+version = "0.19.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "076d548d76a0e2a0d4ab471d0b1c36c577786dfc4471242035d97a12a735c492"
+dependencies = [
+ "core2",
  "unsigned-varint",
 ]
 
@@ -5128,7 +5193,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "da2c479690955bebece0279a5b1ab9d7d584402caed9f56ecec346d0bc63661f"
 dependencies = [
- "bs58",
+ "bs58 0.4.0",
  "ssi-jwk",
  "thiserror",
 ]
@@ -5156,7 +5221,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f41a12b15af9dce950a24a3295a2540be3b8500467621e31a97ddbe7618a5c8"
 dependencies = [
- "bs58",
+ "bs58 0.4.0",
  "digest 0.9.0",
  "k256",
  "keccak-hash",
@@ -5174,7 +5239,7 @@ checksum = "62e3c375b0fb2129c691e65e776c9105290ade34b56f39755f4f9c40ba98e41c"
 dependencies = [
  "anyhow",
  "async-trait",
- "bs58",
+ "bs58 0.4.0",
  "chrono",
  "derive_builder",
  "hex",
@@ -5221,7 +5286,7 @@ checksum = "df3c376df0c00621f6d8de45249e901cf2b3868bef84cf785fbcbce62842d815"
 dependencies = [
  "base64 0.12.3",
  "blake2b_simd 0.5.11",
- "bs58",
+ "bs58 0.4.0",
  "ed25519-dalek 1.0.1",
  "getrandom 0.2.10",
  "k256",
@@ -5286,7 +5351,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de930bb18e3ed3c1f7b0a2b2b4fdba2887dffff34bb5f44b9967a983fea2d60c"
 dependencies = [
  "async-trait",
- "bs58",
+ "bs58 0.4.0",
  "chrono",
  "grdf",
  "hex",
@@ -5322,7 +5387,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8bb057ad335a08d78deca3a7cf8f8393087ca99d64c038e97ff844ea66fbd475"
 dependencies = [
  "async-trait",
- "bs58",
+ "bs58 0.4.0",
  "chrono",
  "grdf",
  "hex",
@@ -5369,7 +5434,7 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c1b57d919e20d214253a9a8dbc5f3b08ff555364934d99a09c828becab27a823"
 dependencies = [
- "bs58",
+ "bs58 0.4.0",
  "ed25519-dalek 1.0.1",
  "ssi-jwk",
  "ssi-jws",

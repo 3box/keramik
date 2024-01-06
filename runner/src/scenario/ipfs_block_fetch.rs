@@ -1,5 +1,5 @@
 use anyhow::Result;
-use cid::Cid;
+use ceramic_core::Cid;
 use goose::prelude::*;
 use libipld::prelude::Codec;
 use libipld::{ipld, json::DagJsonCodec};

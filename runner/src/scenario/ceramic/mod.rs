@@ -1,3 +1,4 @@
+pub mod event_id_sync;
 pub mod model_reuse;
 mod models;
 pub mod new_streams;

@@ -1,7 +1,7 @@
 use crate::goose_try;
 use ceramic_http_client::CeramicHttpClient;
 use goose::prelude::*;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use crate::scenario::ceramic::util::goose_error;
 use crate::scenario::ceramic::{
@@ -27,7 +27,6 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
         transaction!(instantiate_large_model).set_name("instantiate_large_model");
 
     Ok(scenario!("CeramicNewStreams")
-        .set_wait_time(Duration::from_millis(10), Duration::from_millis(100))?
         .register_transaction(test_start)
         .register_transaction(instantiate_small_model)
         .register_transaction(instantiate_large_model))

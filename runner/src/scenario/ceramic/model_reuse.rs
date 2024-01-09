@@ -13,10 +13,10 @@ use std::{sync::Arc, time::Duration};
 use tracing::instrument;
 
 #[derive(Clone)]
-struct ModelReuseLoadTestUserData {
-    cli: CeramicHttpClient<JwkSigner>,
-    redis_cli: redis::Client,
-    model_id: StreamId,
+pub(crate) struct ModelReuseLoadTestUserData {
+    pub(crate) cli: CeramicHttpClient<JwkSigner>,
+    pub(crate) redis_cli: redis::Client,
+    pub(crate) model_id: StreamId,
 }
 
 const MODEL_ID_KEY: &str = "model_reuse_model_id";
@@ -44,9 +44,17 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
         .register_transaction(get_instance_tx))
 }
 
-async fn get_model_id(conn: &mut redis::aio::Connection) -> StreamId {
+pub(crate) async fn set_model_id(
+    conn: &mut redis::aio::Connection,
+    model_id: &StreamId,
+    key: &str,
+) {
+    let _: () = conn.set(key, model_id.to_string()).await.unwrap();
+}
+
+pub(crate) async fn get_model_id(conn: &mut redis::aio::Connection, key: &str) -> StreamId {
     loop {
-        if conn.exists(MODEL_ID_KEY).await.unwrap() {
+        if conn.exists(key).await.unwrap() {
             let id: String = conn.get(MODEL_ID_KEY).await.unwrap();
             return StreamId::from_str(&id).unwrap();
         } else {
@@ -71,11 +79,11 @@ async fn setup(
         let model_id = setup_model(user, &cli, model_definition).await?;
         index_model(user, &cli, &model_id).await?;
 
-        let _: () = conn.set(MODEL_ID_KEY, model_id.to_string()).await.unwrap();
+        let _ = set_model_id(&mut conn, &model_id, MODEL_ID_KEY).await;
 
         model_id
     } else {
-        get_model_id(&mut conn).await
+        get_model_id(&mut conn, MODEL_ID_KEY).await
     };
 
     let user_data = ModelReuseLoadTestUserData {

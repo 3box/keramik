@@ -74,6 +74,8 @@ pub enum Scenario {
     CeramicQuery,
     /// Scenario to reuse the same model id and query instances across workers
     CeramicModelReuse,
+    /// Sync event IDs between two nodes at a consistent rate (280/s goal)
+    SteadyEventIdSync,
 }
 
 impl Scenario {
@@ -85,6 +87,7 @@ impl Scenario {
             Scenario::CeramicNewStreams => "ceramic_new_streams",
             Scenario::CeramicQuery => "ceramic_query",
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
+            Scenario::SteadyEventIdSync => "steady_event_id_sync",
         }
     }
 
@@ -95,13 +98,26 @@ impl Scenario {
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
             | Self::CeramicQuery
-            | Self::CeramicModelReuse => match peer {
+            | Self::CeramicModelReuse
+            | Self::SteadyEventIdSync => match peer {
                 Peer::Ceramic(peer) => Ok(peer.ceramic_addr.clone()),
                 Peer::Ipfs(_) => Err(anyhow!(
                     "cannot use non ceramic peer as target for simulation {}",
                     self.name(),
                 )),
             },
+        }
+    }
+
+    fn throttle_requests(&self) -> Option<usize> {
+        match self {
+            Self::IpfsRpc
+            | Self::CeramicSimple
+            | Self::CeramicWriteOnly
+            | Self::CeramicNewStreams
+            | Self::CeramicQuery
+            | Self::CeramicModelReuse => None,
+            Self::SteadyEventIdSync => Some(300), // 280 req/second is minimum and we round up
         }
     }
 }
@@ -134,6 +150,14 @@ pub async fn simulate(opts: Opts) -> Result<()> {
         Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
         Scenario::CeramicQuery => ceramic::query::scenario().await?,
         Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
+        Scenario::SteadyEventIdSync => {
+            ceramic::event_id_sync::steady_sync_scenario(
+                peers
+                    .get(opts.target_peer)
+                    .map(|p| p.ipfs_rpc_addr().to_owned()),
+            )
+            .await?
+        }
     };
     let config = if opts.manager {
         manager_config(peers.len(), opts.users, opts.run_time)
@@ -144,7 +168,8 @@ pub async fn simulate(opts: Opts) -> Result<()> {
                     .get(opts.target_peer)
                     .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
             )?,
-            opts.throttle_requests,
+            opts.throttle_requests
+                .or_else(|| opts.scenario.throttle_requests()),
         )
     };
 

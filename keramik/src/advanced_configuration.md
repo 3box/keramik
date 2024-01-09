@@ -149,7 +149,6 @@ spec:
   ceramic:
     - ipfs:
         rust:
-          imagePullPolicy: Always
           env:
             CERAMIC_ONE_RECON: "true"
 ```

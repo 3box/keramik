@@ -6,6 +6,8 @@ To run a simulation, first define a simulation. Available simulation types are
 - `ceramic-simple` - A simple simulation that writes and reads events to two different streams, a small and large model
 - `ceramic-write-only` - A simulation that only performs updates on two different streams
 - `ceramic-new-streams` - A simulation that only creates new streams
+- `ceramic-model-reuse` - A simulation that reuses the same model and queries instances across workers
+- `steady-event-id-sync` - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Only designed for a 2 node network.
 
 Using one of these scenarios, we can then define the configuration for that scenario:
 
@@ -26,7 +28,7 @@ spec:
 
 If you want to run it against a defined network, set the namespace to the same as the network. in this example the
 namespace is set to the same network applied when [the network was setup](./setup_network.md).
-Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.
+Additionally, you can define the scenario you want to run, the number of users to run for each node, and the number of minutes it will run.
 
 Before running the simulation make sure the `network` is ready.
 

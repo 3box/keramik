@@ -53,11 +53,9 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
     let creds = Credentials::from_env().await.map_err(goose_error)?;
     let cli = CeramicHttpClient::new(creds.signer);
 
-    let test_start = Transaction::new(Arc::new(move |user| {
-        Box::pin(setup(user, cli.clone()))
-    }))
-    .set_name("setup")
-    .set_on_start();
+    let test_start = Transaction::new(Arc::new(move |user| Box::pin(setup(user, cli.clone()))))
+        .set_name("setup")
+        .set_on_start();
 
     let pre_query_models =
         transaction!(query_models_pre_update).set_name("pre_update_query_models");

@@ -674,6 +674,22 @@ spec:
       cpu: &quot;250m&quot;
       memory: &quot;1Gi&quot;
 </code></pre>
+<h1 id="enabling-recon"><a class="header" href="#enabling-recon">Enabling Recon</a></h1>
+<p>You can also use Recon for reconciliation by setting 'CERAMIC_ONE_RECON' env variable to true. </p>
+<pre><code class="language-yaml"># network configuration
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  ceramic:
+    - ipfs:
+        rust:
+          env:
+            CERAMIC_ONE_RECON: &quot;true&quot;
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="opentelemetry"><a class="header" href="#opentelemetry">Opentelemetry</a></h1>
 <p>To view the metrics and traces port-forward the services:</p>
 <pre><code>kubectl port-forward prometheus-0 9090

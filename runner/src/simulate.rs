@@ -35,8 +35,14 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_PEERS_PATH")]
     peers: PathBuf,
 
-    /// Number of users to simulate
-    #[arg(long, default_value_t = 100, env = "SIMULATE_USERS")]
+    /// Number of users to simulate on each node. The total number of users 
+    /// running the test scenario will be this value * N nodes. 
+    ///
+    /// Implmentation details: A user corresponds to a tokio task responsible 
+    /// for making requests. They should have low memory overhead, so you can 
+    /// create many users and then use `throttle_requests` to constrain the overall 
+    /// throughput on the node (specifically the HTTP requests made).
+    #[arg(long, default_value_t = 4, env = "SIMULATE_USERS")]
     users: usize,
 
     /// Duration of the simulation

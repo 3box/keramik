@@ -211,8 +211,6 @@ fn worker_config(target_peer_addr: String, throttle_requests: Option<usize>) -> 
     config.scenario_log = "scenario.log".to_owned();
     config.transaction_log = "transaction.log".to_owned();
     config.request_log = "request.log".to_owned();
-    config.transaction_log = "transaction.log".to_owned();
-    config.scenario_log = "scenario.log".to_owned();
     config.error_log = "error.log".to_owned();
     config.log_level = 2;
     config.worker = true;

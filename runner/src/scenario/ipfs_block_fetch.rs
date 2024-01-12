@@ -27,8 +27,6 @@ pub fn scenario(topo: Topology) -> Result<Scenario> {
     .set_on_stop();
 
     Ok(scenario!("IpfsRpc")
-        // After each transactions runs, sleep randomly from 1 to 5 seconds.
-        .set_wait_time(Duration::from_secs(1), Duration::from_secs(5))?
         // This transaction only runs one time when the user first starts.
         .register_transaction(put)
         // These next two transactions run repeatedly as long as the load test is running.

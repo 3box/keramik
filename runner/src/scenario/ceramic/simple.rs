@@ -9,7 +9,7 @@ use ceramic_http_client::ceramic_event::StreamId;
 use ceramic_http_client::CeramicHttpClient;
 use ceramic_http_client::{ModelAccountRelation, ModelDefinition};
 use goose::prelude::*;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use tracing::instrument;
 
 pub(crate) struct LoadTestUserData {
@@ -72,8 +72,6 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
     let get_large_model = transaction!(get_large_model).set_name("get_large_model");
 
     Ok(scenario!("CeramicSimpleScenario")
-        // After each transactions runs, sleep randomly from 1 to 5 seconds.
-        .set_wait_time(Duration::from_secs(1), Duration::from_secs(5))?
         .register_transaction(test_start)
         .register_transaction(update_small_model)
         .register_transaction(get_small_model)

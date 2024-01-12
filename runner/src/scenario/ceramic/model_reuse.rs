@@ -37,8 +37,6 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
     let get_instance_tx = transaction!(get_instance).set_name("get_instance");
 
     Ok(scenario!("CeramicModelReuseScenario")
-        // After each transactions runs, sleep randomly from 1 to 5 seconds.
-        .set_wait_time(Duration::from_secs(1), Duration::from_secs(5))?
         .register_transaction(test_start)
         .register_transaction(create_instance_tx)
         .register_transaction(get_instance_tx))

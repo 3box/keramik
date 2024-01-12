@@ -1,6 +1,6 @@
 use ceramic_http_client::CeramicHttpClient;
 use goose::prelude::*;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use crate::scenario::ceramic::simple::{setup, update_large_model, update_small_model};
 use crate::scenario::ceramic::util::goose_error;
@@ -23,7 +23,6 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
     let update_large_model = transaction!(update_large_model).set_name("update_large_model");
 
     Ok(scenario!("CeramicWriteOnly")
-        .set_wait_time(Duration::from_millis(9000), Duration::from_millis(11000))?
         .register_transaction(setup)
         .register_transaction(update_small_model)
         .register_transaction(update_large_model))

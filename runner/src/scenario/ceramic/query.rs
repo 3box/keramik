@@ -9,7 +9,7 @@ use ceramic_http_client::{
 };
 use goose::prelude::*;
 use std::collections::HashMap;
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 use tracing::instrument;
 
 #[derive(Clone)]
@@ -64,8 +64,6 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
         transaction!(query_models_post_update).set_name("post_update_query_models");
 
     Ok(scenario!("CeramicQueryScenario")
-        // After each transactions runs, sleep randomly from 1 to 5 seconds.
-        .set_wait_time(Duration::from_secs(1), Duration::from_secs(5))?
         .register_transaction(test_start)
         .register_transaction(pre_query_models)
         .register_transaction(update_models)

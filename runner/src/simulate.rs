@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
 use keramik_common::peer_info::Peer;
@@ -35,8 +35,14 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_PEERS_PATH")]
     peers: PathBuf,
 
-    /// Number of users to simulate
-    #[arg(long, default_value_t = 100, env = "SIMULATE_USERS")]
+    /// Number of users to simulate on each node. The total number of users 
+    /// running the test scenario will be this value * N nodes. 
+    ///
+    /// Implmentation details: A user corresponds to a tokio task responsible 
+    /// for making requests. They should have low memory overhead, so you can 
+    /// create many users and then use `throttle_requests` to constrain the overall 
+    /// throughput on the node (specifically the HTTP requests made).
+    #[arg(long, default_value_t = 4, env = "SIMULATE_USERS")]
     users: usize,
 
     /// Duration of the simulation
@@ -57,6 +63,7 @@ pub struct Opts {
 pub struct Topology {
     pub target_worker: usize,
     pub total_workers: usize,
+    pub users: usize,
     pub nonce: u64,
 }
 
@@ -126,21 +133,32 @@ impl Scenario {
 pub async fn simulate(opts: Opts) -> Result<()> {
     let mut metrics = Metrics::init(&opts)?;
 
-    let peers: Vec<Peer> = parse_peers_info(opts.peers)
+    let peers: Vec<Peer> = parse_peers_info(&opts.peers)
         .await?
         .into_iter()
         .filter(|peer| matches!(peer, Peer::Ceramic(_)))
         .collect();
 
-    if opts.manager && opts.users % peers.len() != 0 {
-        bail!("number of users {} must be a multiple of the number of peers {}, this ensures we can deterministically identifiy each user", opts.users, peers.len())
-    }
-    // We assume exactly one worker per peer.
-    // This allows us to be deterministic in how each user operates.
+    // use user value as number of users per worker, rather than total users that must be evenly divided across all workers
     let topo = Topology {
         target_worker: opts.target_peer,
         total_workers: peers.len(),
+        users: opts.users * peers.len(),
         nonce: opts.nonce,
+    };
+
+    let config = if opts.manager {
+        manager_config(&topo, opts.run_time)
+    } else {
+        worker_config(
+            opts.scenario.target_addr(
+                peers
+                    .get(opts.target_peer)
+                    .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
+            )?,
+            opts.throttle_requests
+                .or_else(|| opts.scenario.throttle_requests()),
+        )
     };
 
     let scenario = match opts.scenario {
@@ -158,19 +176,6 @@ pub async fn simulate(opts: Opts) -> Result<()> {
             )
             .await?
         }
-    };
-    let config = if opts.manager {
-        manager_config(peers.len(), opts.users, opts.run_time)
-    } else {
-        worker_config(
-            opts.scenario.target_addr(
-                peers
-                    .get(opts.target_peer)
-                    .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
-            )?,
-            opts.throttle_requests
-                .or_else(|| opts.scenario.throttle_requests()),
-        )
     };
 
     let goose_metrics = match GooseAttack::initialize_with_config(config)?
@@ -190,13 +195,13 @@ pub async fn simulate(opts: Opts) -> Result<()> {
     Ok(())
 }
 
-fn manager_config(count: usize, users: usize, run_time: String) -> GooseConfiguration {
+fn manager_config(topo: &Topology, run_time: String) -> GooseConfiguration {
     let mut config = GooseConfiguration::default();
     config.log_level = 2;
-    config.users = Some(users);
+    config.users = Some(topo.users);
     config.manager = true;
     config.manager_bind_port = 5115;
-    config.expect_workers = Some(count);
+    config.expect_workers = Some(topo.total_workers);
     config.startup_time = "10s".to_owned();
     config.run_time = run_time;
     config
@@ -206,6 +211,7 @@ fn worker_config(target_peer_addr: String, throttle_requests: Option<usize>) -> 
     config.scenario_log = "scenario.log".to_owned();
     config.transaction_log = "transaction.log".to_owned();
     config.request_log = "request.log".to_owned();
+    config.error_log = "error.log".to_owned();
     config.log_level = 2;
     config.worker = true;
     config.host = target_peer_addr;

@@ -47,7 +47,7 @@ spec:
   replicas: 2
   ceramic:
     - env:
-        CERAMIC_PUBSUB_QPS_LIMIT: 500
+        CERAMIC_PUBSUB_QPS_LIMIT: "500"
 ```
 
 # Disabling AWS Functionality

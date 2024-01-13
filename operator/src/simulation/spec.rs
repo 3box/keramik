@@ -25,8 +25,12 @@ pub struct SimulationSpec {
     pub image: Option<String>,
     /// Pull policy for image.
     pub image_pull_policy: Option<String>,
-    /// Throttle requests (per second) for a simulation
+    /// Throttle requests (per second) for a simulation. Currently on a per-worker basis.
     pub throttle_requests: Option<usize>,
+    /// Request target for the scenario to be a success. Scenarios can use this to
+    /// validate throughput and correctness before returning. The exact definition is
+    /// left to the scenario (requests per second, total requests, rps/node etc).
+    pub success_request_target: Option<usize>,
 }
 
 /// Current status of a simulation.

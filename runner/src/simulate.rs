@@ -1,19 +1,24 @@
 use std::{
     path::PathBuf,
     sync::{Arc, Mutex},
+    time::Duration,
 };
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, bail, Result};
 use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
 use keramik_common::peer_info::Peer;
 use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
-use tracing::error;
+use tracing::{error, info, warn};
 
 use crate::{
     scenario::{ceramic, ipfs_block_fetch},
     utils::parse_peers_info,
+    CommandResult,
 };
+
+// FIXME: is it worth attaching metrics to the peer info?
+const IPFS_SERVICE_METRICS_PORT: u32 = 9465;
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -35,12 +40,12 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_PEERS_PATH")]
     peers: PathBuf,
 
-    /// Number of users to simulate on each node. The total number of users 
-    /// running the test scenario will be this value * N nodes. 
+    /// Number of users to simulate on each node. The total number of users
+    /// running the test scenario will be this value * N nodes.
     ///
-    /// Implmentation details: A user corresponds to a tokio task responsible 
-    /// for making requests. They should have low memory overhead, so you can 
-    /// create many users and then use `throttle_requests` to constrain the overall 
+    /// Implmentation details: A user corresponds to a tokio task responsible
+    /// for making requests. They should have low memory overhead, so you can
+    /// create many users and then use `throttle_requests` to constrain the overall
     /// throughput on the node (specifically the HTTP requests made).
     #[arg(long, default_value_t = 4, env = "SIMULATE_USERS")]
     users: usize,
@@ -57,6 +62,12 @@ pub struct Opts {
     /// Option to throttle requests (per second) for load control
     #[arg(long, env = "SIMULATE_THROTTLE_REQUESTS")]
     throttle_requests: Option<usize>,
+
+    /// A request/second target threshold for this scenario. It will override
+    /// any default value for the scenario and is used when reporting success.
+    /// This is enforced on a node by node basis, not across the entire simulation.
+    #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
+    target_request_rate: Option<usize>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -67,7 +78,7 @@ pub struct Topology {
     pub nonce: u64,
 }
 
-#[derive(Clone, Debug, ValueEnum)]
+#[derive(Clone, Debug, Copy, ValueEnum)]
 pub enum Scenario {
     /// Queries the Id of the IPFS peers.
     IpfsRpc,
@@ -81,8 +92,8 @@ pub enum Scenario {
     CeramicQuery,
     /// Scenario to reuse the same model id and query instances across workers
     CeramicModelReuse,
-    /// Sync event IDs between two nodes at a consistent rate (280/s goal)
-    SteadyEventIdSync,
+    /// Nodes subscribe to same model. One node generates new events, recon syncs event IDs to peers.
+    EventIdSync,
 }
 
 impl Scenario {
@@ -94,7 +105,7 @@ impl Scenario {
             Scenario::CeramicNewStreams => "ceramic_new_streams",
             Scenario::CeramicQuery => "ceramic_query",
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
-            Scenario::SteadyEventIdSync => "steady_event_id_sync",
+            Scenario::EventIdSync => "event_id_sync",
         }
     }
 
@@ -106,76 +117,231 @@ impl Scenario {
             | Self::CeramicNewStreams
             | Self::CeramicQuery
             | Self::CeramicModelReuse
-            | Self::SteadyEventIdSync => match peer {
-                Peer::Ceramic(peer) => Ok(peer.ceramic_addr.clone()),
-                Peer::Ipfs(_) => Err(anyhow!(
-                    "cannot use non ceramic peer as target for simulation {}",
-                    self.name(),
-                )),
-            },
+            | Self::EventIdSync => Ok(peer
+                .ceramic_addr()
+                .ok_or_else(|| {
+                    anyhow!(
+                        "cannot use non ceramic peer as target for simulation {}",
+                        self.name(),
+                    )
+                })?
+                .to_owned()),
         }
     }
+}
 
-    fn throttle_requests(&self) -> Option<usize> {
-        match self {
-            Self::IpfsRpc
-            | Self::CeramicSimple
-            | Self::CeramicWriteOnly
-            | Self::CeramicNewStreams
-            | Self::CeramicQuery
-            | Self::CeramicModelReuse => None,
-            Self::SteadyEventIdSync => Some(300), // 280 req/second is minimum and we round up
+/// This struct holds information about the state of the simulation that
+/// allows us to determine whether or not we met our success criteria.
+#[derive(Clone, Debug)]
+pub struct ScenarioState {
+    pub topo: Topology,
+    pub peers: Vec<Peer>,
+    pub manager: bool,
+    pub scenario: Scenario,
+    pub target_request_rate: Option<usize>,
+}
+
+impl ScenarioState {
+    async fn new_from_opts(opts: &Opts) -> Result<Self> {
+        // We assume exactly one worker per peer.
+        // This allows us to be deterministic in how each user operates.
+        tracing::warn!(?opts, "opts");
+        let peers: Vec<Peer> = parse_peers_info(opts.peers.clone())
+            .await?
+            .into_iter()
+            .filter(|peer| matches!(peer, Peer::Ceramic(_)))
+            .collect();
+        if peers.is_empty() {
+            bail!("No peers found in peers file: {}", opts.peers.display());
+        }
+        let topo = Topology {
+            target_worker: opts.target_peer,
+            total_workers: peers.len(),
+            nonce: opts.nonce,
+            users: peers.len() * opts.users,
+        };
+        Ok(Self {
+            topo,
+            peers,
+            manager: opts.manager,
+            scenario: opts.scenario,
+            target_request_rate: opts.target_request_rate,
+        })
+    }
+
+    fn target_peer_addr(&self) -> Result<String> {
+        self.scenario.target_addr(
+            self.peers
+                .get(self.topo.target_worker)
+                .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
+        )
+    }
+
+    fn ipfs_peer_addr(&self) -> Option<String> {
+        self.peers
+            .get(self.topo.target_worker)
+            .map(|p| p.ipfs_rpc_addr().to_owned())
+    }
+
+    /// Returns the counter value (or None) for each peer in order of the peers list
+    async fn get_peers_counter_metric(
+        &self,
+        metric_name: &str,
+        metrics_port: u32,
+    ) -> Result<Vec<Option<u64>>> {
+        // This is naive and specific to our requirement of getting a prometheus counter.
+        let client = reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(3))
+            .timeout(Duration::from_secs(10))
+            .build()?;
+        let mut results = Vec::with_capacity(self.peers.len());
+        for peer in self.peers.iter() {
+            // Ideally, the peer stores the available metrics endpoints and we don't need to build them,
+            // but that's not the case right now and the ceramic/recon split makes it a bit odd, as most
+            // scenarios care about the ceramic metrics, but the recon metrics are on the IPFS port.
+            if let Some(addr) = peer.ceramic_addr() {
+                let addr = addr.parse::<reqwest::Url>()?;
+                if let Some(host) = addr.host_str() {
+                    let url = format!("http://{}:{}", host, metrics_port);
+                    let resp = client.get(&url).send().await?;
+                    if !resp.status().is_success() {
+                        warn!(?resp, "metrics request failed for peer {}", addr);
+                    } else {
+                        let body = resp.text().await?;
+                        let mut found = false;
+                        for metric in body.lines() {
+                            match metric.split(' ').collect::<Vec<&str>>().as_slice() {
+                                [name, value] if *name == metric_name => {
+                                    let val = value.parse::<u64>().map_err(|e| {warn!(metric=%name, %value, "failed to parse metric: {}", e); e}).ok();
+                                    results.push(val);
+                                    found = true;
+                                    break;
+                                }
+                                _ => {}
+                            }
+                        }
+                        if !found {
+                            warn!("Failed to find metric {} for host: {}", metric_name, addr);
+                            results.push(None);
+                        }
+                    }
+                } else {
+                    warn!("Failed to parse ceramic addr for host: {}", addr);
+                }
+            }
+        }
+        Ok(results)
+    }
+
+    /// For now, most scenarios are successful if they complete without error and only EventIdSync has a criteria.
+    async fn validate_scenario_success(&self, metrics: &GooseMetrics) -> Result<CommandResult> {
+        if !self.manager {
+            return Ok(CommandResult::Success);
+        }
+
+        match self.scenario {
+            Scenario::IpfsRpc
+            | Scenario::CeramicSimple
+            | Scenario::CeramicWriteOnly
+            | Scenario::CeramicNewStreams
+            | Scenario::CeramicQuery
+            | Scenario::CeramicModelReuse => Ok(CommandResult::Success),
+            Scenario::EventIdSync => {
+                // It'd be easy to make work for other scenarios if they defined a rate and metric. However, the scenario we're
+                // interested in is asymmetrical in what the workers do, and we're trying to look at what happens to other nodes,
+                // which is not how most scenarios work. It also uses the IPFS metrics endpoint. We could parameterize or use a
+                // trait, but we don't yet have a use case, and might need to use transactions, or multiple requests, or something
+                // entirely different. Anyway, to avoid generalizing the exception we keep it simple.
+                let default_rate = 300;
+                let metric_name = "recon_key_insert_count_total";
+                let req_name = ceramic::event_id_sync::CREATE_EVENT_REQ_NAME;
+
+                let peer_req_cnts = self
+                    .get_peers_counter_metric(metric_name, IPFS_SERVICE_METRICS_PORT)
+                    .await?;
+
+                let metric = metrics.requests.get(req_name).ok_or_else(|| {
+                    anyhow!("failed to find goose metrics for request {}", req_name)
+                })?;
+                // There is no `f64::try_from::<u64 or usize>` but if these values don't fit, we have bigger problems
+                let threshold = self.target_request_rate.unwrap_or(default_rate) as f64;
+                let create_rps = metric.success_count as f64 / metrics.duration as f64;
+                let time = metrics.duration;
+
+                // For now, assume writer and all peers must meet the threshold rate
+                let mut errors = peer_req_cnts
+                    .into_iter()
+                    .enumerate()
+                    .flat_map(|(idx, c)| {
+                        if let Some(c) = c {
+                            let rps = c as f64 / metrics.duration as f64;
+                            if rps < threshold {
+                                warn!(?c, ?time, ?threshold, %rps, "rps less than threshold");
+                                Some(format!(
+                                    "Peer {} RPS less than threshold: {} < {}",
+                                    idx, rps, threshold
+                                ))
+                            } else {
+                                info!(?c, ?time, ?threshold, %rps, "success! peer {} over the threshold", idx);
+                                None
+                            }
+                        } else {
+                            Some(format!(
+                                "Peer {} missing metric data",                                idx
+                            ))
+                        }
+                    })
+                    .collect::<Vec<String>>();
+
+                if create_rps < threshold {
+                    warn!(
+                        ?create_rps,
+                        ?threshold,
+                        "create rps less than threshold on writer node"
+                    );
+                    errors.push(format!(
+                        "Create event RPS less than threshold on writer node: {} < {}",
+                        create_rps, threshold
+                    ));
+                }
+                if errors.is_empty() {
+                    info!(
+                        ?create_rps,
+                        ?threshold,
+                        "SUCCESS! All peers met the threshold"
+                    );
+                    Ok(CommandResult::Success)
+                } else {
+                    warn!(?errors, "FAILURE! Not all peers met the threshold");
+                    Ok(CommandResult::Failure(anyhow!(errors.join("\n"))))
+                }
+            }
         }
     }
 }
 
 #[tracing::instrument]
-pub async fn simulate(opts: Opts) -> Result<()> {
+pub async fn simulate(opts: Opts) -> Result<CommandResult> {
     let mut metrics = Metrics::init(&opts)?;
 
-    let peers: Vec<Peer> = parse_peers_info(&opts.peers)
-        .await?
-        .into_iter()
-        .filter(|peer| matches!(peer, Peer::Ceramic(_)))
-        .collect();
+    let state = ScenarioState::new_from_opts(&opts).await?;
 
-    // use user value as number of users per worker, rather than total users that must be evenly divided across all workers
-    let topo = Topology {
-        target_worker: opts.target_peer,
-        total_workers: peers.len(),
-        users: opts.users * peers.len(),
-        nonce: opts.nonce,
-    };
-
-    let config = if opts.manager {
-        manager_config(&topo, opts.run_time)
-    } else {
-        worker_config(
-            opts.scenario.target_addr(
-                peers
-                    .get(opts.target_peer)
-                    .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
-            )?,
-            opts.throttle_requests
-                .or_else(|| opts.scenario.throttle_requests()),
-        )
-    };
-
-    let scenario = match opts.scenario {
-        Scenario::IpfsRpc => ipfs_block_fetch::scenario(topo)?,
+    let scenario = match state.scenario {
+        Scenario::IpfsRpc => ipfs_block_fetch::scenario(state.topo)?,
         Scenario::CeramicSimple => ceramic::simple::scenario().await?,
         Scenario::CeramicWriteOnly => ceramic::write_only::scenario().await?,
         Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
         Scenario::CeramicQuery => ceramic::query::scenario().await?,
         Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
-        Scenario::SteadyEventIdSync => {
-            ceramic::event_id_sync::steady_sync_scenario(
-                peers
-                    .get(opts.target_peer)
-                    .map(|p| p.ipfs_rpc_addr().to_owned()),
-            )
-            .await?
+        Scenario::EventIdSync => {
+            ceramic::event_id_sync::event_id_sync_scenario(state.ipfs_peer_addr()).await?
         }
+    };
+
+    let config = if opts.manager {
+        manager_config(&state.topo, opts.run_time)
+    } else {
+        worker_config(state.target_peer_addr()?, opts.throttle_requests)
     };
 
     let goose_metrics = match GooseAttack::initialize_with_config(config)?
@@ -190,12 +356,14 @@ pub async fn simulate(opts: Opts) -> Result<()> {
         }
     };
 
+    let success = state.validate_scenario_success(&goose_metrics).await;
     metrics.record(goose_metrics);
 
-    Ok(())
+    success
 }
 
 fn manager_config(topo: &Topology, run_time: String) -> GooseConfiguration {
+    tracing::warn!("manager config: {:#?}", topo);
     let mut config = GooseConfiguration::default();
     config.log_level = 2;
     config.users = Some(topo.users);

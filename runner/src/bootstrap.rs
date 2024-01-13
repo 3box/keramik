@@ -6,7 +6,10 @@ use keramik_common::peer_info::Peer;
 use rand::seq::IteratorRandom;
 use tracing::{debug, error};
 
-use crate::utils::{connect_peers, parse_peers_info};
+use crate::{
+    utils::{connect_peers, parse_peers_info},
+    CommandResult,
+};
 
 /// Options to Bootstrap command
 #[derive(Args, Debug)]
@@ -41,7 +44,7 @@ impl Default for Method {
 }
 
 #[tracing::instrument]
-pub async fn bootstrap(opts: Opts) -> Result<()> {
+pub async fn bootstrap(opts: Opts) -> Result<CommandResult> {
     let peers = parse_peers_info(opts.peers).await?;
     // Bootstrap peers according to the given method.
     // Methods should not assume that peer indexes are consecutive nor that they start at zero.
@@ -50,7 +53,7 @@ pub async fn bootstrap(opts: Opts) -> Result<()> {
         Method::Random => random(opts.n, &peers).await?,
         Method::Sentinel => sentinel(opts.n, &peers).await?,
     }
-    Ok(())
+    Ok(CommandResult::Success)
 }
 
 #[tracing::instrument(skip(peers), fields(peers.len = peers.len()))]

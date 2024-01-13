@@ -10,6 +10,7 @@ use goose::prelude::*;
 use libipld::cid;
 use multihash::{Code, MultihashDigest};
 use reqwest::Url;
+use std::sync::atomic::AtomicBool;
 use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument};
 
@@ -17,13 +18,26 @@ use super::util::goose_error;
 use super::{CeramicClient, Credentials};
 
 const MODEL_ID_KEY: &str = "event_id_sync_model_id";
+pub(crate) const CREATE_EVENT_TX_NAME: &str = "create_new_event";
+// goose stores the HTTP method + transaction name as the request name
+// it's a lot simpler to access request metrics (a map) than tx metrics (a vec<vec>
+pub(crate) const CREATE_EVENT_REQ_NAME: &str = "POST create_new_event";
+
+static FIRST_USER: AtomicBool = AtomicBool::new(true);
 
 fn should_request_events() -> bool {
     goose::get_worker_id() == 1
 }
 
+/// we only want one user to create and subscribe to the model
+fn is_first_user() -> bool {
+    FIRST_USER.swap(false, std::sync::atomic::Ordering::SeqCst)
+}
+
 // accept option as goose manager builds the scenario as well, but doesn't need any peers and won't run it so it will always be Some in execution
-pub async fn steady_sync_scenario(ipfs_peer_addr: Option<String>) -> Result<Scenario, GooseError> {
+pub async fn event_id_sync_scenario(
+    ipfs_peer_addr: Option<String>,
+) -> Result<Scenario, GooseError> {
     let ipfs_addr: Url = ipfs_peer_addr
         .map(|u| u.parse().unwrap())
         .expect("missing ipfs peer address in event ID scenario");
@@ -42,11 +56,11 @@ pub async fn steady_sync_scenario(ipfs_peer_addr: Option<String>) -> Result<Scen
     .set_name("setup")
     .set_on_start();
 
-    let sync_event_id = transaction!(sync_event_id).set_name("sync_event_id");
+    let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
 
     Ok(scenario!("SteadyEventIDSync")
         .register_transaction(test_start)
-        .register_transaction(sync_event_id))
+        .register_transaction(create_new_event))
 }
 
 // send subscription to each node
@@ -61,7 +75,7 @@ async fn setup(
     ipfs_peer_addr: Url,
 ) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
-    let model_id = if should_request_events() {
+    let model_id = if should_request_events() && is_first_user() {
         info!("creating model for event ID sync test");
         let small_model = match ModelDefinition::new::<models::SmallModel>(
             "load_test_small_model",
@@ -88,6 +102,7 @@ async fn setup(
 
     tracing::debug!(%model_id, "syncing model");
 
+    let path = format!("/ceramic/subscribe/model/{}?limit=1", model_id);
     let user_data = ModelReuseLoadTestUserData {
         cli,
         redis_cli,
@@ -97,10 +112,7 @@ async fn setup(
     user.base_url = Some(ipfs_peer_addr); // Recon is only available on IPFS address right now
 
     let _subscribed_to_models = user
-        .get_request_builder(
-            &GooseMethod::Get,
-            "/ceramic/subscribe/model/%7Bmodel%7D?limit=1",
-        )?
+        .get_request_builder(&GooseMethod::Get, &path)?
         .timeout(std::time::Duration::from_secs(5))
         .send()
         .await?;
@@ -108,7 +120,7 @@ async fn setup(
     Ok(())
 }
 
-async fn sync_event_id(user: &mut GooseUser) -> TransactionResult {
+async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
     if !should_request_events() {
         // this inflates the scenario/transaction metrics, but it doesn't affect the request metrics
         tokio::time::sleep(Duration::from_millis(500)).await;
@@ -131,18 +143,8 @@ async fn sync_event_id(user: &mut GooseUser) -> TransactionResult {
             .set_request_builder(request_builder)
             .expect_status_code(204)
             .build();
-        let mut goose = user.request(req).await?;
-        let resp = goose.response?;
-        if resp.status().is_success() {
-            Ok(())
-        } else {
-            user.set_failure(
-                "sync_event_id",
-                &mut goose.request,
-                None,
-                Some(&format!("Failed to add event ID: {}", event_id)),
-            )
-        }
+        let _resp = user.request(req).await?;
+        Ok(())
     }
 }
 

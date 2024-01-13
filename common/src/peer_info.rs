@@ -37,6 +37,14 @@ impl Peer {
             Peer::Ipfs(p) => p.p2p_addrs.as_slice(),
         }
     }
+
+    /// Report the Ceramic API address of the peer. None if this is not a ceramic peer.
+    pub fn ceramic_addr(&self) -> Option<&str> {
+        match self {
+            Peer::Ceramic(p) => Some(&p.ceramic_addr),
+            Peer::Ipfs(_) => None,
+        }
+    }
 }
 
 /// Describes a peer that participates via Ceramic protocols.

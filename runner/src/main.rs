@@ -51,6 +51,17 @@ impl Command {
     }
 }
 
+/// Result of a command.
+/// This is primarily used to differentiate between a simulation failure and a failure to run the command.
+/// Both should return a non-zero exit code, but the former should still report and clean up since the command
+/// executed successfully, it just didn't pass thresholds or whatever correctness requirements we enforce.
+pub enum CommandResult {
+    /// Command completed successfully
+    Success,
+    /// Command failed
+    Failure(anyhow::Error),
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_log::LogTracer::init()?;
@@ -68,11 +79,11 @@ async fn main() -> Result<()> {
     runs.add(&cx, 1, &[KeyValue::new("command", args.command.name())]);
 
     info!(?args.command, ?args.otlp_endpoint, "starting runner");
-    match args.command {
+    let success = match args.command {
         Command::Bootstrap(opts) => bootstrap(opts).await?,
         Command::Simulate(opts) => simulate(opts).await?,
-        Command::Noop => {}
-    }
+        Command::Noop => CommandResult::Success,
+    };
 
     // Flush traces and metrics before shutdown
     shutdown_tracer_provider();
@@ -81,5 +92,8 @@ async fn main() -> Result<()> {
     // This fixes lost metrics not sure why :(
     // Seems to be related to the inflight gRPC request getting cancelled
     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
-    Ok(())
+    match success {
+        CommandResult::Success => Ok(()),
+        CommandResult::Failure(e) => Err(e),
+    }
 }

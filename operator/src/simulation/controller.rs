@@ -173,6 +173,7 @@ async fn reconcile(
         nonce: status.nonce,
         job_image_config: job_image_config.clone(),
         throttle_requests: spec.throttle_requests,
+        success_request_target: spec.success_request_target,
     };
 
     apply_manager(cx.clone(), &ns, simulation.clone(), manager_config).await?;

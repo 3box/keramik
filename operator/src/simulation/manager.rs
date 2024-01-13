@@ -35,6 +35,7 @@ pub struct ManagerConfig {
     pub throttle_requests: Option<usize>,
     pub nonce: u32,
     pub job_image_config: JobImageConfig,
+    pub success_request_target: Option<usize>,
 }
 
 pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
@@ -101,6 +102,13 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
         env_vars.push(EnvVar {
             name: "SIMULATE_THROTTLE_REQUESTS".to_owned(),
             value: Some(throttle_requests.to_string()),
+            ..Default::default()
+        })
+    }
+    if let Some(success_request_target) = config.success_request_target {
+        env_vars.push(EnvVar {
+            name: "SIMULATE_TARGET_REQUESTS".to_owned(),
+            value: Some(success_request_target.to_string()),
             ..Default::default()
         })
     }

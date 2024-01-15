@@ -63,9 +63,9 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_THROTTLE_REQUESTS")]
     throttle_requests: Option<usize>,
 
-    /// A request/second target threshold for this scenario. It will override
-    /// any default value for the scenario and is used when reporting success.
-    /// This is enforced on a node by node basis, not across the entire simulation.
+    /// Request target for the scenario to be a success. Scenarios can use this to
+    /// validate throughput and correctness before returning. The exact definition is
+    /// left to the scenario (requests per second, total requests, rps/node etc).
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
 }
@@ -234,9 +234,10 @@ impl ScenarioState {
     }
 
     /// For now, most scenarios are successful if they complete without error and only EventIdSync has a criteria.
-    async fn validate_scenario_success(&self, metrics: &GooseMetrics) -> Result<CommandResult> {
+    /// Not a result to ensure we always proceed with cleanup, even if we fail to validate the scenario.
+    async fn validate_scenario_success(&self, metrics: &GooseMetrics) -> CommandResult {
         if !self.manager {
-            return Ok(CommandResult::Success);
+            return CommandResult::Success;
         }
 
         match self.scenario {
@@ -245,7 +246,7 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
-            | Scenario::CeramicModelReuse => Ok(CommandResult::Success),
+            | Scenario::CeramicModelReuse => CommandResult::Success,
             Scenario::EventIdSync => {
                 // It'd be easy to make work for other scenarios if they defined a rate and metric. However, the scenario we're
                 // interested in is asymmetrical in what the workers do, and we're trying to look at what happens to other nodes,
@@ -256,17 +257,28 @@ impl ScenarioState {
                 let metric_name = "recon_key_insert_count_total";
                 let req_name = ceramic::event_id_sync::CREATE_EVENT_REQ_NAME;
 
-                let peer_req_cnts = self
+                let peer_req_cnts = match self
                     .get_peers_counter_metric(metric_name, IPFS_SERVICE_METRICS_PORT)
-                    .await?;
+                    .await
+                    .map_err(CommandResult::Failure)
+                {
+                    Ok(v) => v,
+                    Err(e) => return e,
+                };
 
-                let metric = metrics.requests.get(req_name).ok_or_else(|| {
-                    anyhow!("failed to find goose metrics for request {}", req_name)
-                })?;
+                let metric = match metrics
+                    .requests
+                    .get(req_name)
+                    .ok_or_else(|| anyhow!("failed to find goose metrics for request {}", req_name))
+                    .map_err(CommandResult::Failure)
+                {
+                    Ok(m) => m,
+                    Err(e) => return e,
+                };
                 // There is no `f64::try_from::<u64 or usize>` but if these values don't fit, we have bigger problems
                 let threshold = self.target_request_rate.unwrap_or(default_rate) as f64;
-                let create_rps = metric.success_count as f64 / metrics.duration as f64;
-                let time = metrics.duration;
+                let run_time_seconds = metrics.duration;
+                let create_rps = metric.success_count as f64 / run_time_seconds as f64;
 
                 // For now, assume writer and all peers must meet the threshold rate
                 let mut errors = peer_req_cnts
@@ -274,15 +286,15 @@ impl ScenarioState {
                     .enumerate()
                     .flat_map(|(idx, c)| {
                         if let Some(c) = c {
-                            let rps = c as f64 / metrics.duration as f64;
+                            let rps = c as f64 / run_time_seconds as f64;
                             if rps < threshold {
-                                warn!(?c, ?time, ?threshold, %rps, "rps less than threshold");
+                                warn!(?c, ?run_time_seconds, ?threshold, %rps, "rps less than threshold");
                                 Some(format!(
                                     "Peer {} RPS less than threshold: {} < {}",
                                     idx, rps, threshold
                                 ))
                             } else {
-                                info!(?c, ?time, ?threshold, %rps, "success! peer {} over the threshold", idx);
+                                info!(?c, ?run_time_seconds, ?threshold, %rps, "success! peer {} over the threshold", idx);
                                 None
                             }
                         } else {
@@ -310,10 +322,10 @@ impl ScenarioState {
                         ?threshold,
                         "SUCCESS! All peers met the threshold"
                     );
-                    Ok(CommandResult::Success)
+                    CommandResult::Success
                 } else {
                     warn!(?errors, "FAILURE! Not all peers met the threshold");
-                    Ok(CommandResult::Failure(anyhow!(errors.join("\n"))))
+                    CommandResult::Failure(anyhow!(errors.join("\n")))
                 }
             }
         }
@@ -359,7 +371,7 @@ pub async fn simulate(opts: Opts) -> Result<CommandResult> {
     let success = state.validate_scenario_success(&goose_metrics).await;
     metrics.record(goose_metrics);
 
-    success
+    Ok(success)
 }
 
 fn manager_config(topo: &Topology, run_time: String) -> GooseConfiguration {

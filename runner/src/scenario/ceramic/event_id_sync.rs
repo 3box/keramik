@@ -20,7 +20,7 @@ use super::{CeramicClient, Credentials};
 const MODEL_ID_KEY: &str = "event_id_sync_model_id";
 pub(crate) const CREATE_EVENT_TX_NAME: &str = "create_new_event";
 // goose stores the HTTP method + transaction name as the request name
-// it's a lot simpler to access request metrics (a map) than tx metrics (a vec<vec>
+// it's a lot simpler to access request metrics (a map) than tx metrics (a vec<vec>)
 pub(crate) const CREATE_EVENT_REQ_NAME: &str = "POST create_new_event";
 
 static FIRST_USER: AtomicBool = AtomicBool::new(true);
@@ -58,15 +58,13 @@ pub async fn event_id_sync_scenario(
 
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
 
-    Ok(scenario!("SteadyEventIDSync")
+    Ok(scenario!("EventIDSync")
         .register_transaction(test_start)
         .register_transaction(create_new_event))
 }
 
-// send subscription to each node
-// node A should send 1M events to node B
-// node A must report how long it took to send 1M events
-// node B must report how long it took from first request to last event
+/// One user on one node creates a model.
+/// One user on each node subscribes to the model via Recon
 #[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
 async fn setup(
     user: &mut GooseUser,
@@ -120,9 +118,10 @@ async fn setup(
     Ok(())
 }
 
+/// Generate a random event that the nodes are interested in. Only one node should create but all
+/// users do it so that we can generate a lot of events.
 async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
     if !should_request_events() {
-        // this inflates the scenario/transaction metrics, but it doesn't affect the request metrics
         tokio::time::sleep(Duration::from_millis(500)).await;
         Ok(())
     } else {

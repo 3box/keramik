@@ -7,7 +7,7 @@ To run a simulation, first define a simulation. Available simulation types are
 - `ceramic-write-only` - A simulation that only performs updates on two different streams
 - `ceramic-new-streams` - A simulation that only creates new streams
 - `ceramic-model-reuse` - A simulation that reuses the same model and queries instances across workers
-- `steady-event-id-sync` - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Only designed for a 2 node network.
+- `event-id-sync` - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Only designed for a 2 node network.
 
 Using one of these scenarios, we can then define the configuration for that scenario:
 

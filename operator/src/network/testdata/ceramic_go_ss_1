@@ -49,10 +49,6 @@ Request {
                     "value": "local"
                   },
                   {
-                    "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-0"
-                  },
-                  {
                     "name": "ETH_RPC_URL",
                     "value": "http://ganache:8545"
                   },
@@ -79,6 +75,10 @@ Request {
                   {
                     "name": "CERAMIC_LOG_LEVEL",
                     "value": "2"
+                  },
+                  {
+                    "name": "CERAMIC_NETWORK_TOPIC",
+                    "value": "/ceramic/local-0"
                   }
                 ],
                 "image": "ceramicnetwork/composedb:latest",
@@ -204,10 +204,6 @@ Request {
                     "value": "local"
                   },
                   {
-                    "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-0"
-                  },
-                  {
                     "name": "ETH_RPC_URL",
                     "value": "http://ganache:8545"
                   },
@@ -234,6 +230,10 @@ Request {
                   {
                     "name": "CERAMIC_LOG_LEVEL",
                     "value": "2"
+                  },
+                  {
+                    "name": "CERAMIC_NETWORK_TOPIC",
+                    "value": "/ceramic/local-0"
                   }
                 ],
                 "image": "ceramicnetwork/composedb:latest",

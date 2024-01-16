@@ -286,11 +286,6 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             ..Default::default()
         },
         EnvVar {
-            name: "CERAMIC_NETWORK_TOPIC".to_owned(),
-            value: Some(bundle.net_config.network_type.topic()),
-            ..Default::default()
-        },
-        EnvVar {
             name: "ETH_RPC_URL".to_owned(),
             value: Some(bundle.net_config.eth_rpc_url.to_owned()),
             ..Default::default()
@@ -326,6 +321,17 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             ..Default::default()
         },
     ];
+
+    // Only specify the pubsub topic if the network was "inmemory" or "local"
+    if bundle.net_config.network_type == NetworkType::InMemory
+        || bundle.net_config.network_type == NetworkType::Local
+    {
+        ceramic_env.push(EnvVar {
+            name: "CERAMIC_NETWORK_TOPIC".to_owned(),
+            value: Some(bundle.net_config.network_type.topic()),
+            ..Default::default()
+        })
+    }
 
     if let Some(extra_env) = &bundle.config.env {
         extra_env.iter().for_each(|(key, value)| {

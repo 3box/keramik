@@ -54,12 +54,15 @@ pub const NETWORK_LOCAL_ID: usize = 0;
 
 /// NetworkType is the discrete set of networks
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "lowercase")]
 pub enum NetworkType {
     /// Mainnet
     Mainnet,
     /// Testnet Clay
+    #[serde(rename = "testnet-clay")]
     TestnetClay,
     /// DevUnstable
+    #[serde(rename = "dev-unstable")]
     DevUnstable,
     /// Local (default)
     #[default]

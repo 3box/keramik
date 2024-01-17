@@ -33,6 +33,7 @@ pub struct NetworkSpec {
     /// the Admin DID.
     pub private_key_secret: Option<String>,
     /// Ceramic network type
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub network_type: Option<NetworkType>,
     /// Ethereum RPC URL for Ceramic nodes to use for verifying anchors
     pub eth_rpc_url: Option<String>,

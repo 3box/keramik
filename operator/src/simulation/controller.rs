@@ -808,6 +808,69 @@ mod tests {
                              ],
                              "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
         "#]]);
+        stub.worker_jobs[0].patch(expect![[r#"
+        --- original
+        +++ modified
+        @@ -70,6 +70,10 @@
+                           {
+                             "name": "DID_PRIVATE_KEY",
+                             "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+        +                  },
+        +                  {
+        +                    "name": "SIMULATE_THROTTLE_REQUESTS",
+        +                    "value": "100"
+                           }
+                         ],
+                         "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+    "#]]);
+        stub.worker_jobs[1].patch(expect![[r#"
+        --- original
+        +++ modified
+        @@ -70,6 +70,10 @@
+                           {
+                             "name": "DID_PRIVATE_KEY",
+                             "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+        +                  },
+        +                  {
+        +                    "name": "SIMULATE_THROTTLE_REQUESTS",
+        +                    "value": "100"
+                           }
+                         ],
+                         "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+    "#]]);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_simulate_request_target() {
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            success_request_target: Some(280),
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -74,6 +74,10 @@
+                               {
+                                 "name": "DID_PRIVATE_KEY",
+                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            +                  },
+            +                  {
+            +                    "name": "SIMULATE_TARGET_REQUESTS",
+            +                    "value": "280"
+                               }
+                             ],
+                             "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+        "#]]);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await

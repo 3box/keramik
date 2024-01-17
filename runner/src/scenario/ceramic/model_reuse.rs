@@ -53,8 +53,13 @@ pub(crate) async fn set_model_id(
 pub(crate) async fn get_model_id(conn: &mut redis::aio::Connection, key: &str) -> StreamId {
     loop {
         if conn.exists(key).await.unwrap() {
-            let id: String = conn.get(MODEL_ID_KEY).await.unwrap();
-            return StreamId::from_str(&id).unwrap();
+            let id: String = conn.get(key).await.unwrap();
+            return StreamId::from_str(&id)
+                .map_err(|e| {
+                    tracing::error!("invalid stream: {:?} ", e);
+                    e
+                })
+                .unwrap();
         } else {
             tokio::time::sleep(Duration::from_millis(100)).await;
         }

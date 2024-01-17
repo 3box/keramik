@@ -349,7 +349,7 @@ impl ScenarioState {
                 };
 
                 // For now, assume writer and all peers must meet the threshold rate
-                let mut errors = peer_req_cnts.into_iter().zip(before_metrics.into_iter())
+                let mut errors = peer_req_cnts.into_iter().zip(before_metrics.iter())
                     .enumerate()
                     .flat_map(|(idx, (current, before))| {
                         if let Some(c) = current {

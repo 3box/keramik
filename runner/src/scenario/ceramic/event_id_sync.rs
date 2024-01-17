@@ -127,6 +127,8 @@ async fn setup(
 /// users do it so that we can generate a lot of events.
 async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
     if !should_request_events() {
+        // No work is performed while awaiting on the sleep future to complete (from tokio::time::sleep docs)
+        // it's not high resolution but we don't need it to be since we're already waiting half a second
         tokio::time::sleep(Duration::from_millis(500)).await;
         Ok(())
     } else {
@@ -171,7 +173,7 @@ const TEST_CONTROLLER: &str = "did:key:z6MkoFUppcKEVYTS8oVidrja94UoJTatNhnhxJRKF
 fn random_event_id(sort_value: &str) -> ceramic_core::EventId {
     let cid = random_cid();
     EventId::new(
-        &ceramic_core::Network::Local(42),
+        &ceramic_core::Network::Local(0),
         SORT_KEY,
         sort_value,
         TEST_CONTROLLER,

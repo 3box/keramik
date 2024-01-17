@@ -753,7 +753,7 @@ mod test {
     use std::collections::HashMap;
 
     use keramik_common::peer_info::CeramicPeerInfo;
-    use tracing_test::traced_test;
+    use test_log::test;
 
     use super::*;
 
@@ -849,8 +849,7 @@ mod test {
             .await
     }
 
-    #[traced_test]
-    #[tokio::test]
+    #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_exact_default() {
         let run_time = 60;
         let threshold = 300;
@@ -873,8 +872,7 @@ mod test {
         }
     }
 
-    #[traced_test]
-    #[tokio::test]
+    #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_overridden_target() {
         let run_time = 60;
         let threshold = 55;
@@ -897,8 +895,7 @@ mod test {
         }
     }
 
-    #[traced_test]
-    #[tokio::test]
+    #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_overridden_target_too_low() {
         let run_time = 60;
         let threshold = 45;
@@ -923,8 +920,7 @@ mod test {
         }
     }
 
-    #[traced_test]
-    #[tokio::test]
+    #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_too_low() {
         let run_time = 60;
         let threshold = 300;
@@ -949,8 +945,7 @@ mod test {
         }
     }
 
-    #[traced_test]
-    #[tokio::test]
+    #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_too_low_ok_workers() {
         let run_time = 60;
         let threshold = 300;
@@ -973,8 +968,7 @@ mod test {
         }
     }
 
-    #[traced_test]
-    #[tokio::test]
+    #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_too_low_second_run() {
         let run_time = 60;
         let threshold = 300;

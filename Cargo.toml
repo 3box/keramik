@@ -4,6 +4,7 @@ resolver = "2"
 
 [workspace.dependencies]
 anyhow = "1"
+async-trait = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 console-subscriber = "0.2"
 ceramic-core = { git = "https://github.com/ceramicnetwork/rust-ceramic.git", branch = "main"}

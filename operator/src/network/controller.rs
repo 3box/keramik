@@ -2897,15 +2897,11 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -46,19 +46,15 @@
+            @@ -46,15 +46,15 @@
                              "env": [
                                {
                                  "name": "CERAMIC_NETWORK",
             -                    "value": "local"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_NETWORK_TOPIC",
-            -                    "value": "/ceramic/local-0"
             +                    "value": "dev-unstable"
                                },
                                {
@@ -2920,6 +2916,17 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
+            @@ -75,10 +75,6 @@
+                               {
+                                 "name": "CERAMIC_LOG_LEVEL",
+                                 "value": "2"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_NETWORK_TOPIC",
+            -                    "value": "/ceramic/local-0"
+                               }
+                             ],
+                             "image": "ceramicnetwork/composedb:latest",
             @@ -160,7 +156,7 @@
                                },
                                {
@@ -2929,15 +2936,11 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_ONE_STORE_DIR",
-            @@ -234,19 +230,15 @@
+            @@ -234,15 +230,15 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
             -                    "value": "local"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_NETWORK_TOPIC",
-            -                    "value": "/ceramic/local-0"
             +                    "value": "dev-unstable"
                                },
                                {
@@ -2952,6 +2955,17 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
+            @@ -263,10 +259,6 @@
+                               {
+                                 "name": "CERAMIC_LOG_LEVEL",
+                                 "value": "2"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_NETWORK_TOPIC",
+            -                    "value": "/ceramic/local-0"
+                               }
+                             ],
+                             "image": "ceramicnetwork/composedb:latest",
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -3042,25 +3056,10 @@ mod tests {
                          }
                        },
                        "spec": {
-            @@ -49,10 +54,6 @@
-                                 "value": "local"
-                               },
+            @@ -79,6 +84,22 @@
                                {
-            -                    "name": "CERAMIC_NETWORK_TOPIC",
-            -                    "value": "/ceramic/local-0"
-            -                  },
-            -                  {
-                                 "name": "ETH_RPC_URL",
-                                 "value": "http://ganache:8545"
-                               },
-            @@ -79,6 +80,26 @@
-                               {
-                                 "name": "CERAMIC_LOG_LEVEL",
-                                 "value": "2"
-            +                  },
-            +                  {
-            +                    "name": "CERAMIC_NETWORK_TOPIC",
-            +                    "value": "/ceramic/local-0"
+                                 "name": "CERAMIC_NETWORK_TOPIC",
+                                 "value": "/ceramic/local-0"
             +                  },
             +                  {
             +                    "name": "DD_AGENT_HOST",
@@ -3077,28 +3076,6 @@ mod tests {
             +                  {
             +                    "name": "DD_PROFILING_ENABLED",
             +                    "value": "true"
-                               }
-                             ],
-                             "image": "ceramicnetwork/composedb:latest",
-            @@ -237,10 +258,6 @@
-                                 "value": "local"
-                               },
-                               {
-            -                    "name": "CERAMIC_NETWORK_TOPIC",
-            -                    "value": "/ceramic/local-0"
-            -                  },
-            -                  {
-                                 "name": "ETH_RPC_URL",
-                                 "value": "http://ganache:8545"
-                               },
-            @@ -267,6 +284,10 @@
-                               {
-                                 "name": "CERAMIC_LOG_LEVEL",
-                                 "value": "2"
-            +                  },
-            +                  {
-            +                    "name": "CERAMIC_NETWORK_TOPIC",
-            +                    "value": "/ceramic/local-0"
                                }
                              ],
                              "image": "ceramicnetwork/composedb:latest",

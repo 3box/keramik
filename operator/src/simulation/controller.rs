@@ -332,6 +332,7 @@ async fn apply_n_workers(
             target_peer: i,
             nonce,
             job_image_config: job_image_config.clone(),
+            throttle_requests: spec.throttle_requests,
         };
 
         apply_job(

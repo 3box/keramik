@@ -8,6 +8,7 @@ edition = "2021"
 
 [dependencies]
 anyhow.workspace = true
+async-trait.workspace = true
 ceramic-core.workspace = true
 ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs.git", branch = "main", default-features = false }
 #ceramic-http-client = { path = "../../ceramic-http-client-rs", default-features = false }
@@ -27,3 +28,6 @@ tokio.workspace = true
 tracing-log.workspace = true
 tracing.workspace = true
 multibase.workspace = true
+
+[dev-dependencies]
+tracing-test = "0.2"

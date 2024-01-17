@@ -2727,6 +2727,7 @@ name = "keramik-runner"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-trait",
  "ceramic-core 0.9.0",
  "ceramic-http-client",
  "clap",
@@ -2745,6 +2746,7 @@ dependencies = [
  "tokio",
  "tracing",
  "tracing-log",
+ "tracing-test",
 ]
 
 [[package]]

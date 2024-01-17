@@ -9,6 +9,7 @@ use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
 use keramik_common::peer_info::Peer;
 use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
+use reqwest::Url;
 use tracing::{error, info, warn};
 
 use crate::{
@@ -131,30 +132,85 @@ impl Scenario {
     }
 }
 
+type MetricsCollector = Box<dyn MetricsCollection + Send + Sync>;
+
+#[async_trait::async_trait]
+trait MetricsCollection: std::fmt::Debug {
+    /// Collects a counter metric from the given host. None if metric not found.
+    async fn collect_counter(&self, addr: Url, metric_name: &str) -> Result<Option<u64>>;
+    fn boxed(&self) -> MetricsCollector;
+}
+
+#[derive(Clone, Debug)]
+struct PromMetricCollector {
+    client: reqwest::Client,
+}
+
+#[async_trait::async_trait]
+impl MetricsCollection for PromMetricCollector {
+    async fn collect_counter(&self, addr: Url, metric_name: &str) -> Result<Option<u64>> {
+        let resp = self.client.get(addr.clone()).send().await?;
+        if !resp.status().is_success() {
+            warn!(?resp, "metrics request failed for peer {}", addr);
+            bail!("Failed to get metrics for host: {}", addr);
+        } else {
+            let body = resp.text().await?;
+            for metric in body.lines() {
+                match metric.split(' ').collect::<Vec<&str>>().as_slice() {
+                    [name, value] if *name == metric_name => {
+                        let val = value.parse::<u64>().map_err(|e| {
+                            warn!(metric=%name, %value, "failed to parse metric: {}", e);
+                            e
+                        })?;
+                        return Ok(Some(val));
+                    }
+                    _ => {}
+                }
+            }
+
+            warn!("Failed to find metric {} for host: {}", metric_name, addr);
+            Ok(None)
+        }
+    }
+    fn boxed(&self) -> MetricsCollector {
+        Box::new(self.clone())
+    }
+}
+
 /// This struct holds information about the state of the simulation that
 /// allows us to determine whether or not we met our success criteria.
-#[derive(Clone, Debug)]
-pub struct ScenarioState {
+#[derive(Debug)]
+struct ScenarioState {
     pub topo: Topology,
     pub peers: Vec<Peer>,
     pub manager: bool,
     pub scenario: Scenario,
     pub target_request_rate: Option<usize>,
+    metrics_collector: MetricsCollector,
     before_metrics: Option<Vec<u64>>,
     run_time: String,
     throttle_requests: Option<usize>,
 }
 
 impl ScenarioState {
-    async fn try_from_opts(opts: Opts) -> Result<Self> {
+    /// Peers override is for testing only
+    async fn try_from_opts(
+        opts: Opts,
+        metrics_collector: MetricsCollector,
+        peers_override: Option<Vec<Peer>>, // for testing
+    ) -> Result<Self> {
         // We assume exactly one worker per peer.
         // This allows us to be deterministic in how each user operates.
         tracing::debug!(?opts, "building state from opts");
-        let peers: Vec<Peer> = parse_peers_info(opts.peers.clone())
-            .await?
-            .into_iter()
-            .filter(|peer| matches!(peer, Peer::Ceramic(_)))
-            .collect();
+        let peers: Vec<Peer> = if let Some(peers) = peers_override {
+            peers
+        } else {
+            parse_peers_info(opts.peers.clone())
+                .await?
+                .into_iter()
+                .filter(|peer| matches!(peer, Peer::Ceramic(_)))
+                .collect()
+        };
         if peers.is_empty() {
             bail!("No peers found in peers file: {}", opts.peers.display());
         }
@@ -167,6 +223,7 @@ impl ScenarioState {
         Ok(Self {
             topo,
             peers,
+            metrics_collector,
             manager: opts.manager,
             scenario: opts.scenario,
             target_request_rate: opts.target_request_rate,
@@ -213,10 +270,6 @@ impl ScenarioState {
         metrics_port: u32,
     ) -> Result<Vec<Option<u64>>> {
         // This is naive and specific to our requirement of getting a prometheus counter.
-        let client = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(3))
-            .timeout(Duration::from_secs(10))
-            .build()?;
         let mut results = Vec::with_capacity(self.peers.len());
         for peer in self.peers.iter() {
             // Ideally, the peer stores the available metrics endpoints and we don't need to build them,
@@ -226,28 +279,11 @@ impl ScenarioState {
                 let addr = addr.parse::<reqwest::Url>()?;
                 if let Some(host) = addr.host_str() {
                     let url = format!("http://{}:{}", host, metrics_port);
-                    let resp = client.get(&url).send().await?;
-                    if !resp.status().is_success() {
-                        warn!(?resp, "metrics request failed for peer {}", addr);
-                    } else {
-                        let body = resp.text().await?;
-                        let mut found = false;
-                        for metric in body.lines() {
-                            match metric.split(' ').collect::<Vec<&str>>().as_slice() {
-                                [name, value] if *name == metric_name => {
-                                    let val = value.parse::<u64>().map_err(|e| {warn!(metric=%name, %value, "failed to parse metric: {}", e); e}).ok();
-                                    results.push(val);
-                                    found = true;
-                                    break;
-                                }
-                                _ => {}
-                            }
-                        }
-                        if !found {
-                            warn!("Failed to find metric {} for host: {}", metric_name, addr);
-                            results.push(None);
-                        }
-                    }
+                    let metric = self
+                        .metrics_collector
+                        .collect_counter(url.parse()?, metric_name)
+                        .await?;
+                    results.push(metric);
                 } else {
                     warn!("Failed to parse ceramic addr for host: {}", addr);
                 }
@@ -288,11 +324,7 @@ impl ScenarioState {
 
     /// For now, most scenarios are successful if they complete without error and only EventIdSync has a criteria.
     /// Not a result to ensure we always proceed with cleanup, even if we fail to validate the scenario.
-    async fn validate_scenario_success(&self, metrics: &GooseMetrics) -> CommandResult {
-        if !self.manager {
-            return CommandResult::Success;
-        }
-
+    pub async fn validate_scenario_success(&self, metrics: &GooseMetrics) -> CommandResult {
         match self.scenario {
             Scenario::IpfsRpc
             | Scenario::CeramicSimple
@@ -306,9 +338,46 @@ impl ScenarioState {
                 // which is not how most scenarios work. It also uses the IPFS metrics endpoint. We could parameterize or use a
                 // trait, but we don't yet have a use case, and might need to use transactions, or multiple requests, or something
                 // entirely different. Anyway, to avoid generalizing the exception we keep it simple.
+                let req_name = ceramic::event_id_sync::CREATE_EVENT_REQ_NAME;
+
+                let metric = match metrics
+                    .requests
+                    .get(req_name)
+                    .ok_or_else(|| anyhow!("failed to find goose metrics for request {}", req_name))
+                    .map_err(CommandResult::Failure)
+                {
+                    Ok(v) => v,
+                    Err(e) => return e,
+                };
+
+                self.validate_scenario_success_int(
+                    metrics.duration as u64,
+                    metric.success_count as u64,
+                )
+                .await
+            }
+        }
+    }
+
+    /// Removed from `validate_scenario_success` to make testing easier as it's hard to
+    async fn validate_scenario_success_int(
+        &self,
+        run_time_seconds: u64,
+        request_cnt: u64,
+    ) -> CommandResult {
+        if !self.manager {
+            return CommandResult::Success;
+        }
+        match self.scenario {
+            Scenario::IpfsRpc
+            | Scenario::CeramicSimple
+            | Scenario::CeramicWriteOnly
+            | Scenario::CeramicNewStreams
+            | Scenario::CeramicQuery
+            | Scenario::CeramicModelReuse => CommandResult::Success,
+            Scenario::EventIdSync => {
                 let default_rate = 300;
                 let metric_name = EVENT_SYNC_METRIC_NAME;
-                let req_name = ceramic::event_id_sync::CREATE_EVENT_REQ_NAME;
 
                 let peer_req_cnts = match self
                     .get_peers_counter_metric(metric_name, IPFS_SERVICE_METRICS_PORT)
@@ -319,19 +388,9 @@ impl ScenarioState {
                     Err(e) => return e,
                 };
 
-                let metric = match metrics
-                    .requests
-                    .get(req_name)
-                    .ok_or_else(|| anyhow!("failed to find goose metrics for request {}", req_name))
-                    .map_err(CommandResult::Failure)
-                {
-                    Ok(m) => m,
-                    Err(e) => return e,
-                };
                 // There is no `f64::try_from::<u64 or usize>` but if these values don't fit, we have bigger problems
                 let threshold = self.target_request_rate.unwrap_or(default_rate) as f64;
-                let run_time_seconds = metrics.duration;
-                let create_rps = metric.success_count as f64 / run_time_seconds as f64;
+                let create_rps = request_cnt as f64 / run_time_seconds as f64;
 
                 let before_metrics = match self
                     .before_metrics
@@ -435,7 +494,13 @@ impl ScenarioState {
 pub async fn simulate(opts: Opts) -> Result<CommandResult> {
     let mut metrics = Metrics::init(&opts)?;
 
-    let mut state = ScenarioState::try_from_opts(opts).await?;
+    let metrics_collector = Box::new(PromMetricCollector {
+        client: reqwest::Client::builder()
+            .connect_timeout(Duration::from_secs(3))
+            .timeout(Duration::from_secs(10))
+            .build()?,
+    });
+    let mut state = ScenarioState::try_from_opts(opts, metrics_collector, None).await?;
     let scenario = state.build_goose_scenario().await?;
     let config: GooseConfiguration = state.goose_config()?;
 
@@ -678,6 +743,259 @@ impl MetricsInner {
                 self.attrs.pop();
                 self.attrs.pop();
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod test {
+
+    use std::collections::HashMap;
+
+    use keramik_common::peer_info::CeramicPeerInfo;
+    use tracing_test::traced_test;
+
+    use super::*;
+
+    #[derive(Clone, Debug)]
+    struct MockMetricsCollector {
+        before_counter: u64,
+        after_counter: u64,
+        host_queries: Arc<Mutex<HashMap<String, u64>>>,
+    }
+
+    impl MockMetricsCollector {
+        fn new(before_counter: u64, after_counter: u64) -> Self {
+            Self {
+                before_counter,
+                after_counter,
+                host_queries: Arc::new(Mutex::new(HashMap::new())),
+            }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl MetricsCollection for MockMetricsCollector {
+        async fn collect_counter(&self, host: Url, metric_name: &str) -> Result<Option<u64>> {
+            let key = format!("{}:{}", host, metric_name);
+            let mut lock = self.host_queries.lock().unwrap();
+            let value = lock.entry(key).or_insert_with(|| 0);
+            let res = match value {
+                0 => Some(self.before_counter),
+                1 => Some(self.after_counter),
+                _ => None,
+            };
+            *value += 1;
+            tracing::debug!(?self.host_queries, "collecting metric {:?} for host {} got {:?}", metric_name, host, res);
+            Ok(res)
+        }
+        fn boxed(&self) -> MetricsCollector {
+            Box::new(self.clone())
+        }
+    }
+
+    fn get_opts(scenario: Scenario, manager: bool, target_request_rate: Option<usize>) -> Opts {
+        Opts {
+            scenario,
+            manager,
+            target_peer: 0,
+            peers: "/fake/path.json".into(),
+            users: 1,
+            run_time: "60".into(),
+            nonce: 42,
+            throttle_requests: None,
+            target_request_rate,
+        }
+    }
+
+    fn get_peers() -> Vec<Peer> {
+        // ceramic addrs must be unique per peer for tests, in practice they are the same
+        // we use a map to track which peers have made requests to the metrics endpoint in the mock
+        vec![
+            Peer::Ceramic(CeramicPeerInfo {
+                peer_id: "0".into(),
+                ceramic_addr: "http://ceramic-0:7007".into(),
+                ipfs_rpc_addr: "http://ipfs-0:5001".into(),
+                p2p_addrs: vec!["p2p/p2p-circuit-0/ipfs".into()],
+            }),
+            Peer::Ceramic(CeramicPeerInfo {
+                peer_id: "1".into(),
+                ceramic_addr: "http://ceramic-1:7007".into(),
+                ipfs_rpc_addr: "http://ipfs-1:5001".into(),
+                p2p_addrs: vec!["p2p/p2p-circuit-1/ipfs".into()],
+            }),
+        ]
+    }
+
+    async fn run_event_id_sync_test(
+        manager: bool,
+        run_time: u64,
+        threshold: u64,
+        target_request_rate: Option<usize>,
+        metric_start_value: u64,
+        metric_end_value: u64,
+    ) -> CommandResult {
+        let opts = get_opts(Scenario::EventIdSync, manager, target_request_rate);
+
+        let peers = get_peers();
+        let metrics_collector = MockMetricsCollector::new(metric_start_value, metric_end_value);
+        let mut state = ScenarioState::try_from_opts(opts, metrics_collector.boxed(), Some(peers))
+            .await
+            .unwrap();
+
+        state.collect_before_metrics().await.unwrap();
+        state
+            .validate_scenario_success_int(run_time, run_time * threshold)
+            .await
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn event_id_sync_verify_metrics_exact_default() {
+        let run_time = 60;
+        let threshold = 300;
+        let manager = true;
+        let target_rps = None; // use default 300
+        let metric_start_value = 0;
+        let metric_end_value = run_time * threshold;
+        match run_event_id_sync_test(
+            manager,
+            run_time,
+            threshold,
+            target_rps,
+            metric_start_value,
+            metric_end_value,
+        )
+        .await
+        {
+            CommandResult::Success => (),
+            e => panic!("expected success, got {:?}", e),
+        }
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn event_id_sync_verify_metrics_overridden_target() {
+        let run_time = 60;
+        let threshold = 55;
+        let manager = true;
+        let target_rps = Some(50);
+        let metric_start_value = 0;
+        let metric_end_value = run_time * threshold;
+        match run_event_id_sync_test(
+            manager,
+            run_time,
+            threshold,
+            target_rps,
+            metric_start_value,
+            metric_end_value,
+        )
+        .await
+        {
+            CommandResult::Success => (),
+            e => panic!("expected success, got {:?}", e),
+        }
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn event_id_sync_verify_metrics_overridden_target_too_low() {
+        let run_time = 60;
+        let threshold = 45;
+        let manager = true;
+        let target_rps = Some(50);
+        let metric_start_value = 0;
+        let metric_end_value = run_time * threshold;
+        match run_event_id_sync_test(
+            manager,
+            run_time,
+            threshold,
+            target_rps,
+            metric_start_value,
+            metric_end_value,
+        )
+        .await
+        {
+            CommandResult::Failure(e) => {
+                info!("got expected failure: {}", e);
+            }
+            e => panic!("expected failure, got {:?}", e),
+        }
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn event_id_sync_verify_metrics_too_low() {
+        let run_time = 60;
+        let threshold = 300;
+        let manager = true;
+        let target_rps = None; // use default 300
+        let metric_start_value = 0;
+        let metric_end_value = run_time * threshold - 1;
+        match run_event_id_sync_test(
+            manager,
+            run_time,
+            threshold,
+            target_rps,
+            metric_start_value,
+            metric_end_value,
+        )
+        .await
+        {
+            CommandResult::Failure(e) => {
+                info!("got expected failure: {}", e);
+            }
+            e => panic!("expected failure, got {:?}", e),
+        }
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn event_id_sync_verify_metrics_too_low_ok_workers() {
+        let run_time = 60;
+        let threshold = 300;
+        let manager = false;
+        let target_rps = None; // use default 300
+        let metric_start_value = 0;
+        let metric_end_value = run_time * threshold - 1;
+        match run_event_id_sync_test(
+            manager,
+            run_time,
+            threshold,
+            target_rps,
+            metric_start_value,
+            metric_end_value,
+        )
+        .await
+        {
+            CommandResult::Success => (),
+            e => panic!("expected success, got {:?}", e),
+        }
+    }
+
+    #[traced_test]
+    #[tokio::test]
+    async fn event_id_sync_verify_metrics_too_low_second_run() {
+        let run_time = 60;
+        let threshold = 300;
+        let manager = true;
+        let target_rps = None; // use default 300
+        let metric_start_value = 1; //metrics exist, not first run
+        let metric_end_value = run_time * threshold;
+        match run_event_id_sync_test(
+            manager,
+            run_time,
+            threshold,
+            target_rps,
+            metric_start_value,
+            metric_end_value,
+        )
+        .await
+        {
+            CommandResult::Failure(e) => {
+                info!("got expected failure: {}", e);
+            }
+            e => panic!("expected failure, got {:?}", e),
         }
     }
 }

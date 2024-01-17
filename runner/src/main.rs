@@ -55,6 +55,7 @@ impl Command {
 /// This is primarily used to differentiate between a simulation failure and a failure to run the command.
 /// Both should return a non-zero exit code, but the former should still report and clean up since the command
 /// executed successfully, it just didn't pass thresholds or whatever correctness requirements we enforce.
+#[derive(Debug)]
 pub enum CommandResult {
     /// Command completed successfully
     Success,

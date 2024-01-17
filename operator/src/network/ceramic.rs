@@ -322,7 +322,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
         },
     ];
 
-    // Only specify the pubsub topic if the network was "inmemory" or "local"
+    // js-ceramic does not allow specifying the pubsub topic for any network types except "inmemory" or "local"
     if bundle.net_config.network_type == NetworkType::InMemory
         || bundle.net_config.network_type == NetworkType::Local
     {

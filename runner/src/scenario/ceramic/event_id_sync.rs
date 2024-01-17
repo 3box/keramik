@@ -10,7 +10,7 @@ use goose::prelude::*;
 use libipld::cid;
 use multihash::{Code, MultihashDigest};
 use reqwest::Url;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument};
 
@@ -24,6 +24,7 @@ pub(crate) const CREATE_EVENT_TX_NAME: &str = "create_new_event";
 pub(crate) const CREATE_EVENT_REQ_NAME: &str = "POST create_new_event";
 
 static FIRST_USER: AtomicBool = AtomicBool::new(true);
+static NEW_EVENT_CNT: AtomicU64 = AtomicU64::new(0);
 
 fn should_request_events() -> bool {
     goose::get_worker_id() == 1
@@ -109,11 +110,15 @@ async fn setup(
     user.set_session_data(user_data);
     user.base_url = Some(ipfs_peer_addr); // Recon is only available on IPFS address right now
 
-    let _subscribed_to_models = user
+    let request_builder = user
         .get_request_builder(&GooseMethod::Get, &path)?
-        .timeout(std::time::Duration::from_secs(5))
-        .send()
-        .await?;
+        .timeout(Duration::from_secs(5));
+    let req = GooseRequest::builder()
+        .set_request_builder(request_builder)
+        .expect_status_code(200)
+        .build();
+
+    let _goose = user.request(req).await?;
 
     Ok(())
 }
@@ -132,7 +137,12 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         // eventId needs to be a multibase encoded string for the API to accept it
         let event_id = format!("F{}", random_event_id(&user_data.model_id.to_string()));
         let event_key_body = serde_json::json!({"eventId": event_id});
-        tracing::debug!("sync_event_id body: {:?}", event_key_body);
+        let cnt = NEW_EVENT_CNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+
+        if cnt == 0 || cnt % 1000 == 0 {
+            tracing::trace!("new sync_event_id body: {:?}", event_key_body);
+        }
+
         let request_builder = user
             .get_request_builder(&GooseMethod::Post, "/ceramic/events")?
             .timeout(Duration::from_secs(1))

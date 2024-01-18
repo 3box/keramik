@@ -94,8 +94,13 @@ pub enum Scenario {
     CeramicQuery,
     /// Scenario to reuse the same model id and query instances across workers
     CeramicModelReuse,
-    /// Nodes subscribe to same model. One node generates new events, recon syncs event IDs to peers.
-    EventIdSync,
+    /// Nodes subscribe to same model. One node generates new events, recon syncs event keys and data to peers.
+    ReconEventSync,
+    /// Nodes subscribe to same model. One node generates new events, recon syncs event keys to peers.
+    /// Which of the Recon scenarios  you should choose is dictated by the API of the ceramic-one instance
+    /// being used. Previously, it only supported keys but newer versions support keys and data.
+    /// This scenario is for the keys only version and will fail on new verisons.
+    ReconEventKeySync,
 }
 
 impl Scenario {
@@ -107,7 +112,8 @@ impl Scenario {
             Scenario::CeramicNewStreams => "ceramic_new_streams",
             Scenario::CeramicQuery => "ceramic_query",
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
-            Scenario::EventIdSync => "event_id_sync",
+            Scenario::ReconEventSync => "recon_event_sync",
+            Scenario::ReconEventKeySync => "recon_event_key_sync",
         }
     }
 
@@ -119,7 +125,8 @@ impl Scenario {
             | Self::CeramicNewStreams
             | Self::CeramicQuery
             | Self::CeramicModelReuse
-            | Self::EventIdSync => Ok(peer
+            | Self::ReconEventSync
+            | Self::ReconEventKeySync => Ok(peer
                 .ceramic_addr()
                 .ok_or_else(|| {
                     anyhow!(
@@ -241,8 +248,11 @@ impl ScenarioState {
             Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
             Scenario::CeramicQuery => ceramic::query::scenario().await?,
             Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
-            Scenario::EventIdSync => {
-                ceramic::event_id_sync::event_id_sync_scenario(self.ipfs_peer_addr()).await?
+            Scenario::ReconEventSync => {
+                ceramic::recon_sync::event_sync_scenario(self.ipfs_peer_addr()).await?
+            }
+            Scenario::ReconEventKeySync => {
+                ceramic::recon_sync::event_key_sync_scenario(self.ipfs_peer_addr()).await?
             }
         };
         self.collect_before_metrics().await?;
@@ -303,7 +313,7 @@ impl ScenarioState {
                 | Scenario::CeramicNewStreams
                 | Scenario::CeramicQuery
                 | Scenario::CeramicModelReuse => Ok(()),
-                Scenario::EventIdSync => {
+                Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                     let peers = self
                         .get_peers_counter_metric(EVENT_SYNC_METRIC_NAME, IPFS_SERVICE_METRICS_PORT)
                         .await?;
@@ -325,6 +335,9 @@ impl ScenarioState {
     /// For now, most scenarios are successful if they complete without error and only EventIdSync has a criteria.
     /// Not a result to ensure we always proceed with cleanup, even if we fail to validate the scenario.
     pub async fn validate_scenario_success(&self, metrics: &GooseMetrics) -> CommandResult {
+        if !self.manager {
+            return CommandResult::Success;
+        }
         match self.scenario {
             Scenario::IpfsRpc
             | Scenario::CeramicSimple
@@ -332,13 +345,13 @@ impl ScenarioState {
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
             | Scenario::CeramicModelReuse => CommandResult::Success,
-            Scenario::EventIdSync => {
+            Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 // It'd be easy to make work for other scenarios if they defined a rate and metric. However, the scenario we're
                 // interested in is asymmetrical in what the workers do, and we're trying to look at what happens to other nodes,
                 // which is not how most scenarios work. It also uses the IPFS metrics endpoint. We could parameterize or use a
                 // trait, but we don't yet have a use case, and might need to use transactions, or multiple requests, or something
                 // entirely different. Anyway, to avoid generalizing the exception we keep it simple.
-                let req_name = ceramic::event_id_sync::CREATE_EVENT_REQ_NAME;
+                let req_name = ceramic::recon_sync::CREATE_EVENT_REQ_NAME;
 
                 let metric = match metrics
                     .requests
@@ -375,7 +388,7 @@ impl ScenarioState {
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
             | Scenario::CeramicModelReuse => CommandResult::Success,
-            Scenario::EventIdSync => {
+            Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;
                 let metric_name = EVENT_SYNC_METRIC_NAME;
 
@@ -414,13 +427,13 @@ impl ScenarioState {
                         if let Some(c) = current {
                             let rps = (c - *before) as f64 / run_time_seconds as f64;
                             if rps < threshold {
-                                warn!(current=%c, %before, %run_time_seconds, %threshold, %rps, "rps less than threshold");
+                                warn!(current_req_cnt=%c, %before, %run_time_seconds, %threshold, %rps, "rps less than threshold");
                                 Some(format!(
                                     "Peer {} RPS less than threshold: {} < {}",
                                     idx, rps, threshold
                                 ))
                             } else {
-                                info!(?c, ?run_time_seconds, ?threshold, %rps, "success! peer {} over the threshold", idx);
+                                info!(current_req_cnt=%c, %before, %run_time_seconds, %threshold, %rps, "success! peer {} over the threshold", idx);
                                 None
                             }
                         } else {
@@ -830,12 +843,12 @@ mod test {
     async fn run_event_id_sync_test(
         manager: bool,
         run_time: u64,
-        threshold: u64,
+        request_cnt: u64,
         target_request_rate: Option<usize>,
         metric_start_value: u64,
         metric_end_value: u64,
     ) -> CommandResult {
-        let opts = get_opts(Scenario::EventIdSync, manager, target_request_rate);
+        let opts = get_opts(Scenario::ReconEventSync, manager, target_request_rate);
 
         let peers = get_peers();
         let metrics_collector = MockMetricsCollector::new(metric_start_value, metric_end_value);
@@ -845,22 +858,22 @@ mod test {
 
         state.collect_before_metrics().await.unwrap();
         state
-            .validate_scenario_success_int(run_time, run_time * threshold)
+            .validate_scenario_success_int(run_time, run_time * request_cnt)
             .await
     }
 
     #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_exact_default() {
         let run_time = 60;
-        let threshold = 300;
+        let request_cnt = 300;
         let manager = true;
         let target_rps = None; // use default 300
         let metric_start_value = 0;
-        let metric_end_value = run_time * threshold;
+        let metric_end_value = run_time * request_cnt;
         match run_event_id_sync_test(
             manager,
             run_time,
-            threshold,
+            request_cnt,
             target_rps,
             metric_start_value,
             metric_end_value,
@@ -875,15 +888,15 @@ mod test {
     #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_overridden_target() {
         let run_time = 60;
-        let threshold = 55;
+        let request_cnt = 55;
         let manager = true;
         let target_rps = Some(50);
         let metric_start_value = 0;
-        let metric_end_value = run_time * threshold;
+        let metric_end_value = run_time * request_cnt;
         match run_event_id_sync_test(
             manager,
             run_time,
-            threshold,
+            request_cnt,
             target_rps,
             metric_start_value,
             metric_end_value,
@@ -898,15 +911,15 @@ mod test {
     #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_overridden_target_too_low() {
         let run_time = 60;
-        let threshold = 45;
+        let request_cnt = 45;
         let manager = true;
         let target_rps = Some(50);
         let metric_start_value = 0;
-        let metric_end_value = run_time * threshold;
+        let metric_end_value = run_time * request_cnt;
         match run_event_id_sync_test(
             manager,
             run_time,
-            threshold,
+            request_cnt,
             target_rps,
             metric_start_value,
             metric_end_value,
@@ -923,15 +936,15 @@ mod test {
     #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_too_low() {
         let run_time = 60;
-        let threshold = 300;
+        let request_cnt = 300;
         let manager = true;
         let target_rps = None; // use default 300
         let metric_start_value = 0;
-        let metric_end_value = run_time * threshold - 1;
+        let metric_end_value = run_time * request_cnt - 1;
         match run_event_id_sync_test(
             manager,
             run_time,
-            threshold,
+            request_cnt,
             target_rps,
             metric_start_value,
             metric_end_value,
@@ -948,15 +961,15 @@ mod test {
     #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_too_low_ok_workers() {
         let run_time = 60;
-        let threshold = 300;
+        let request_cnt = 300;
         let manager = false;
         let target_rps = None; // use default 300
         let metric_start_value = 0;
-        let metric_end_value = run_time * threshold - 1;
+        let metric_end_value = run_time * request_cnt - 1;
         match run_event_id_sync_test(
             manager,
             run_time,
-            threshold,
+            request_cnt,
             target_rps,
             metric_start_value,
             metric_end_value,
@@ -971,15 +984,15 @@ mod test {
     #[test(tokio::test)]
     async fn event_id_sync_verify_metrics_too_low_second_run() {
         let run_time = 60;
-        let threshold = 300;
+        let request_cnt = 300;
         let manager = true;
         let target_rps = None; // use default 300
         let metric_start_value = 1; //metrics exist, not first run
-        let metric_end_value = run_time * threshold;
+        let metric_end_value = run_time * request_cnt;
         match run_event_id_sync_test(
             manager,
             run_time,
-            threshold,
+            request_cnt,
             target_rps,
             metric_start_value,
             metric_end_value,

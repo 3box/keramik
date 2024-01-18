@@ -1,14 +1,14 @@
-use crate::scenario::ceramic::model_reuse::{
-    get_model_id, set_model_id, ModelReuseLoadTestUserData,
-};
+use crate::scenario::ceramic::model_reuse::{get_model_id, set_model_id};
 use crate::scenario::ceramic::models;
 use crate::scenario::ceramic::util::setup_model;
 use crate::scenario::get_redis_client;
 use ceramic_core::{Cid, EventId};
+use ceramic_http_client::ceramic_event::StreamId;
 use ceramic_http_client::{CeramicHttpClient, ModelAccountRelation, ModelDefinition};
 use goose::prelude::*;
 use libipld::cid;
 use multihash::{Code, MultihashDigest};
+use rand::{Fill, Rng};
 use reqwest::Url;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::{sync::Arc, time::Duration};
@@ -25,6 +25,7 @@ pub(crate) const CREATE_EVENT_REQ_NAME: &str = "POST create_new_event";
 
 static FIRST_USER: AtomicBool = AtomicBool::new(true);
 static NEW_EVENT_CNT: AtomicU64 = AtomicU64::new(0);
+static TOTAL_BYTES_GENERATED: AtomicU64 = AtomicU64::new(0);
 
 fn should_request_events() -> bool {
     goose::get_worker_id() == 1
@@ -35,10 +36,16 @@ fn is_first_user() -> bool {
     FIRST_USER.swap(false, std::sync::atomic::Ordering::SeqCst)
 }
 
-// accept option as goose manager builds the scenario as well, but doesn't need any peers and won't run it so it will always be Some in execution
-pub async fn event_id_sync_scenario(
+#[derive(Clone)]
+struct ReconLoadTestUserData {
+    model_id: StreamId,
+    with_data: bool,
+}
+
+async fn init_scenario(
     ipfs_peer_addr: Option<String>,
-) -> Result<Scenario, GooseError> {
+    with_data: bool,
+) -> Result<Transaction, GooseError> {
     let ipfs_addr: Url = ipfs_peer_addr
         .map(|u| u.parse().unwrap())
         .expect("missing ipfs peer address in event ID scenario");
@@ -52,14 +59,49 @@ pub async fn event_id_sync_scenario(
             cli.clone(),
             redis_cli.clone(),
             ipfs_addr.clone(),
+            with_data,
         ))
     }))
     .set_name("setup")
     .set_on_start();
+    Ok(test_start)
+}
+
+async fn log_results(_user: &mut GooseUser) -> TransactionResult {
+    if is_first_user() {
+        let cnt = NEW_EVENT_CNT.load(std::sync::atomic::Ordering::Relaxed);
+        let bytes = TOTAL_BYTES_GENERATED.load(std::sync::atomic::Ordering::Relaxed);
+        info!(
+            "created {} events with {} bytes ({} MB) of data",
+            cnt,
+            bytes,
+            bytes / 1_000_000 // or do we want to measure with 1024...
+        );
+    }
+    Ok(())
+}
+
+pub async fn event_sync_scenario(ipfs_peer_addr: Option<String>) -> Result<Scenario, GooseError> {
+    let test_start = init_scenario(ipfs_peer_addr, true).await?;
+    let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
+    let stop = transaction!(log_results)
+        .set_name("log_results")
+        .set_on_stop();
+    Ok(scenario!("ReconSync")
+        .register_transaction(test_start)
+        .register_transaction(create_new_event)
+        .register_transaction(stop))
+}
+
+// accept option as goose manager builds the scenario as well, but doesn't need any peers and won't run it so it will always be Some in execution
+pub async fn event_key_sync_scenario(
+    ipfs_peer_addr: Option<String>,
+) -> Result<Scenario, GooseError> {
+    let test_start = init_scenario(ipfs_peer_addr, false).await?;
 
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
 
-    Ok(scenario!("EventIDSync")
+    Ok(scenario!("ReconKeySync")
         .register_transaction(test_start)
         .register_transaction(create_new_event))
 }
@@ -72,9 +114,11 @@ async fn setup(
     cli: CeramicClient,
     redis_cli: redis::Client,
     ipfs_peer_addr: Url,
+    with_data: bool,
 ) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
-    let model_id = if should_request_events() && is_first_user() {
+    let first = is_first_user();
+    let model_id = if should_request_events() && first {
         info!("creating model for event ID sync test");
         let small_model = match ModelDefinition::new::<models::SmallModel>(
             "load_test_small_model",
@@ -102,10 +146,9 @@ async fn setup(
     tracing::debug!(%model_id, "syncing model");
 
     let path = format!("/ceramic/subscribe/model/{}?limit=1", model_id);
-    let user_data = ModelReuseLoadTestUserData {
-        cli,
-        redis_cli,
+    let user_data = ReconLoadTestUserData {
         model_id,
+        with_data,
     };
     user.set_session_data(user_data);
     user.base_url = Some(ipfs_peer_addr); // Recon is only available on IPFS address right now
@@ -119,7 +162,10 @@ async fn setup(
         .build();
 
     let _goose = user.request(req).await?;
-
+    if first {
+        // reset it so we can use it again during shutdown
+        FIRST_USER.store(true, std::sync::atomic::Ordering::SeqCst);
+    }
     Ok(())
 }
 
@@ -132,13 +178,18 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         tokio::time::sleep(Duration::from_millis(500)).await;
         Ok(())
     } else {
-        let user_data: &ModelReuseLoadTestUserData = user
+        let user_data: &ReconLoadTestUserData = user
             .get_session_data()
             .expect("we are missing sync_event_id user data");
 
         // eventId needs to be a multibase encoded string for the API to accept it
         let event_id = format!("F{}", random_event_id(&user_data.model_id.to_string()));
-        let event_key_body = serde_json::json!({"eventId": event_id});
+        let event_key_body = if user_data.with_data {
+            let payload = random_body(800, 1200);
+            serde_json::json!({"eventId": event_id, "eventData": payload})
+        } else {
+            serde_json::json!({"eventId": event_id})
+        };
         let cnt = NEW_EVENT_CNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         if cnt == 0 || cnt % 1000 == 0 {
@@ -181,4 +232,13 @@ fn random_event_id(sort_value: &str) -> ceramic_core::EventId {
         0,
         &cid,
     )
+}
+
+fn random_body(min_len: usize, max_len: usize) -> String {
+    let mut rng = rand::thread_rng();
+    let len = rng.gen_range(min_len..=max_len);
+    TOTAL_BYTES_GENERATED.fetch_add(len as u64, std::sync::atomic::Ordering::Relaxed);
+    let mut unique = Vec::with_capacity(len);
+    unique.try_fill(&mut rng).unwrap();
+    multibase::encode(multibase::Base::Base36Lower, unique)
 }

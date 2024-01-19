@@ -7,3 +7,7 @@ target/
 .env*
 /book
 *.idea
+__pycache__
+
+# allow a sample network in the repo
+!local-scripts/small.yaml

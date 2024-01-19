@@ -150,6 +150,9 @@
 <li><code>ceramic-simple</code> - A simple simulation that writes and reads events to two different streams, a small and large model</li>
 <li><code>ceramic-write-only</code> - A simulation that only performs updates on two different streams</li>
 <li><code>ceramic-new-streams</code> - A simulation that only creates new streams</li>
+<li><code>ceramic-model-reuse</code> - A simulation that reuses the same model and queries instances across workers</li>
+<li><code>recon-event-key-sync</code> - A simulation that creates event keys for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any.</li>
+<li><code>recon-event-sync</code> - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any. Choosing between recon scenarios depends on what version of rust-ceramic you have. Some versions support keys only, some support key/value (maybe we'll support both someday). If you're not sure, try this one first.</li>
 </ul>
 <p>Using one of these scenarios, we can then define the configuration for that scenario:</p>
 <pre><code class="language-yaml"># basic.yaml
@@ -167,7 +170,7 @@ spec:
 </code></pre>
 <p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the
 namespace is set to the same network applied when <a href="./setup_network.html">the network was setup</a>.
-Additionally, you can define the scenario you want to run, the number of users, and the number of minutes it will run.</p>
+Additionally, you can define the scenario you want to run, the number of users to run for each node, and the number of minutes it will run.</p>
 <p>Before running the simulation make sure the <code>network</code> is ready.</p>
 <pre><code>kubectl describe network &lt;unique-name&gt;-small
 </code></pre>

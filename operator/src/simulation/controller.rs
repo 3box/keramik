@@ -148,14 +148,20 @@ async fn reconcile(
     let ns = simulation.namespace().unwrap();
     let num_peers = get_num_peers(cx.clone(), &ns).await?;
 
-    apply_jaeger(cx.clone(), &ns, simulation.clone()).await?;
-    apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
-    apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
+    if let Some(monitoring_spec) = &simulation.spec.monitoring {
+        if let Some(local_spec) = &monitoring_spec.local {
+            if local_spec.enabled {
+                apply_jaeger(cx.clone(), &ns, simulation.clone()).await?;
+                apply_prometheus(cx.clone(), &ns, simulation.clone()).await?;
+                apply_opentelemetry(cx.clone(), &ns, simulation.clone()).await?;
 
-    let ready = monitoring_ready(cx.clone(), &ns).await?;
+                let ready = monitoring_ready(cx.clone(), &ns).await?;
 
-    if !ready {
-        return Ok(Action::requeue(Duration::from_secs(10)));
+                if !ready {
+                    return Ok(Action::requeue(Duration::from_secs(10)));
+                }
+            }
+        }
     }
 
     apply_redis(cx.clone(), &ns, simulation.clone()).await?;

@@ -31,6 +31,24 @@ pub struct SimulationSpec {
     /// validate throughput and correctness before returning. The exact definition is
     /// left to the scenario (requests per second, total requests, rps/node etc).
     pub success_request_target: Option<usize>,
+    /// Monitoring resources for a simulation
+    pub monitoring: Option<MonitoringSpec>,
+
+}
+/// MonitoringSpec defines how Simulation will be monitored.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct MonitoringSpec {
+    /// Monitoring in the namespace
+    pub local: Option<LocalMonitoringSpec>,
+}
+
+/// LocalMonitoringSpec defines monitoring in the namespace.
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct LocalMonitoringSpec {
+    /// Deploy monitoring to the namespace
+    pub enabled: bool,
 }
 
 /// Current status of a simulation.

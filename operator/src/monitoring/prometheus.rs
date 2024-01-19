@@ -13,13 +13,39 @@ use k8s_openapi::{
     },
 };
 
-use crate::simulation::controller::PROM_CONFIG_MAP_NAME;
+use crate::{
+    network::resource_limits::ResourceLimitsConfig, simulation::controller::PROM_CONFIG_MAP_NAME,
+};
 
 use crate::labels::selector_labels;
 
 pub const PROM_APP: &str = "prometheus";
 
-pub fn stateful_set_spec() -> StatefulSetSpec {
+fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
+    if dev_mode {
+        ResourceRequirements {
+            limits: Some(ResourceLimitsConfig::dev_default().into()),
+            requests: Some(ResourceLimitsConfig::dev_default().into()),
+            ..Default::default()
+        }
+    } else {
+        ResourceRequirements {
+            limits: Some(BTreeMap::from_iter(vec![
+                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+            ])),
+            requests: Some(BTreeMap::from_iter(vec![
+                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+            ])),
+            ..Default::default()
+        }
+    }
+}
+
+pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {
@@ -45,19 +71,7 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         name: Some("webui".to_owned()),
                         ..Default::default()
                     }]),
-                    resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        ..Default::default()
-                    }),
+                    resources: Some(resource_requirements(dev_mode)),
                     volume_mounts: Some(vec![VolumeMount {
                         mount_path: "/config".to_owned(),
                         name: "config".to_owned(),

@@ -30,6 +30,8 @@ use crate::{
 
 use crate::network::controller::{CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT};
 
+use super::controller::NETWORK_DEV_MODE_RESOURCES;
+
 pub fn config_maps(
     info: &CeramicInfo,
     config: &CeramicConfig,
@@ -139,6 +141,19 @@ pub struct CeramicConfig {
     pub env: Option<BTreeMap<String, String>>,
 }
 
+impl CeramicConfig {
+    pub fn network_default() -> Self {
+        if NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::Relaxed) {
+            Self {
+                resource_limits: ResourceLimitsConfig::dev_default(),
+                ..Default::default()
+            }
+        } else {
+            Self::default()
+        }
+    }
+}
+
 /// Bundles all relevant config for a ceramic spec.
 pub struct CeramicBundle<'a> {
     pub info: CeramicInfo,
@@ -235,8 +250,8 @@ impl Default for CeramicConfig {
             image_pull_policy: "Always".to_owned(),
             ipfs: IpfsConfig::default(),
             resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
             env: None,
@@ -250,19 +265,19 @@ impl From<Option<Vec<CeramicSpec>>> for CeramicConfigs {
     fn from(value: Option<Vec<CeramicSpec>>) -> Self {
         if let Some(value) = value {
             if value.is_empty() {
-                Self(vec![CeramicConfig::default()])
+                Self(vec![CeramicConfig::network_default()])
             } else {
                 Self(value.into_iter().map(CeramicConfig::from).collect())
             }
         } else {
-            Self(vec![CeramicConfig::default()])
+            Self(vec![CeramicConfig::network_default()])
         }
     }
 }
 
 impl From<CeramicSpec> for CeramicConfig {
     fn from(value: CeramicSpec) -> Self {
-        let default = Self::default();
+        let default = Self::network_default();
         Self {
             weight: value.weight.unwrap_or(default.weight),
             init_config_map: value.init_config_map.unwrap_or(default.init_config_map),

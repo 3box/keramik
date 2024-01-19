@@ -21,7 +21,7 @@ use crate::network::{
     controller::{
         CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
         CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME, LOCALSTACK_APP,
-        LOCALSTACK_SERVICE_NAME,
+        LOCALSTACK_SERVICE_NAME, NETWORK_DEV_MODE_RESOURCES,
     },
     datadog::DataDogConfig,
     ipfs::{IpfsConfig, IPFS_DATA_PV_CLAIM},
@@ -45,6 +45,22 @@ pub struct CasConfig {
     pub localstack_resource_limits: ResourceLimitsConfig,
 }
 
+impl CasConfig {
+    pub fn network_default() -> Self {
+        if NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::Relaxed) {
+            Self {
+                cas_resource_limits: ResourceLimitsConfig::dev_default(),
+                ganache_resource_limits: ResourceLimitsConfig::dev_default(),
+                postgres_resource_limits: ResourceLimitsConfig::dev_default(),
+                localstack_resource_limits: ResourceLimitsConfig::dev_default(),
+                ..Default::default()
+            }
+        } else {
+            Self::default()
+        }
+    }
+}
+
 // Define clear defaults for this config
 impl Default for CasConfig {
     fn default() -> Self {
@@ -52,24 +68,24 @@ impl Default for CasConfig {
             image: "ceramicnetwork/ceramic-anchor-service:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
             cas_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
             ipfs: Default::default(),
             ganache_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
             postgres_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("512Mi".to_owned()),
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("512Mi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
             localstack_resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("1Gi".to_owned()),
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
         }
@@ -87,7 +103,7 @@ impl From<Option<CasSpec>> for CasConfig {
 
 impl From<CasSpec> for CasConfig {
     fn from(value: CasSpec) -> Self {
-        let default = Self::default();
+        let default = Self::network_default();
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),

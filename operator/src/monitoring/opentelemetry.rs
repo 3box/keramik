@@ -17,7 +17,7 @@ use k8s_openapi::{
     },
 };
 
-use crate::labels::selector_labels;
+use crate::{labels::selector_labels, network::resource_limits::ResourceLimitsConfig};
 
 use crate::simulation::controller::{OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME, OTEL_CR};
 
@@ -54,7 +54,31 @@ pub fn service_spec() -> ServiceSpec {
     }
 }
 
-pub fn stateful_set_spec() -> StatefulSetSpec {
+fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
+    if dev_mode {
+        ResourceRequirements {
+            limits: Some(ResourceLimitsConfig::dev_default().into()),
+            requests: Some(ResourceLimitsConfig::dev_default().into()),
+            ..Default::default()
+        }
+    } else {
+        ResourceRequirements {
+            limits: Some(BTreeMap::from_iter(vec![
+                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+            ])),
+            requests: Some(BTreeMap::from_iter(vec![
+                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+            ])),
+            ..Default::default()
+        }
+    }
+}
+
+pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
         service_name: OTEL_APP.to_owned(),
@@ -98,19 +122,7 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                             ..Default::default()
                         },
                     ]),
-                    resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        ..Default::default()
-                    }),
+                    resources: Some(resource_requirements(dev_mode)),
                     volume_mounts: Some(vec![
                         VolumeMount {
                             mount_path: "/config".to_owned(),

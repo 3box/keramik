@@ -13,8 +13,8 @@ pub const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
 const IPFS_SERVICE_PORT: i32 = 5001;
 
 use crate::network::{
-    ceramic::NetworkConfig, resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec,
-    RustIpfsSpec, NETWORK_LOCAL_ID,
+    ceramic::NetworkConfig, controller::NETWORK_DEV_MODE_RESOURCES,
+    resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec, RustIpfsSpec, NETWORK_LOCAL_ID,
 };
 
 /// Unique identifying information about this IPFS spec.
@@ -86,14 +86,28 @@ pub struct RustIpfsConfig {
     rust_log: String,
     env: Option<BTreeMap<String, String>>,
 }
+
+impl RustIpfsConfig {
+    pub fn network_default() -> Self {
+        if NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::Relaxed) {
+            Self {
+                resource_limits: ResourceLimitsConfig::dev_default(),
+                ..Default::default()
+            }
+        } else {
+            Self::default()
+        }
+    }
+}
+
 impl Default for RustIpfsConfig {
     fn default() -> Self {
         Self {
             image: "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
             resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("512Mi".to_owned()),
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("512Mi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
             rust_log: "info,ceramic_one=debug,multipart=error".to_owned(),
@@ -103,7 +117,7 @@ impl Default for RustIpfsConfig {
 }
 impl From<RustIpfsSpec> for RustIpfsConfig {
     fn from(value: RustIpfsSpec) -> Self {
-        let default = RustIpfsConfig::default();
+        let default = RustIpfsConfig::network_default();
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
@@ -225,14 +239,28 @@ pub struct GoIpfsConfig {
     resource_limits: ResourceLimitsConfig,
     commands: Vec<String>,
 }
+
+impl GoIpfsConfig {
+    pub fn network_default() -> Self {
+        if NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::Relaxed) {
+            Self {
+                resource_limits: ResourceLimitsConfig::dev_default(),
+                ..Default::default()
+            }
+        } else {
+            Self::default()
+        }
+    }
+}
+
 impl Default for GoIpfsConfig {
     fn default() -> Self {
         Self {
             image: "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d".to_owned(),
             image_pull_policy: "IfNotPresent".to_owned(),
             resource_limits: ResourceLimitsConfig {
-                cpu: Quantity("250m".to_owned()),
-                memory: Quantity("512Mi".to_owned()),
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("512Mi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
             commands: vec![],
@@ -241,7 +269,7 @@ impl Default for GoIpfsConfig {
 }
 impl From<GoIpfsSpec> for GoIpfsConfig {
     fn from(value: GoIpfsSpec) -> Self {
-        let default = GoIpfsConfig::default();
+        let default = GoIpfsConfig::network_default();
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),

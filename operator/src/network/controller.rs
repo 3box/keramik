@@ -1,4 +1,10 @@
-use std::{cmp::min, collections::BTreeMap, str::from_utf8, sync::Arc, time::Duration};
+use std::{
+    cmp::min,
+    collections::BTreeMap,
+    str::from_utf8,
+    sync::{atomic::AtomicBool, Arc},
+    time::Duration,
+};
 
 use anyhow::anyhow;
 use futures::stream::StreamExt;
@@ -81,6 +87,8 @@ pub const GANACHE_APP: &str = "ganache";
 pub const LOCALSTACK_APP: &str = "localstack";
 
 pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
+
+pub(crate) static NETWORK_DEV_MODE_RESOURCES: AtomicBool = AtomicBool::new(false);
 
 /// Handle errors during reconciliation.
 fn on_error(
@@ -175,6 +183,11 @@ async fn reconcile(
 ) -> Result<Action, Error> {
     let spec = network.spec();
     debug!(?spec, "reconcile");
+
+    NETWORK_DEV_MODE_RESOURCES.store(
+        spec.dev_mode.unwrap_or(false),
+        std::sync::atomic::Ordering::SeqCst,
+    );
 
     let mut status = if let Some(status) = &network.status {
         status.clone()

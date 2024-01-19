@@ -46,6 +46,10 @@ pub struct NetworkSpec {
     /// The number of seconds this network should live.
     /// If unset the network lives forever.
     pub ttl_seconds: Option<u64>,
+    /// Enable dev mode for the network. This will remove resource requests/limits that are not
+    /// explicitly overridden by the spec. This allows deploying the network on a smaller machine,
+    /// as well as running every container with unlimited resources.
+    pub dev_mode: Option<bool>,
 }
 
 /// Local network ID.

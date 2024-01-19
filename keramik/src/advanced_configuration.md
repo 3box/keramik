@@ -70,7 +70,25 @@ and adding the following environment variables to the `spec/template/spec/contai
 
 # Image Resources
 
-You can also use the [network](./setup_network.md) specification to specify resources for the pods that are running
+During local benchmarking, you may not have enough resources to run the cluster. A simple "fix" is to use the `devMode` flag on the network and simulation specs. This will override the resource requests and limits values to be none, which means it doesn't need available resources to deploy, and can consume as much as it desires. This would be problematic in production and should only be used for testing purposes.
+
+```yaml
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  devMode: true # ceramic will require specified resources but all other containers will be unconstrained
+  ceramic:
+    - resourceLimits:
+        cpu: "1"
+        memory: "1Gi"
+        storage: "1Gi"
+```
+
 
 ```yaml
 # network configuration

@@ -371,7 +371,7 @@ async fn apply_redis(
         ns,
         orefs.clone(),
         "redis",
-        redis::stateful_set_spec(),
+        redis::stateful_set_spec(simulation.dev_mode()),
     )
     .await?;
 
@@ -402,7 +402,7 @@ async fn apply_jaeger(
         ns,
         orefs.clone(),
         "jaeger",
-        jaeger::stateful_set_spec(),
+        jaeger::stateful_set_spec(simulation.dev_mode()),
     )
     .await?;
     Ok(())
@@ -431,7 +431,7 @@ async fn apply_prometheus(
         ns,
         orefs.clone(),
         "prometheus",
-        prometheus::stateful_set_spec(),
+        prometheus::stateful_set_spec(simulation.dev_mode()),
     )
     .await?;
     Ok(())
@@ -484,7 +484,7 @@ async fn apply_opentelemetry(
         ns,
         orefs.clone(),
         "opentelemetry",
-        opentelemetry::stateful_set_spec(),
+        opentelemetry::stateful_set_spec(simulation.dev_mode()),
     )
     .await?;
 

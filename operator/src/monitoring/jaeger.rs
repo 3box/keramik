@@ -14,7 +14,7 @@ use k8s_openapi::{
     },
 };
 
-use crate::labels::selector_labels;
+use crate::{labels::selector_labels, network::resource_limits::ResourceLimitsConfig};
 
 pub const JAEGER_APP: &str = "jaeger";
 
@@ -33,7 +33,7 @@ pub fn service_spec() -> ServiceSpec {
     }
 }
 
-pub fn stateful_set_spec() -> StatefulSetSpec {
+pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {
@@ -66,24 +66,36 @@ pub fn stateful_set_spec() -> StatefulSetSpec {
                         value: Some("true".to_owned()),
                         ..Default::default()
                     }]),
-                    resources: Some(ResourceRequirements {
-                        limits: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        requests: Some(BTreeMap::from_iter(vec![
-                            ("cpu".to_owned(), Quantity("250m".to_owned())),
-                            ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
-                            ("memory".to_owned(), Quantity("1Gi".to_owned())),
-                        ])),
-                        ..Default::default()
-                    }),
+                    resources: Some(resource_requirements(dev_mode)),
                     ..Default::default()
                 }],
                 ..Default::default()
             }),
         },
         ..Default::default()
+    }
+}
+
+fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
+    if dev_mode {
+        ResourceRequirements {
+            limits: Some(ResourceLimitsConfig::dev_default().into()),
+            requests: Some(ResourceLimitsConfig::dev_default().into()),
+            ..Default::default()
+        }
+    } else {
+        ResourceRequirements {
+            limits: Some(BTreeMap::from_iter(vec![
+                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+            ])),
+            requests: Some(BTreeMap::from_iter(vec![
+                ("cpu".to_owned(), Quantity("250m".to_owned())),
+                ("ephemeral-storage".to_owned(), Quantity("1Gi".to_owned())),
+                ("memory".to_owned(), Quantity("1Gi".to_owned())),
+            ])),
+            ..Default::default()
+        }
     }
 }

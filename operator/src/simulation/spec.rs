@@ -31,6 +31,17 @@ pub struct SimulationSpec {
     /// validate throughput and correctness before returning. The exact definition is
     /// left to the scenario (requests per second, total requests, rps/node etc).
     pub success_request_target: Option<usize>,
+    /// Enable dev mode for the simulation. This will remove resource limits that are not
+    /// explicitly set in the simulation spec.
+    pub(crate) dev_mode: Option<bool>,
+}
+
+impl Simulation {
+    /// Whether the simulation is in dev mode, meaning resource limits are not applied unless specified.
+    /// May have other implications in the future.
+    pub fn dev_mode(&self) -> bool {
+        self.spec.dev_mode.unwrap_or(false)
+    }
 }
 
 /// Current status of a simulation.

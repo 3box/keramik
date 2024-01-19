@@ -8,7 +8,8 @@ use ceramic_http_client::{CeramicHttpClient, ModelAccountRelation, ModelDefiniti
 use goose::prelude::*;
 use libipld::cid;
 use multihash::{Code, MultihashDigest};
-use rand::{Fill, Rng};
+use rand::rngs::ThreadRng;
+use rand::Rng;
 use reqwest::Url;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::{sync::Arc, time::Duration};
@@ -185,7 +186,7 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         // eventId needs to be a multibase encoded string for the API to accept it
         let event_id = format!("F{}", random_event_id(&user_data.model_id.to_string()));
         let event_key_body = if user_data.with_data {
-            let payload = random_body(800, 1200);
+            let payload = random_body_1kb_body();
             serde_json::json!({"eventId": event_id, "eventData": payload})
         } else {
             serde_json::json!({"eventId": event_id})
@@ -234,11 +235,17 @@ fn random_event_id(sort_value: &str) -> ceramic_core::EventId {
     )
 }
 
-fn random_body(min_len: usize, max_len: usize) -> String {
+fn random_body_1kb_body() -> String {
     let mut rng = rand::thread_rng();
-    let len = rng.gen_range(min_len..=max_len);
-    TOTAL_BYTES_GENERATED.fetch_add(len as u64, std::sync::atomic::Ordering::Relaxed);
-    let mut unique = Vec::with_capacity(len);
-    unique.try_fill(&mut rng).unwrap();
+    TOTAL_BYTES_GENERATED.fetch_add(1000, std::sync::atomic::Ordering::Relaxed);
+    let unique: [u8; 1000] = gen_rand_bytes(&mut rng);
     multibase::encode(multibase::Base::Base36Lower, unique)
+}
+
+fn gen_rand_bytes<const SIZE: usize>(rng: &mut ThreadRng) -> [u8; SIZE] {
+    let mut arr = [0; SIZE];
+    for x in &mut arr {
+        *x = rng.gen_range(0..=255);
+    }
+    arr
 }

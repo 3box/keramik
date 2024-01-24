@@ -19,7 +19,7 @@ libipld = "0.16.0"
 multihash.workspace = true
 opentelemetry.workspace = true
 rand = "0.8.5"
-redis = { version = "0.23.2", features = ["tokio-comp"] }
+redis = { version = "0.24", features = ["tokio-comp"] }
 reqwest.workspace = true
 schemars = "0.8.12"
 serde.workspace = true

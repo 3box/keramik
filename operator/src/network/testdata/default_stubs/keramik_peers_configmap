@@ -7,10 +7,10 @@ Request {
     },
     body: {
       "apiVersion": "v1",
-      "kind": "ConfigMap",
       "data": {
         "peers.json": "[]"
       },
+      "kind": "ConfigMap",
       "metadata": {
         "labels": {
           "managed-by": "keramik"

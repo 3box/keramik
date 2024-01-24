@@ -7,11 +7,11 @@ Request {
     },
     body: {
       "status": {
-        "replicas": 0,
-        "readyReplicas": 0,
+        "expirationTime": null,
         "namespace": null,
         "peers": [],
-        "expirationTime": null
+        "readyReplicas": 0,
+        "replicas": 0
       }
     },
 }

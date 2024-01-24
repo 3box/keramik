@@ -989,64 +989,64 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,40 @@
-                 },
+            @@ -8,10 +8,40 @@
                  body: {
                    "status": {
-            -        "replicas": 0,
-            -        "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             -        "peers": [],
-            +        "replicas": 2,
-            +        "readyReplicas": 2,
+            -        "readyReplicas": 0,
+            -        "replicas": 0
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_0",
-            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_0"
             +            }
             +          },
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_1",
-            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_1"
             +            }
             +          },
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+            +        "readyReplicas": 2,
+            +        "replicas": 2
                    }
                  },
+             }
         "#]]);
         stub.bootstrap_job.push((
             expect_file!["./testdata/bootstrap_job_two_peers_get"],
@@ -1117,43 +1117,43 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,20 @@
-                 },
+            @@ -8,10 +8,20 @@
                  body: {
                    "status": {
-            -        "replicas": 0,
-            +        "replicas": 2,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             -        "peers": [],
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+                     "readyReplicas": 0,
+            -        "replicas": 0
+            +        "replicas": 2
                    }
                  },
+             }
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -1226,64 +1226,64 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,40 @@
-                 },
+            @@ -8,10 +8,40 @@
                  body: {
                    "status": {
-            -        "replicas": 0,
-            -        "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             -        "peers": [],
-            +        "replicas": 2,
-            +        "readyReplicas": 2,
+            -        "readyReplicas": 0,
+            -        "replicas": 0
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_0",
-            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_0"
             +            }
             +          },
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_1",
-            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_1"
             +            }
             +          },
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+            +        "readyReplicas": 2,
+            +        "replicas": 2
                    }
                  },
+             }
         "#]]);
         stub.bootstrap_job.push((
             expect_file!["./testdata/bootstrap_job_two_peers_get"],
@@ -1375,64 +1375,64 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,40 @@
-                 },
+            @@ -8,10 +8,40 @@
                  body: {
                    "status": {
-            -        "replicas": 0,
-            -        "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             -        "peers": [],
-            +        "replicas": 2,
-            +        "readyReplicas": 2,
+            -        "readyReplicas": 0,
+            -        "replicas": 0
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_0",
-            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_0"
             +            }
             +          },
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_1",
-            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_1"
             +            }
             +          },
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+            +        "readyReplicas": 2,
+            +        "replicas": 2
                    }
                  },
+             }
         "#]]);
         // Bootstrap is disabled, there should be no requests for it.
         stub.bootstrap_job = vec![];
@@ -1508,64 +1508,64 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,40 @@
-                 },
+            @@ -8,10 +8,40 @@
                  body: {
                    "status": {
-            -        "replicas": 0,
-            -        "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             -        "peers": [],
-            +        "replicas": 2,
-            +        "readyReplicas": 2,
+            -        "readyReplicas": 0,
+            -        "replicas": 0
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_0",
-            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_0"
             +            }
             +          },
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_1",
-            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_1"
             +            }
             +          },
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+            +        "readyReplicas": 2,
+            +        "replicas": 2
                    }
                  },
+             }
         "#]]);
         // Bootstrap is applied if we have at least two peers.
         // However we do not expect to see any GET/DELETE for the bootstrap job as all peers report
@@ -1645,64 +1645,64 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,40 @@
-                 },
+            @@ -8,10 +8,40 @@
                  body: {
                    "status": {
-            -        "replicas": 0,
-            -        "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             -        "peers": [],
-            +        "replicas": 2,
-            +        "readyReplicas": 2,
+            -        "readyReplicas": 0,
+            -        "replicas": 0
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_0",
-            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_0"
             +            }
             +          },
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_1",
-            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_1"
             +            }
             +          },
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+            +        "readyReplicas": 2,
+            +        "replicas": 2
                    }
                  },
+             }
         "#]]);
         // Bootstrap is applied if we have at least two peers.
         // However we do not expect to see any GET/DELETE for the bootstrap job as all peers report
@@ -1775,64 +1775,64 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -7,10 +7,40 @@
-                 },
+            @@ -8,10 +8,40 @@
                  body: {
                    "status": {
-            -        "replicas": 0,
-            -        "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             -        "peers": [],
-            +        "replicas": 2,
-            +        "readyReplicas": 2,
+            -        "readyReplicas": 0,
+            -        "replicas": 0
             +        "namespace": "keramik-test",
             +        "peers": [
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_0",
-            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_0"
             +            }
             +          },
             +          {
             +            "ceramic": {
-            +              "peerId": "peer_id_1",
-            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
-            +              ]
+            +              ],
+            +              "peerId": "peer_id_1"
             +            }
             +          },
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+            +        "readyReplicas": 2,
+            +        "replicas": 2
                    }
                  },
+             }
         "#]]);
         // Bootstrap is applied if we have at least two peers.
         // However we do not expect to see any GET/DELETE for the bootstrap job as all peers report
@@ -1864,38 +1864,38 @@ mod tests {
         stub.keramik_peers_configmap.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "apiVersion": "v1",
-                   "kind": "ConfigMap",
                    "data": {
             -        "peers.json": "[]"
             +        "peers.json": "[{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
+                   "kind": "ConfigMap",
                    "metadata": {
-                     "labels": {
         "#]]);
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -10,7 +10,17 @@
-                     "replicas": 0,
-                     "readyReplicas": 0,
+            @@ -9,7 +9,17 @@
+                   "status": {
+                     "expirationTime": null,
                      "namespace": null,
             -        "peers": [],
             +        "peers": [
             +          {
             +            "ipfs": {
-            +              "peerId": "cas_peer_id",
             +              "ipfsRpcAddr": "http://cas-ipfs:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id"
-            +              ]
+            +              ],
+            +              "peerId": "cas_peer_id"
             +            }
             +          }
             +        ],
-                     "expirationTime": null
+                     "readyReplicas": 0,
+                     "replicas": 0
                    }
-                 },
         "#]]);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(network), testctx)
@@ -1924,15 +1924,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.ceramics[0]
             .configmaps
@@ -2053,15 +2053,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.ceramics[0]
             .configmaps
@@ -2201,15 +2201,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.ceramics[0]
             .configmaps
@@ -2341,15 +2341,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
@@ -2438,15 +2438,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
@@ -2536,15 +2536,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
@@ -2703,15 +2703,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
@@ -2897,15 +2897,15 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -9,7 +9,7 @@
+            @@ -8,7 +8,7 @@
+                 body: {
                    "status": {
-                     "replicas": 0,
-                     "readyReplicas": 0,
+                     "expirationTime": null,
             -        "namespace": null,
             +        "namespace": "keramik-test",
                      "peers": [],
-                     "expirationTime": null
-                   }
+                     "readyReplicas": 0,
+                     "replicas": 0
         "#]]);
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original

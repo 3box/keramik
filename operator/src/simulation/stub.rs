@@ -58,16 +58,6 @@ impl WithStatus for Simulation {
 pub struct Stub {
     simulation: Simulation,
     pub peers_config_map: (ExpectPatch<ExpectFile>, ConfigMap),
-    pub jaeger_service: ExpectPatch<ExpectFile>,
-    pub jaeger_stateful_set: ExpectPatch<ExpectFile>,
-    pub prom_config: ExpectPatch<ExpectFile>,
-    pub prom_stateful_set: ExpectPatch<ExpectFile>,
-    pub monitoring_service_account: ExpectPatch<ExpectFile>,
-    pub monitoring_cluster_role: ExpectPatch<ExpectFile>,
-    pub monitoring_cluster_role_binding: ExpectPatch<ExpectFile>,
-    pub otel_config: ExpectPatch<ExpectFile>,
-    pub otel_service: ExpectPatch<ExpectFile>,
-    pub otel_stateful_set: ExpectPatch<ExpectFile>,
 
     pub jaeger_status: (ExpectPatch<ExpectFile>, StatefulSet),
     pub prom_status: (ExpectPatch<ExpectFile>, StatefulSet),
@@ -118,28 +108,8 @@ impl Default for Stub {
                     }
                 },
             ),
-            jaeger_service: expect_file!["./testdata/default_stubs/jaeger_service"].into(),
-            jaeger_stateful_set: expect_file!["./testdata/default_stubs/jaeger_stateful_set"]
-                .into(),
-            prom_config: expect_file!["./testdata/default_stubs/prom_config"].into(),
-            prom_stateful_set: expect_file!["./testdata/default_stubs/prom_stateful_set"].into(),
             redis_service: expect_file!["./testdata/default_stubs/redis_service"].into(),
             redis_stateful_set: expect_file!["./testdata/default_stubs/redis_stateful_set"].into(),
-            monitoring_service_account: expect_file![
-                "./testdata/default_stubs/monitoring_service_account"
-            ]
-            .into(),
-            monitoring_cluster_role: expect_file![
-                "./testdata/default_stubs/monitoring_cluster_role"
-            ]
-            .into(),
-            monitoring_cluster_role_binding: expect_file![
-                "./testdata/default_stubs/monitoring_cluster_role_binding"
-            ]
-            .into(),
-            otel_config: expect_file!["./testdata/default_stubs/otel_config"].into(),
-            otel_service: expect_file!["./testdata/default_stubs/otel_service"].into(),
-            otel_stateful_set: expect_file!["./testdata/default_stubs/otel_stateful_set"].into(),
             jaeger_status: (
                 expect_file!["./testdata/default_stubs/jaeger_status"].into(),
                 StatefulSet {
@@ -223,48 +193,6 @@ impl Stub {
                 .handle_request_response(self.peers_config_map.0, Some(&self.peers_config_map.1))
                 .await
                 .expect("peers_config_map should be reported");
-
-            // Next we handle a sequence of apply calls
-            fakeserver
-                .handle_apply(self.jaeger_service)
-                .await
-                .expect("jaeger service should apply");
-            fakeserver
-                .handle_apply(self.jaeger_stateful_set)
-                .await
-                .expect("jaeger stateful set should apply");
-            fakeserver
-                .handle_apply(self.prom_config)
-                .await
-                .expect("prom-config configmap should apply");
-            fakeserver
-                .handle_apply(self.prom_stateful_set)
-                .await
-                .expect("prom stateful set should apply");
-            fakeserver
-                .handle_apply(self.monitoring_service_account)
-                .await
-                .expect("monitoring service account should apply");
-            fakeserver
-                .handle_apply(self.monitoring_cluster_role)
-                .await
-                .expect("monitoring cluster role should apply");
-            fakeserver
-                .handle_apply(self.monitoring_cluster_role_binding)
-                .await
-                .expect("monitoring cluster role binding should apply");
-            fakeserver
-                .handle_apply(self.otel_config)
-                .await
-                .expect("otel config map should apply");
-            fakeserver
-                .handle_apply(self.otel_service)
-                .await
-                .expect("otel service should apply");
-            fakeserver
-                .handle_apply(self.otel_stateful_set)
-                .await
-                .expect("otel stateful set should apply");
 
             // Next we handle a sequence of status calls for various services
             fakeserver

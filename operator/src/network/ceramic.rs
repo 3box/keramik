@@ -168,6 +168,7 @@ pub struct NetworkConfig {
     pub network_type: NetworkType,
     pub eth_rpc_url: String,
     pub cas_api_url: String,
+    pub monitoring: bool,
 }
 
 impl Default for NetworkConfig {
@@ -177,6 +178,7 @@ impl Default for NetworkConfig {
             network_type: NetworkType::default(),
             eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
             cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
+            monitoring: false,
         }
     }
 }
@@ -192,6 +194,7 @@ impl From<&NetworkSpec> for NetworkConfig {
                 .unwrap_or(default.network_type),
             eth_rpc_url: value.eth_rpc_url.to_owned().unwrap_or(default.eth_rpc_url),
             cas_api_url: value.cas_api_url.to_owned().unwrap_or(default.cas_api_url),
+            monitoring: value.monitoring.unwrap_or(default.monitoring),
         }
     }
 }

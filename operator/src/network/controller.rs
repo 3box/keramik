@@ -36,6 +36,9 @@ use tracing::{debug, error, info, trace, warn};
 
 use crate::{
     labels::{managed_labels, MANAGED_BY_LABEL_SELECTOR},
+    monitoring::{
+        self, jaeger::JaegerConfig, opentelemetry::OtelConfig, prometheus::PrometheusConfig,
+    },
     network::{
         bootstrap::{self, BootstrapConfig},
         cas,
@@ -226,6 +229,44 @@ async fn reconcile(
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
     let net_config: NetworkConfig = spec.into();
+
+    if net_config.monitoring {
+        info!("configuring opentelemetry monitoring");
+        let orefs = network
+            .controller_owner_ref(&())
+            .map(|oref| vec![oref])
+            .unwrap_or_default();
+
+        monitoring::jaeger::apply(
+            cx.clone(),
+            &ns,
+            &JaegerConfig {
+                dev_mode: NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::SeqCst),
+            },
+            &orefs,
+        )
+        .await?;
+        monitoring::prometheus::apply(
+            cx.clone(),
+            &ns,
+            &PrometheusConfig {
+                dev_mode: NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::SeqCst),
+            },
+            &orefs,
+        )
+        .await?;
+        monitoring::opentelemetry::apply(
+            cx.clone(),
+            &ns,
+            &OtelConfig {
+                dev_mode: NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::SeqCst),
+                // Only listen for push metrics
+                scrape_mode: false,
+            },
+            &orefs,
+        )
+        .await?;
+    }
 
     let datadog: DataDogConfig = (&spec.datadog).into();
 
@@ -3372,6 +3413,35 @@ mod tests {
                              ],
                              "image": "ceramicnetwork/composedb:latest",
         "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn monitoring() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            monitoring: Some(true),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.monitoring = vec![
+            expect_file!["./testdata/jaeger_service"],
+            expect_file!["./testdata/jaeger_stateful_set"],
+            expect_file!["./testdata/prom_config"],
+            expect_file!["./testdata/prom_stateful_set"],
+            expect_file!["./testdata/opentelemetry_sa"],
+            expect_file!["./testdata/opentelemetry_cr"],
+            expect_file!["./testdata/opentelemetry_crb"],
+            expect_file!["./testdata/opentelemetry_config"],
+            expect_file!["./testdata/opentelemetry_service"],
+            expect_file!["./testdata/opentelemetry_stateful_set"],
+        ];
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = stub.run(fakeserver);

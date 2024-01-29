@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use k8s_openapi::{
     api::{
@@ -9,17 +9,51 @@ use k8s_openapi::{
         },
     },
     apimachinery::pkg::{
-        api::resource::Quantity, apis::meta::v1::LabelSelector, apis::meta::v1::ObjectMeta,
+        api::resource::Quantity,
+        apis::meta::v1::ObjectMeta,
+        apis::meta::v1::{LabelSelector, OwnerReference},
     },
 };
+use rand::RngCore;
 
 use crate::{
-    network::resource_limits::ResourceLimitsConfig, simulation::controller::PROM_CONFIG_MAP_NAME,
+    network::{ipfs_rpc::IpfsRpcClient, resource_limits::ResourceLimitsConfig},
+    utils::{apply_config_map, apply_stateful_set, Clock, Context},
 };
 
 use crate::labels::selector_labels;
 
 pub const PROM_APP: &str = "prometheus";
+pub const PROM_CONFIG_MAP_NAME: &str = "prom-config";
+
+pub struct PrometheusConfig {
+    pub dev_mode: bool,
+}
+
+pub async fn apply(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    config: &PrometheusConfig,
+    orefs: &[OwnerReference],
+) -> Result<(), kube::error::Error> {
+    apply_config_map(
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        PROM_CONFIG_MAP_NAME,
+        config_map_data(),
+    )
+    .await?;
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        "prometheus",
+        stateful_set_spec(config.dev_mode),
+    )
+    .await?;
+    Ok(())
+}
 
 fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
     if dev_mode {
@@ -45,7 +79,7 @@ fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
     }
 }
 
-pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
+fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {
@@ -97,14 +131,14 @@ pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     }
 }
 
-pub fn config_map_data() -> BTreeMap<String, String> {
+fn config_map_data() -> BTreeMap<String, String> {
     BTreeMap::from_iter(vec![(
         "prom-config.yaml".to_owned(),
         r#"
         global:
           scrape_interval: 10s
           scrape_timeout: 5s
-        
+
         scrape_configs:
           - job_name: services
             metrics_path: /metrics

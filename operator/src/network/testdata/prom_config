@@ -1,0 +1,22 @@
+Request {
+    method: "PATCH",
+    uri: "/api/v1/namespaces/keramik-test/configmaps/prom-config?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "v1",
+      "data": {
+        "prom-config.yaml": "\n        global:\n          scrape_interval: 10s\n          scrape_timeout: 5s\n\n        scrape_configs:\n          - job_name: services\n            metrics_path: /metrics\n            honor_labels: true\n            static_configs:\n              - targets:\n                - 'localhost:9090'\n                - 'otel:9090'\n                - 'otel:8888'"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "prom-config",
+        "ownerReferences": []
+      }
+    },
+}

@@ -324,9 +324,12 @@ impl ScenarioState {
 
     /// For now, most scenarios are successful if they complete without error and only EventIdSync has a criteria.
     /// Not a result to ensure we always proceed with cleanup, even if we fail to validate the scenario.
-    pub async fn validate_scenario_success(&self, metrics: &GooseMetrics) -> CommandResult {
+    pub async fn validate_scenario_success(
+        &self,
+        metrics: &GooseMetrics,
+    ) -> (CommandResult, Option<f64>) {
         if !self.manager {
-            return CommandResult::Success;
+            return (CommandResult::Success, None);
         }
         match self.scenario {
             Scenario::IpfsRpc
@@ -334,7 +337,7 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
-            | Scenario::CeramicModelReuse => CommandResult::Success,
+            | Scenario::CeramicModelReuse => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 // It'd be easy to make work for other scenarios if they defined a rate and metric. However, the scenario we're
                 // interested in is asymmetrical in what the workers do, and we're trying to look at what happens to other nodes,
@@ -350,7 +353,7 @@ impl ScenarioState {
                     .map_err(CommandResult::Failure)
                 {
                     Ok(v) => v,
-                    Err(e) => return e,
+                    Err(e) => return (e, None),
                 };
 
                 self.validate_scenario_success_int(
@@ -367,9 +370,9 @@ impl ScenarioState {
         &self,
         run_time_seconds: u64,
         request_cnt: u64,
-    ) -> CommandResult {
+    ) -> (CommandResult, Option<f64>) {
         if !self.manager {
-            return CommandResult::Success;
+            return (CommandResult::Success, None);
         }
         match self.scenario {
             Scenario::IpfsRpc
@@ -377,7 +380,7 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
-            | Scenario::CeramicModelReuse => CommandResult::Success,
+            | Scenario::CeramicModelReuse => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;
                 let metric_name = EVENT_SYNC_METRIC_NAME;
@@ -388,7 +391,7 @@ impl ScenarioState {
                     .map_err(CommandResult::Failure)
                 {
                     Ok(v) => v,
-                    Err(e) => return e,
+                    Err(e) => return (e, None),
                 };
 
                 // There is no `f64::try_from::<u64 or usize>` but if these values don't fit, we have bigger problems
@@ -407,32 +410,43 @@ impl ScenarioState {
                     .map_err(CommandResult::Failure)
                 {
                     Ok(v) => v,
-                    Err(e) => return e,
+                    Err(e) => return (e, None),
                 };
 
                 // For now, assume writer and all peers must meet the threshold rate
-                let mut errors = peer_req_cnts.into_iter().zip(before_metrics.iter())
+                let peer_metrics = match peer_req_cnts
+                    .into_iter()
+                    .zip(before_metrics.iter())
                     .enumerate()
-                    .flat_map(|(idx, (current, before))| {
+                    .map(|(idx, (current, before))| {
                         if let Some(c) = current {
-                            let rps = (c - *before) as f64 / run_time_seconds as f64;
-                            if rps < threshold {
-                                warn!(current_req_cnt=%c, %before, %run_time_seconds, %threshold, %rps, "rps less than threshold");
-                                Some(format!(
-                                    "Peer {} RPS less than threshold: {} < {}",
-                                    idx, rps, threshold
-                                ))
-                            } else {
-                                info!(current_req_cnt=%c, %before, %run_time_seconds, %threshold, %rps, "success! peer {} over the threshold", idx);
-                                None
-                            }
+                            Ok((c, *before, (c - *before) as f64 / run_time_seconds as f64))
                         } else {
-                            Some(format!(
-                                "Peer {} missing metric data",                                idx
-                            ))
+                            Err(anyhow!("Peer {} missing metric data", idx))
                         }
                     })
-                    .collect::<Vec<String>>();
+                    .collect::<Result<Vec<(u64, u64, f64)>, anyhow::Error>>()
+                {
+                    Ok(rps) => rps,
+                    Err(err) => return (CommandResult::Failure(err), None),
+                };
+
+                let min_peer_rps = peer_metrics.iter().fold(f64::INFINITY, |a, &b| a.min(b.2));
+
+                let mut errors = peer_metrics.into_iter().enumerate().flat_map(|(idx,(req_cnt, before, rps))|
+                    if rps < threshold {
+                        warn!(current_req_cnt=%req_cnt, %before, %run_time_seconds, %threshold, %rps, "rps less than threshold");
+                        Some(
+                            format!(
+                                "Peer {} RPS less than threshold: {} < {}",
+                                idx, rps, threshold
+                            ),
+                        )
+                    } else {
+                        info!(current_req_cnt=%req_cnt, %before, %run_time_seconds, %threshold, %rps, "success! peer {} over the threshold", idx);
+                        None
+                    }
+                ).collect::<Vec<String>>();
 
                 if create_rps < threshold {
                     warn!(
@@ -451,10 +465,10 @@ impl ScenarioState {
                         ?threshold,
                         "SUCCESS! All peers met the threshold"
                     );
-                    CommandResult::Success
+                    (CommandResult::Success, Some(min_peer_rps))
                 } else {
                     warn!(?errors, "FAILURE! Not all peers met the threshold");
-                    CommandResult::Failure(anyhow!(errors.join("\n")))
+                    (CommandResult::Failure(anyhow!(errors.join("\n"))), None)
                 }
             }
         }
@@ -519,8 +533,8 @@ pub async fn simulate(opts: Opts) -> Result<CommandResult> {
         }
     };
 
-    let success = state.validate_scenario_success(&goose_metrics).await;
-    metrics.record(goose_metrics);
+    let (success, min_peer_rps) = state.validate_scenario_success(&goose_metrics).await;
+    metrics.record(goose_metrics, min_peer_rps);
 
     Ok(success)
 }
@@ -530,6 +544,8 @@ struct Metrics {
 }
 struct MetricsInner {
     goose_metrics: Option<GooseMetrics>,
+    min_peer_rps: Option<f64>,
+
     attrs: Vec<KeyValue>,
     duration: ObservableGauge<u64>,
     maximum_users: ObservableGauge<u64>,
@@ -544,6 +560,8 @@ struct MetricsInner {
     requests_total: ObservableGauge<u64>,
     requests_status_codes_total: ObservableGauge<u64>,
     requests_duration_percentiles: ObservableGauge<f64>,
+
+    simulation_min_peer_requests_per_second: ObservableGauge<f64>,
 }
 
 impl Metrics {
@@ -604,9 +622,16 @@ impl Metrics {
             .f64_observable_gauge("goose_requests_duration_percentiles")
             .with_description("Specific percentiles of request durations")
             .init();
+        let simulation_min_peer_requests_per_second = meter
+            .f64_observable_gauge("simulation_min_peer_requests_per_second")
+            .with_description(
+                "Minimum by peer of the average request per second during a simulation run",
+            )
+            .init();
 
         let inner = Arc::new(Mutex::new(MetricsInner {
             goose_metrics: None,
+            min_peer_rps: None,
             attrs,
             duration,
             maximum_users,
@@ -618,6 +643,7 @@ impl Metrics {
             requests_total,
             requests_status_codes_total,
             requests_duration_percentiles,
+            simulation_min_peer_requests_per_second,
         }));
         let m = inner.clone();
         meter.register_callback(move |cx| {
@@ -628,17 +654,23 @@ impl Metrics {
         })?;
         Ok(Self { inner })
     }
-    fn record(&mut self, metrics: GooseMetrics) {
+    fn record(&mut self, metrics: GooseMetrics, min_peer_rps: Option<f64>) {
         let mut gm = self
             .inner
             .lock()
             .expect("should be able to acquire metrics lock for mutation");
         gm.goose_metrics = Some(metrics);
+        gm.min_peer_rps = min_peer_rps;
     }
 }
 
 impl MetricsInner {
     fn observe(&mut self, cx: &Context) {
+        // TODO add simulation specific attributes
+        if let Some(min_peer_rps) = self.min_peer_rps {
+            self.simulation_min_peer_requests_per_second
+                .observe(cx, min_peer_rps, &[]);
+        }
         if let Some(ref metrics) = self.goose_metrics {
             self.duration
                 .observe(cx, metrics.duration as u64, &self.attrs);
@@ -850,6 +882,7 @@ mod test {
         state
             .validate_scenario_success_int(run_time, run_time * request_cnt)
             .await
+            .0
     }
 
     #[test(tokio::test)]

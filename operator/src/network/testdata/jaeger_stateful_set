@@ -1,6 +1,6 @@
 Request {
     method: "PATCH",
-    uri: "/apis/apps/v1/namespaces/test/statefulsets/prometheus?&fieldManager=keramik",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/jaeger?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
@@ -12,36 +12,41 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "prometheus",
+        "name": "jaeger",
         "ownerReferences": []
       },
       "spec": {
         "replicas": 1,
         "selector": {
           "matchLabels": {
-            "app": "prometheus"
+            "app": "jaeger"
           }
         },
         "serviceName": "",
         "template": {
           "metadata": {
             "labels": {
-              "app": "prometheus"
+              "app": "jaeger"
             }
           },
           "spec": {
             "containers": [
               {
-                "command": [
-                  "/bin/prometheus",
-                  "--web.enable-lifecycle",
-                  "--config.file=/config/prom-config.yaml"
+                "env": [
+                  {
+                    "name": "COLLECTOR_OTLP_ENABLED",
+                    "value": "true"
+                  }
                 ],
-                "image": "prom/prometheus:v2.42.0",
-                "name": "prometheus",
+                "image": "jaegertracing/all-in-one:latest",
+                "name": "jaeger",
                 "ports": [
                   {
-                    "containerPort": 9090,
+                    "containerPort": 4317,
+                    "name": "otlp-receiver"
+                  },
+                  {
+                    "containerPort": 16686,
                     "name": "webui"
                   }
                 ],
@@ -56,23 +61,7 @@ Request {
                     "ephemeral-storage": "1Gi",
                     "memory": "1Gi"
                   }
-                },
-                "volumeMounts": [
-                  {
-                    "mountPath": "/config",
-                    "name": "config",
-                    "readOnly": true
-                  }
-                ]
-              }
-            ],
-            "volumes": [
-              {
-                "configMap": {
-                  "defaultMode": 493,
-                  "name": "prom-config"
-                },
-                "name": "config"
+                }
               }
             ]
           }

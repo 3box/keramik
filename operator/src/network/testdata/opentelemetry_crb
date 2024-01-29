@@ -24,7 +24,7 @@ Request {
         {
           "kind": "ServiceAccount",
           "name": "monitoring-service-account",
-          "namespace": "test"
+          "namespace": "keramik-test"
         }
       ]
     },

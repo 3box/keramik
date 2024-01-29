@@ -50,6 +50,8 @@ pub struct NetworkSpec {
     /// explicitly overridden by the spec. This allows deploying the network on a smaller machine,
     /// as well as running every container with unlimited resources.
     pub dev_mode: Option<bool>,
+    /// Enable monitoring resources to be deployed into the network.
+    pub monitoring: Option<bool>,
 }
 
 /// Local network ID.

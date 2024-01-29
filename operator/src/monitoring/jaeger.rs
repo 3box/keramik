@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use k8s_openapi::{
     api::{
@@ -9,16 +9,54 @@ use k8s_openapi::{
         },
     },
     apimachinery::pkg::{
-        api::resource::Quantity, apis::meta::v1::LabelSelector, apis::meta::v1::ObjectMeta,
+        api::resource::Quantity,
+        apis::meta::v1::LabelSelector,
+        apis::meta::v1::{ObjectMeta, OwnerReference},
         util::intstr::IntOrString,
     },
 };
+use rand::RngCore;
 
-use crate::{labels::selector_labels, network::resource_limits::ResourceLimitsConfig};
+use crate::{
+    labels::selector_labels,
+    network::{ipfs_rpc::IpfsRpcClient, resource_limits::ResourceLimitsConfig},
+    utils::{apply_service, apply_stateful_set, Clock, Context},
+};
 
 pub const JAEGER_APP: &str = "jaeger";
+pub const JAEGER_SERVICE_NAME: &str = "jaeger";
 
-pub fn service_spec() -> ServiceSpec {
+pub struct JaegerConfig {
+    pub dev_mode: bool,
+}
+
+pub async fn apply(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    config: &JaegerConfig,
+    orefs: &[OwnerReference],
+) -> Result<(), kube::error::Error> {
+    apply_service(
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        JAEGER_SERVICE_NAME,
+        service_spec(),
+    )
+    .await?;
+
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        "jaeger",
+        stateful_set_spec(config.dev_mode),
+    )
+    .await?;
+    Ok(())
+}
+
+fn service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![ServicePort {
             name: Some("otlp-receiver".to_owned()),
@@ -33,7 +71,7 @@ pub fn service_spec() -> ServiceSpec {
     }
 }
 
-pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
+fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
         selector: LabelSelector {

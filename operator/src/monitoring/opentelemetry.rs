@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, sync::Arc};
 
 use k8s_openapi::{
     api::{
@@ -12,18 +12,81 @@ use k8s_openapi::{
         rbac::v1::{ClusterRole, ClusterRoleBinding, PolicyRule, RoleRef, Subject},
     },
     apimachinery::pkg::{
-        api::resource::Quantity, apis::meta::v1::LabelSelector, apis::meta::v1::ObjectMeta,
+        api::resource::Quantity,
+        apis::meta::v1::LabelSelector,
+        apis::meta::v1::{ObjectMeta, OwnerReference},
         util::intstr::IntOrString,
     },
 };
+use rand::RngCore;
 
-use crate::{labels::selector_labels, network::resource_limits::ResourceLimitsConfig};
-
-use crate::simulation::controller::{OTEL_ACCOUNT, OTEL_CONFIG_MAP_NAME, OTEL_CR};
+use crate::{
+    labels::selector_labels,
+    network::{ipfs_rpc::IpfsRpcClient, resource_limits::ResourceLimitsConfig},
+    utils::{
+        apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map,
+        apply_service, apply_stateful_set, Clock, Context,
+    },
+};
 
 pub const OTEL_APP: &str = "otel";
+pub const OTEL_SERVICE_NAME: &str = "otel";
 
-pub fn service_spec() -> ServiceSpec {
+pub const OTEL_CR_BINDING: &str = "monitoring-cluster-role-binding";
+pub const OTEL_CR: &str = "monitoring-cluster-role";
+pub const OTEL_ACCOUNT: &str = "monitoring-service-account";
+
+pub const OTEL_CONFIG_MAP_NAME: &str = "otel-config";
+
+pub struct OtelConfig {
+    pub dev_mode: bool,
+    pub scrape_mode: bool,
+}
+
+pub async fn apply(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    config: &OtelConfig,
+    orefs: &[OwnerReference],
+) -> Result<(), kube::error::Error> {
+    apply_account(cx.clone(), ns, orefs.to_vec(), OTEL_ACCOUNT).await?;
+    apply_cluster_role(cx.clone(), ns, orefs.to_vec(), OTEL_CR, cluster_role()).await?;
+    apply_cluster_role_binding(
+        cx.clone(),
+        orefs.to_vec(),
+        OTEL_CR_BINDING,
+        cluster_role_binding(ns),
+    )
+    .await?;
+    apply_config_map(
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        OTEL_CONFIG_MAP_NAME,
+        config_map_data(config),
+    )
+    .await?;
+    apply_service(
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        OTEL_SERVICE_NAME,
+        service_spec(),
+    )
+    .await?;
+    apply_stateful_set(
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        "opentelemetry",
+        stateful_set_spec(config),
+    )
+    .await?;
+
+    Ok(())
+}
+
+fn service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![
             ServicePort {
@@ -78,7 +141,7 @@ fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
     }
 }
 
-pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
+fn stateful_set_spec(config: &OtelConfig) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
         service_name: OTEL_APP.to_owned(),
@@ -122,7 +185,7 @@ pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
                             ..Default::default()
                         },
                     ]),
-                    resources: Some(resource_requirements(dev_mode)),
+                    resources: Some(resource_requirements(config.dev_mode)),
                     volume_mounts: Some(vec![
                         VolumeMount {
                             mount_path: "/config".to_owned(),
@@ -183,7 +246,7 @@ pub fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     }
 }
 
-pub fn cluster_role() -> ClusterRole {
+fn cluster_role() -> ClusterRole {
     ClusterRole {
         rules: Some(vec![PolicyRule {
             api_groups: Some(vec!["".to_owned()]),
@@ -195,7 +258,7 @@ pub fn cluster_role() -> ClusterRole {
     }
 }
 
-pub fn cluster_role_binding(ns: &str) -> ClusterRoleBinding {
+fn cluster_role_binding(ns: &str) -> ClusterRoleBinding {
     ClusterRoleBinding {
         role_ref: RoleRef {
             kind: "ClusterRole".to_owned(),
@@ -212,10 +275,12 @@ pub fn cluster_role_binding(ns: &str) -> ClusterRoleBinding {
     }
 }
 
-pub fn config_map_data() -> BTreeMap<String, String> {
-    BTreeMap::from_iter(vec![(
-        "otel-config.yaml".to_owned(),
-        r#"
+fn config_map_data(config: &OtelConfig) -> BTreeMap<String, String> {
+    if config.scrape_mode {
+        // Include a config that will scrape pods in the network
+        BTreeMap::from_iter(vec![(
+            "otel-config.yaml".to_owned(),
+            r#"
     receivers:
       # Push based metrics
       otlp:
@@ -229,10 +294,10 @@ pub fn config_map_data() -> BTreeMap<String, String> {
             - job_name: 'kubernetes-service-endpoints'
               scrape_interval: 10s
               scrape_timeout: 1s
-    
+
               kubernetes_sd_configs:
               - role: pod
-    
+
               # Only container ports named `metrics` will be considered valid targets.
               #
               # Setup relabel rules to give meaning to the following k8s annotations:
@@ -258,10 +323,10 @@ pub fn config_map_data() -> BTreeMap<String, String> {
               - source_labels: [__meta_kubernetes_pod_container_name]
                 action: replace
                 target_label: kubernetes_container
-    
+
     processors:
       batch:
-    
+
     exporters:
       # This is unused but can be easily added for debugging.
       logging:
@@ -279,7 +344,7 @@ pub fn config_map_data() -> BTreeMap<String, String> {
         # Keep stale metrics around for 1h before dropping
         # This helps as simulation metrics are stale once the simulation stops.
         metric_expiration: 1h
-        resource_to_telemetry_conversion: 
+        resource_to_telemetry_conversion:
           enabled: true
       parquet:
         path: /data/
@@ -294,13 +359,13 @@ pub fn config_map_data() -> BTreeMap<String, String> {
       #  auth:
       #    authenticator: basicauth/grafana
       #  endpoint: https://otlp-gateway-prod-us-central-0.grafana.net/otlp
-    
+
             #extensions:
             #  basicauth/grafana:
             #    client_auth:
             #      username: "user" # replace with Grafana instance id
             #      password: "password" # replace with Grafana API token (via a secret)
-    
+
     service:
       #extensions: [basicauth/grafana]
       pipelines:
@@ -319,6 +384,59 @@ pub fn config_map_data() -> BTreeMap<String, String> {
         metrics:
           level: detailed
           address: 0.0.0.0:8888"#
-            .to_owned(),
-    )])
+                .to_owned(),
+        )])
+    } else {
+        // Include a simpler config that only listens for pushed metrics
+        BTreeMap::from_iter(vec![(
+            "otel-config.yaml".to_owned(),
+            r#"
+    receivers:
+      # Push based metrics
+      otlp:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+    processors:
+      batch:
+
+    exporters:
+      # This is unused but can be easily added for debugging.
+      logging:
+        # can be one of detailed | normal | basic
+        verbosity: detailed
+        # Log all messages, do not sample
+        sampling_initial: 1
+        sampling_thereafter: 1
+      otlp/jaeger:
+        endpoint: jaeger:4317
+        tls:
+          insecure: true
+      prometheus:
+        endpoint: 0.0.0.0:9090
+        # Keep stale metrics around for 1h before dropping
+        # This helps as simulation metrics are stale once the simulation stops.
+        metric_expiration: 1h
+        resource_to_telemetry_conversion:
+          enabled: true
+    service:
+      pipelines:
+        traces:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [otlp/jaeger]
+        metrics:
+          receivers: [otlp]
+          processors: [batch]
+          exporters: [prometheus]
+      # Enable telemetry on the collector itself
+      telemetry:
+        logs:
+          level: info
+        metrics:
+          level: detailed
+          address: 0.0.0.0:8888"#
+                .to_owned(),
+        )])
+    }
 }

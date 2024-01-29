@@ -1,6 +1,6 @@
 Request {
     method: "PATCH",
-    uri: "/api/v1/namespaces/test/services/jaeger?&fieldManager=keramik",
+    uri: "/api/v1/namespaces/keramik-test/services/otel?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
@@ -12,7 +12,7 @@ Request {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "jaeger",
+        "name": "otel",
         "ownerReferences": []
       },
       "spec": {
@@ -22,10 +22,22 @@ Request {
             "port": 4317,
             "protocol": "TCP",
             "targetPort": 4317
+          },
+          {
+            "name": "prom-metrics",
+            "port": 9090,
+            "protocol": "TCP",
+            "targetPort": 9090
+          },
+          {
+            "name": "self-metrics",
+            "port": 8888,
+            "protocol": "TCP",
+            "targetPort": 8888
           }
         ],
         "selector": {
-          "app": "jaeger"
+          "app": "otel"
         },
         "type": "ClusterIP"
       }

@@ -54,6 +54,7 @@ pub struct Stub {
     pub delete: Option<ExpectPatch<ExpectFile>>,
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
+    pub monitoring: Vec<ExpectFile>,
     pub postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
     pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
@@ -89,6 +90,7 @@ impl Default for Stub {
             network: Network::test(),
             namespace: expect_file!["./testdata/default_stubs/namespace"].into(),
             status: expect_file!["./testdata/default_stubs/status"].into(),
+            monitoring: vec![],
             postgres_auth_secret: (
                 expect_file!["./testdata/default_stubs/postgres_auth_secret"].into(),
                 k8s_openapi::api::core::v1::Secret {
@@ -203,6 +205,12 @@ impl Stub {
             .handle_apply(self.namespace)
             .await
             .expect("namespace should apply");
+        for otel in self.monitoring {
+            fakeserver
+                .handle_apply(otel)
+                .await
+                .expect("opentelemetry should do work");
+        }
         // Run/skip all CAS-related configuration
         if self.postgres_auth_secret.2 {
             fakeserver

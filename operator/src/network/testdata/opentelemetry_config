@@ -1,0 +1,22 @@
+Request {
+    method: "PATCH",
+    uri: "/api/v1/namespaces/keramik-test/configmaps/otel-config?&fieldManager=keramik",
+    headers: {
+        "accept": "application/json",
+        "content-type": "application/apply-patch+yaml",
+    },
+    body: {
+      "apiVersion": "v1",
+      "data": {
+        "otel-config.yaml": "\n    receivers:\n      # Push based metrics\n      otlp:\n        protocols:\n          grpc:\n            endpoint: 0.0.0.0:4317\n    processors:\n      batch:\n\n    exporters:\n      # This is unused but can be easily added for debugging.\n      logging:\n        # can be one of detailed | normal | basic\n        verbosity: detailed\n        # Log all messages, do not sample\n        sampling_initial: 1\n        sampling_thereafter: 1\n      otlp/jaeger:\n        endpoint: jaeger:4317\n        tls:\n          insecure: true\n      prometheus:\n        endpoint: 0.0.0.0:9090\n        # Keep stale metrics around for 1h before dropping\n        # This helps as simulation metrics are stale once the simulation stops.\n        metric_expiration: 1h\n        resource_to_telemetry_conversion:\n          enabled: true\n    service:\n      pipelines:\n        traces:\n          receivers: [otlp]\n          processors: [batch]\n          exporters: [otlp/jaeger]\n        metrics:\n          receivers: [otlp]\n          processors: [batch]\n          exporters: [prometheus]\n      # Enable telemetry on the collector itself\n      telemetry:\n        logs:\n          level: info\n        metrics:\n          level: detailed\n          address: 0.0.0.0:8888"
+      },
+      "kind": "ConfigMap",
+      "metadata": {
+        "labels": {
+          "managed-by": "keramik"
+        },
+        "name": "otel-config",
+        "ownerReferences": []
+      }
+    },
+}

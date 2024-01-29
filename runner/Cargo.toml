@@ -10,6 +10,7 @@ edition = "2021"
 anyhow.workspace = true
 async-trait.workspace = true
 ceramic-core.workspace = true
+iroh-car.workspace = true
 ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs.git", branch = "main", default-features = false }
 #ceramic-http-client = { path = "../../ceramic-http-client-rs", default-features = false }
 clap.workspace = true
@@ -32,3 +33,4 @@ multibase.workspace = true
 
 [dev-dependencies]
 test-log = "0.2"
+

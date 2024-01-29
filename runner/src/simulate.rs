@@ -119,14 +119,14 @@ impl Scenario {
 
     fn target_addr(&self, peer: &Peer) -> Result<String> {
         match self {
-            Self::IpfsRpc => Ok(peer.ipfs_rpc_addr().to_owned()),
+            Self::IpfsRpc | Self::ReconEventSync | Self::ReconEventKeySync => {
+                Ok(peer.ipfs_rpc_addr().to_owned())
+            }
             Self::CeramicSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
             | Self::CeramicQuery
-            | Self::CeramicModelReuse
-            | Self::ReconEventSync
-            | Self::ReconEventKeySync => Ok(peer
+            | Self::CeramicModelReuse => Ok(peer
                 .ceramic_addr()
                 .ok_or_else(|| {
                     anyhow!(
@@ -248,12 +248,8 @@ impl ScenarioState {
             Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
             Scenario::CeramicQuery => ceramic::query::scenario().await?,
             Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
-            Scenario::ReconEventSync => {
-                ceramic::recon_sync::event_sync_scenario(self.ipfs_peer_addr()).await?
-            }
-            Scenario::ReconEventKeySync => {
-                ceramic::recon_sync::event_key_sync_scenario(self.ipfs_peer_addr()).await?
-            }
+            Scenario::ReconEventSync => ceramic::recon_sync::event_sync_scenario().await?,
+            Scenario::ReconEventKeySync => ceramic::recon_sync::event_key_sync_scenario().await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -265,12 +261,6 @@ impl ScenarioState {
                 .get(self.topo.target_worker)
                 .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
         )
-    }
-
-    fn ipfs_peer_addr(&self) -> Option<String> {
-        self.peers
-            .get(self.topo.target_worker)
-            .map(|p| p.ipfs_rpc_addr().to_owned())
     }
 
     /// Returns the counter value (or None) for each peer in order of the peers list

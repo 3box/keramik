@@ -1,22 +1,15 @@
 use crate::scenario::ceramic::model_reuse::{get_model_id, set_model_id};
-use crate::scenario::ceramic::models;
-use crate::scenario::ceramic::util::setup_model;
 use crate::scenario::get_redis_client;
 use ceramic_core::{Cid, EventId};
-use ceramic_http_client::ceramic_event::StreamId;
-use ceramic_http_client::{CeramicHttpClient, ModelAccountRelation, ModelDefinition};
+use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
 use goose::prelude::*;
 use libipld::cid;
 use multihash::{Code, MultihashDigest};
 use rand::rngs::ThreadRng;
 use rand::Rng;
-use reqwest::Url;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument};
-
-use super::util::goose_error;
-use super::{CeramicClient, Credentials};
 
 const MODEL_ID_KEY: &str = "event_id_sync_model_id";
 pub(crate) const CREATE_EVENT_TX_NAME: &str = "create_new_event";
@@ -43,25 +36,11 @@ struct ReconLoadTestUserData {
     with_data: bool,
 }
 
-async fn init_scenario(
-    ipfs_peer_addr: Option<String>,
-    with_data: bool,
-) -> Result<Transaction, GooseError> {
-    let ipfs_addr: Url = ipfs_peer_addr
-        .map(|u| u.parse().unwrap())
-        .expect("missing ipfs peer address in event ID scenario");
-    let creds = Credentials::from_env().await.map_err(goose_error)?;
-    let cli = CeramicHttpClient::new(creds.signer);
+async fn init_scenario(with_data: bool) -> Result<Transaction, GooseError> {
     let redis_cli = get_redis_client().await?;
 
     let test_start = Transaction::new(Arc::new(move |user| {
-        Box::pin(setup(
-            user,
-            cli.clone(),
-            redis_cli.clone(),
-            ipfs_addr.clone(),
-            with_data,
-        ))
+        Box::pin(setup(user, redis_cli.clone(), with_data))
     }))
     .set_name("setup")
     .set_on_start();
@@ -82,8 +61,8 @@ async fn log_results(_user: &mut GooseUser) -> TransactionResult {
     Ok(())
 }
 
-pub async fn event_sync_scenario(ipfs_peer_addr: Option<String>) -> Result<Scenario, GooseError> {
-    let test_start = init_scenario(ipfs_peer_addr, true).await?;
+pub async fn event_sync_scenario() -> Result<Scenario, GooseError> {
+    let test_start = init_scenario(true).await?;
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
     let stop = transaction!(log_results)
         .set_name("log_results")
@@ -95,10 +74,8 @@ pub async fn event_sync_scenario(ipfs_peer_addr: Option<String>) -> Result<Scena
 }
 
 // accept option as goose manager builds the scenario as well, but doesn't need any peers and won't run it so it will always be Some in execution
-pub async fn event_key_sync_scenario(
-    ipfs_peer_addr: Option<String>,
-) -> Result<Scenario, GooseError> {
-    let test_start = init_scenario(ipfs_peer_addr, false).await?;
+pub async fn event_key_sync_scenario() -> Result<Scenario, GooseError> {
+    let test_start = init_scenario(false).await?;
 
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
 
@@ -112,31 +89,17 @@ pub async fn event_key_sync_scenario(
 #[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
 async fn setup(
     user: &mut GooseUser,
-    cli: CeramicClient,
     redis_cli: redis::Client,
-    ipfs_peer_addr: Url,
     with_data: bool,
 ) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
     let first = is_first_user();
     let model_id = if should_request_events() && first {
         info!("creating model for event ID sync test");
-        let small_model = match ModelDefinition::new::<models::SmallModel>(
-            "load_test_small_model",
-            ModelAccountRelation::List,
-        ) {
-            Ok(model) => model,
-            Err(e) => {
-                tracing::error!("failed to create model: {}", e);
-                panic!("failed to create model: {}", e);
-            }
-        };
-        let model_id = match setup_model(user, &cli, small_model).await {
-            Ok(model_id) => model_id,
-            Err(e) => {
-                tracing::error!("failed to setup model: {:?}", e);
-                return Err(e);
-            }
+        // We only need a model ID we do not need it to be a real model.
+        let model_id = StreamId {
+            r#type: StreamIdType::Model,
+            cid: random_cid(),
         };
         set_model_id(&mut conn, &model_id, MODEL_ID_KEY).await;
         model_id
@@ -152,7 +115,6 @@ async fn setup(
         with_data,
     };
     user.set_session_data(user_data);
-    user.base_url = Some(ipfs_peer_addr); // Recon is only available on IPFS address right now
 
     let request_builder = user
         .get_request_builder(&GooseMethod::Get, &path)?
@@ -186,7 +148,7 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         // eventId needs to be a multibase encoded string for the API to accept it
         let event_id = format!("F{}", random_event_id(&user_data.model_id.to_string()));
         let event_key_body = if user_data.with_data {
-            let payload = random_body_1kb_body();
+            let payload = random_car_1kb_body().await;
             serde_json::json!({"eventId": event_id, "eventData": payload})
         } else {
             serde_json::json!({"eventId": event_id})
@@ -235,11 +197,24 @@ fn random_event_id(sort_value: &str) -> ceramic_core::EventId {
     )
 }
 
-fn random_body_1kb_body() -> String {
+fn random_block() -> (Cid, Vec<u8>) {
     let mut rng = rand::thread_rng();
     TOTAL_BYTES_GENERATED.fetch_add(1000, std::sync::atomic::Ordering::Relaxed);
     let unique: [u8; 1000] = gen_rand_bytes(&mut rng);
-    multibase::encode(multibase::Base::Base36Lower, unique)
+
+    let hash = ::multihash::MultihashDigest::digest(&::multihash::Code::Sha2_256, &unique);
+    (Cid::new_v1(0x00, hash), unique.to_vec())
+}
+
+async fn random_car_1kb_body() -> String {
+    let mut bytes = Vec::with_capacity(1500);
+    let (cid, block) = random_block();
+    let roots = vec![cid];
+    let mut writer = iroh_car::CarWriter::new(iroh_car::CarHeader::V1(roots.into()), &mut bytes);
+    writer.write(cid, block).await.unwrap();
+    writer.finish().await.unwrap();
+
+    multibase::encode(multibase::Base::Base36Lower, bytes)
 }
 
 fn gen_rand_bytes<const SIZE: usize>(rng: &mut ThreadRng) -> [u8; SIZE] {

@@ -753,7 +753,7 @@ dependencies = [
 [[package]]
 name = "ceramic-core"
 version = "0.9.0"
-source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#bc3cceaa80cadf278233799598d13fe52c9131c3"
+source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#393b8761da4082c1f304fabe994d07d497dbd603"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -2527,6 +2527,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "integer-encoding"
+version = "3.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8bb03732005da905c88227371639bf1ad885cc712789c011c31c5fb3ab3ccf02"
+dependencies = [
+ "async-trait",
+ "tokio",
+]
+
+[[package]]
 name = "io-lifetimes"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2563,6 +2573,20 @@ checksum = "6d0586ad318a04c73acdbad33f67969519b5452c80770c4c72059a686da48a7e"
 dependencies = [
  "memchr",
  "serde",
+]
+
+[[package]]
+name = "iroh-car"
+version = "0.9.0"
+source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#393b8761da4082c1f304fabe994d07d497dbd603"
+dependencies = [
+ "cid 0.10.1",
+ "futures",
+ "integer-encoding",
+ "libipld 0.16.0",
+ "libipld-cbor 0.16.0",
+ "thiserror",
+ "tokio",
 ]
 
 [[package]]
@@ -2913,6 +2937,7 @@ dependencies = [
  "ceramic-http-client",
  "clap",
  "goose",
+ "iroh-car",
  "keramik-common",
  "libipld 0.16.0",
  "multibase 0.9.1",

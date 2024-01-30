@@ -40,7 +40,6 @@ pub const OTEL_CONFIG_MAP_NAME: &str = "otel-config";
 
 pub struct OtelConfig {
     pub dev_mode: bool,
-    pub scrape_mode: bool,
 }
 
 pub async fn apply(
@@ -63,7 +62,7 @@ pub async fn apply(
         ns,
         orefs.to_vec(),
         OTEL_CONFIG_MAP_NAME,
-        config_map_data(config),
+        config_map_data(),
     )
     .await?;
     apply_service(
@@ -97,10 +96,17 @@ fn service_spec() -> ServiceSpec {
                 ..Default::default()
             },
             ServicePort {
-                name: Some("prom-metrics".to_owned()),
-                port: 9090,
+                name: Some("all-metrics".to_owned()),
+                port: 9464,
                 protocol: Some("TCP".to_owned()),
-                target_port: Some(IntOrString::Int(9090)),
+                target_port: Some(IntOrString::Int(9464)),
+                ..Default::default()
+            },
+            ServicePort {
+                name: Some("sim-metrics".to_owned()),
+                port: 9465,
+                protocol: Some("TCP".to_owned()),
+                target_port: Some(IntOrString::Int(9465)),
                 ..Default::default()
             },
             ServicePort {
@@ -164,10 +170,7 @@ fn stateful_set_spec(config: &OtelConfig) -> StatefulSetSpec {
                 containers: vec![Container {
                     name: "opentelemetry".to_owned(),
                     image: Some("public.ecr.aws/r5b3e0r5/3box/otelcol".to_owned()),
-                    command: Some(vec![
-                        "/otelcol-custom".to_owned(),
-                        "--config=/config/otel-config.yaml".to_owned(),
-                    ]),
+                    args: Some(vec!["--config=/config/otel-config.yaml".to_owned()]),
                     ports: Some(vec![
                         ContainerPort {
                             container_port: 4317,
@@ -175,8 +178,13 @@ fn stateful_set_spec(config: &OtelConfig) -> StatefulSetSpec {
                             ..Default::default()
                         },
                         ContainerPort {
-                            container_port: 9090,
-                            name: Some("prom-metrics".to_owned()),
+                            container_port: 9464,
+                            name: Some("all-metrics".to_owned()),
+                            ..Default::default()
+                        },
+                        ContainerPort {
+                            container_port: 9465,
+                            name: Some("sim-metrics".to_owned()),
                             ..Default::default()
                         },
                         ContainerPort {
@@ -275,168 +283,105 @@ fn cluster_role_binding(ns: &str) -> ClusterRoleBinding {
     }
 }
 
-fn config_map_data(config: &OtelConfig) -> BTreeMap<String, String> {
-    if config.scrape_mode {
-        // Include a config that will scrape pods in the network
-        BTreeMap::from_iter(vec![(
-            "otel-config.yaml".to_owned(),
-            r#"
-    receivers:
-      # Push based metrics
-      otlp:
-        protocols:
-          grpc:
-            endpoint: 0.0.0.0:4317
-      # Pull based metrics
-      prometheus:
-        config:
-          scrape_configs:
-            - job_name: 'kubernetes-service-endpoints'
-              scrape_interval: 10s
-              scrape_timeout: 1s
+fn config_map_data() -> BTreeMap<String, String> {
+    // Include a config that will scrape pods in the network
+    BTreeMap::from_iter(vec![(
+        "otel-config.yaml".to_owned(),
+        r#"---
+receivers:
+  # Push based metrics
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+  # Pull based metrics
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'kubernetes-service-endpoints'
+          scrape_interval: 10s
+          scrape_timeout: 1s
 
-              kubernetes_sd_configs:
-              - role: pod
+          kubernetes_sd_configs:
+          - role: pod
 
-              # Only container ports named `metrics` will be considered valid targets.
-              #
-              # Setup relabel rules to give meaning to the following k8s annotations:
-              #   prometheus/path - URL path of the metrics endpoint
-              #
-              # Example:
-              #   annotations:
-              #      prometheus/path: "/api/v0/metrics"
-              relabel_configs:
-              - source_labels: [__meta_kubernetes_pod_container_port_name]
-                action: keep
-                regex: "metrics"
-              - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
-                action: replace
-                target_label: __metrics_path__
-                regex: (.+)
-              - source_labels: [__meta_kubernetes_namespace]
-                action: replace
-                target_label: kubernetes_namespace
-              - source_labels: [__meta_kubernetes_pod_name]
-                action: replace
-                target_label: kubernetes_pod
-              - source_labels: [__meta_kubernetes_pod_container_name]
-                action: replace
-                target_label: kubernetes_container
+          # Only container ports named `metrics` will be considered valid targets.
+          #
+          # Setup relabel rules to give meaning to the following k8s annotations:
+          #   prometheus/path - URL path of the metrics endpoint
+          #
+          # Example:
+          #   annotations:
+          #      prometheus/path: "/api/v0/metrics"
+          relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_container_port_name]
+            action: keep
+            regex: "metrics"
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            action: replace
+            target_label: kubernetes_container
 
-    processors:
-      batch:
+processors:
+  batch:
 
-    exporters:
-      # This is unused but can be easily added for debugging.
-      logging:
-        # can be one of detailed | normal | basic
-        verbosity: detailed
-        # Log all messages, do not sample
-        sampling_initial: 1
-        sampling_thereafter: 1
-      otlp/jaeger:
-        endpoint: jaeger:4317
-        tls:
-          insecure: true
-      prometheus:
-        endpoint: 0.0.0.0:9090
-        # Keep stale metrics around for 1h before dropping
-        # This helps as simulation metrics are stale once the simulation stops.
-        metric_expiration: 1h
-        resource_to_telemetry_conversion:
-          enabled: true
-      parquet:
-        path: /data/
-      # Grafana Cloud export
-      # TODO: Remove, this work however its not possible to
-      # namespace the metrics from other Grafana metrics which makes
-      # it hard to consume and polutes the normal metrics namespace.
-      #
-      # For now leaving this here as an example of how to enable,
-      # but will rely on local prometheus metrics in the short term.
-      #otlphttp/grafana:
-      #  auth:
-      #    authenticator: basicauth/grafana
-      #  endpoint: https://otlp-gateway-prod-us-central-0.grafana.net/otlp
+exporters:
+  # This is unused but can be easily added for debugging.
+  logging:
+    # can be one of detailed | normal | basic
+    verbosity: detailed
+    # Log all messages, do not sample
+    sampling_initial: 1
+    sampling_thereafter: 1
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+  prometheus:
+    endpoint: 0.0.0.0:9464
+    # Keep stale metrics around for 1h before dropping
+    # This helps as simulation metrics are stale once the simulation stops.
+    metric_expiration: 1h
+    resource_to_telemetry_conversion:
+      enabled: true
+  prometheus/simulation:
+    endpoint: 0.0.0.0:9465
+    # Keep stale metrics around for 1h before dropping
+    # This helps as simulation metrics are stale once the simulation stops.
+    metric_expiration: 1h
+    resource_to_telemetry_conversion:
+      enabled: true
 
-            #extensions:
-            #  basicauth/grafana:
-            #    client_auth:
-            #      username: "user" # replace with Grafana instance id
-            #      password: "password" # replace with Grafana API token (via a secret)
-
-    service:
-      #extensions: [basicauth/grafana]
-      pipelines:
-        traces:
-          receivers: [otlp]
-          processors: [batch]
-          exporters: [otlp/jaeger]
-        metrics:
-          receivers: [otlp,prometheus]
-          processors: [batch]
-          exporters: [parquet, prometheus]
-      # Enable telemetry on the collector itself
-      telemetry:
-        logs:
-          level: info
-        metrics:
-          level: detailed
-          address: 0.0.0.0:8888"#
-                .to_owned(),
-        )])
-    } else {
-        // Include a simpler config that only listens for pushed metrics
-        BTreeMap::from_iter(vec![(
-            "otel-config.yaml".to_owned(),
-            r#"
-    receivers:
-      # Push based metrics
-      otlp:
-        protocols:
-          grpc:
-            endpoint: 0.0.0.0:4317
-    processors:
-      batch:
-
-    exporters:
-      # This is unused but can be easily added for debugging.
-      logging:
-        # can be one of detailed | normal | basic
-        verbosity: detailed
-        # Log all messages, do not sample
-        sampling_initial: 1
-        sampling_thereafter: 1
-      otlp/jaeger:
-        endpoint: jaeger:4317
-        tls:
-          insecure: true
-      prometheus:
-        endpoint: 0.0.0.0:9090
-        # Keep stale metrics around for 1h before dropping
-        # This helps as simulation metrics are stale once the simulation stops.
-        metric_expiration: 1h
-        resource_to_telemetry_conversion:
-          enabled: true
-    service:
-      pipelines:
-        traces:
-          receivers: [otlp]
-          processors: [batch]
-          exporters: [otlp/jaeger]
-        metrics:
-          receivers: [otlp]
-          processors: [batch]
-          exporters: [prometheus]
-      # Enable telemetry on the collector itself
-      telemetry:
-        logs:
-          level: info
-        metrics:
-          level: detailed
-          address: 0.0.0.0:8888"#
-                .to_owned(),
-        )])
-    }
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [otlp/jaeger]
+    metrics:
+      receivers: [otlp,prometheus]
+      processors: [batch]
+      exporters: [prometheus]
+    metrics/simulation:
+      receivers: [otlp]
+      processors: [batch]
+      exporters: [prometheus/simulation]
+  # Enable telemetry on the collector itself
+  telemetry:
+    logs:
+      level: info
+    metrics:
+      level: detailed
+      address: 0.0.0.0:8888"#
+            .to_owned(),
+    )])
 }

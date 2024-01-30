@@ -3,7 +3,7 @@
 For more advanced usage of keramik, please see
 
   - [Advanced CAS and Ceramic Configuration](./advanced_configuration.md)
-  - [Metrics](./metrics.md)
+  - [Monitoring](./monitoring.md)
   - [IPFS](./ipfs.md)
   - [Mixed Networks](./mixed_networks.md)
   - [Secrets](./secrets.md)

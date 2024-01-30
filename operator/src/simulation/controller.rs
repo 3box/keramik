@@ -21,7 +21,7 @@ use kube::{
     },
     Resource, ResourceExt,
 };
-use rand::{thread_rng, Rng, RngCore};
+use rand::{distributions::Alphanumeric, thread_rng, Rng, RngCore};
 
 use tracing::{debug, error, info};
 
@@ -129,16 +129,25 @@ async fn reconcile(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
 ) -> Result<Action, Error> {
     let spec = simulation.spec();
-    debug!(?spec, "reconcile");
 
     let status = if let Some(status) = &simulation.status {
         status.clone()
     } else {
-        // Generate new status with random nonce
+        // Generate new status with random name and nonce
         SimulationStatus {
             nonce: thread_rng().gen(),
+            name: "sim-"
+                .chars()
+                .chain(
+                    thread_rng()
+                        .sample_iter(&Alphanumeric)
+                        .take(6)
+                        .map(char::from),
+                )
+                .collect::<String>(),
         }
     };
+    debug!(?spec, ?status, "reconcile");
 
     let ns = simulation.namespace().unwrap();
     let num_peers = get_num_peers(cx.clone(), &ns).await?;
@@ -160,6 +169,7 @@ async fn reconcile(
     let job_image_config = JobImageConfig::from(spec);
 
     let manager_config = ManagerConfig {
+        name: status.name.clone(),
         scenario: spec.scenario.to_owned(),
         users: spec.users.to_owned(),
         run_time: spec.run_time.to_owned(),
@@ -181,7 +191,7 @@ async fn reconcile(
             cx.clone(),
             &ns,
             num_peers,
-            status.nonce,
+            &status,
             simulation.clone(),
             job_image_config.clone(),
         )
@@ -299,7 +309,7 @@ async fn apply_n_workers(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     peers: u32,
-    nonce: u32,
+    status: &SimulationStatus,
     simulation: Arc<Simulation>,
     job_image_config: JobImageConfig,
 ) -> Result<(), kube::error::Error> {
@@ -311,9 +321,10 @@ async fn apply_n_workers(
 
     for i in 0..peers {
         let config = WorkerConfig {
+            name: status.name.clone(),
             scenario: spec.scenario.to_owned(),
             target_peer: i,
-            nonce,
+            nonce: status.nonce,
             job_image_config: job_image_config.clone(),
             throttle_requests: spec.throttle_requests,
         };

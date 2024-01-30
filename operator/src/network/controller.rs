@@ -260,8 +260,6 @@ async fn reconcile(
             &ns,
             &OtelConfig {
                 dev_mode: NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::SeqCst),
-                // Only listen for push metrics
-                scrape_mode: false,
             },
             &orefs,
         )

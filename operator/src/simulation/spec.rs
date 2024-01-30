@@ -48,6 +48,8 @@ impl Simulation {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationStatus {
+    /// Unique name for this simulation
+    pub name: String,
     /// Unique value for this simulation.
     /// Used to enable determisitically psuedo-random values during any simulation logic.
     pub nonce: u32,

@@ -83,7 +83,7 @@
 
         <nav id="sidebar" class="sidebar" aria-label="Table of contents">
             <div class="sidebar-scrollbox">
-                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_keramik.html"><strong aria-hidden="true">2.1.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.2.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">5.</strong> Developing Keramik</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="developing_operator.html"><strong aria-hidden="true">5.1.</strong> Operator</a></li><li class="chapter-item expanded "><a href="developing_runner.html"><strong aria-hidden="true">5.2.</strong> Runner</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">6.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="metrics.html"><strong aria-hidden="true">6.2.</strong> Metrics</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">6.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">6.4.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">6.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">6.6.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">6.7.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">6.8.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
+                <ol class="chapter"><li class="chapter-item expanded "><a href="environment.html"><strong aria-hidden="true">1.</strong> Environment Setup</a></li><li class="chapter-item expanded "><a href="create_cluster.html"><strong aria-hidden="true">2.</strong> Creating a Cluster</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="deploy_keramik.html"><strong aria-hidden="true">2.1.</strong> Deploying Keramik</a></li><li class="chapter-item expanded "><a href="setup_network.html"><strong aria-hidden="true">2.2.</strong> Setup Network</a></li></ol></li><li class="chapter-item expanded "><a href="simulation.html"><strong aria-hidden="true">3.</strong> Running a Simulation</a></li><li class="chapter-item expanded "><a href="analysis.html"><strong aria-hidden="true">4.</strong> Analyzing Simulation Runs</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="datadog.html"><strong aria-hidden="true">4.1.</strong> Analysis with Datadog</a></li></ol></li><li class="chapter-item expanded "><a href="developing.html"><strong aria-hidden="true">5.</strong> Developing Keramik</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="developing_operator.html"><strong aria-hidden="true">5.1.</strong> Operator</a></li><li class="chapter-item expanded "><a href="developing_runner.html"><strong aria-hidden="true">5.2.</strong> Runner</a></li></ol></li><li class="chapter-item expanded "><a href="advanced.html"><strong aria-hidden="true">6.</strong> Advanced Topics</a></li><li><ol class="section"><li class="chapter-item expanded "><a href="advanced_configuration.html"><strong aria-hidden="true">6.1.</strong> Advanced CAS and Ceramic Configuration</a></li><li class="chapter-item expanded "><a href="monitoring.html"><strong aria-hidden="true">6.2.</strong> Monitoring</a></li><li class="chapter-item expanded "><a href="ipfs.html"><strong aria-hidden="true">6.3.</strong> IPFS</a></li><li class="chapter-item expanded "><a href="mixed_networks.html"><strong aria-hidden="true">6.4.</strong> Mixed Networks</a></li><li class="chapter-item expanded "><a href="secrets.html"><strong aria-hidden="true">6.5.</strong> Secrets</a></li><li class="chapter-item expanded "><a href="operator.html"><strong aria-hidden="true">6.6.</strong> Operator Design</a></li><li class="chapter-item expanded "><a href="migration.html"><strong aria-hidden="true">6.7.</strong> Migration Tests</a></li><li class="chapter-item expanded "><a href="advanced_bootstrap.html"><strong aria-hidden="true">6.8.</strong> Custom Bootstrap Configuration</a></li></ol></li></ol>            </div>
             <div id="sidebar-resize-handle" class="sidebar-resize-handle"></div>
         </nav>
 
@@ -212,6 +212,9 @@ metadata:
   name: &lt;unique-name&gt;-small
 spec:
   replicas: 2
+  # Required if you plan to run a simulation
+  monitoring:
+    namespaced: true
 </code></pre>
 <p>The <code>&lt;unique-name&gt;</code> can be any unique string, your initials are a good default if you are deploying the network to a cloud cluster.</p>
 <p>Apply this network definition to the k8s cluster:</p>
@@ -270,7 +273,7 @@ spec:
 <p>If you want to run it against a defined network, set the namespace to the same as the network. in this example the
 namespace is set to the same network applied when <a href="./setup_network.html">the network was setup</a>.
 Additionally, you can define the scenario you want to run, the number of users to run for each node, and the number of minutes it will run.</p>
-<p>Before running the simulation make sure the <code>network</code> is ready.</p>
+<p>Before running the simulation make sure the <code>network</code> is ready and has <a href="./monitoring.html">monitoring</a> enabled.</p>
 <pre><code>kubectl describe network &lt;unique-name&gt;-small
 </code></pre>
 <p>You should see that the number of <code>Ready Replicas</code> is the same as the <code>Replicas</code>.
@@ -303,6 +306,8 @@ metadata:
   name: custom-js-ceramic
 spec:
   replicas: 2
+  monitoring:
+    namespaced: true
   ceramic:
     - image: ceramicnetwork/composedb:dev
       imagePullPolicy: IfNotPresent
@@ -320,6 +325,8 @@ metadata:
   name: custom-ipfs
 spec:
   replicas: 2
+  monitoring:
+    namespaced: true
   ceramic:
     - ipfs:
         rust:
@@ -566,7 +573,7 @@ spec:
 <p>For more advanced usage of keramik, please see</p>
 <ul>
 <li><a href="./advanced_configuration.html">Advanced CAS and Ceramic Configuration</a></li>
-<li><a href="./metrics.html">Metrics</a></li>
+<li><a href="./monitoring.html">Monitoring</a></li>
 <li><a href="./ipfs.html">IPFS</a></li>
 <li><a href="./mixed_networks.html">Mixed Networks</a></li>
 <li><a href="./secrets.html">Secrets</a></li>
@@ -709,12 +716,39 @@ spec:
           env:
             CERAMIC_ONE_RECON: &quot;true&quot;
 </code></pre>
-<div style="break-before: page; page-break-before: always;"></div><h1 id="opentelemetry"><a class="header" href="#opentelemetry">Opentelemetry</a></h1>
+<div style="break-before: page; page-break-before: always;"></div><h1 id="monitoring"><a class="header" href="#monitoring">Monitoring</a></h1>
+<p>You can enable monitoring on a network to deploy jaeger, prometheus and an opentelemetry collector into the network namespace.
+This is not the only way to monitor network resources but it is built in.</p>
+<p>Metrics from all pods in the network will be collected.</p>
+<p>Sample network resource with monitoring enabled.</p>
+<pre><code class="language-yaml"># basic.yaml
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: network-with-monitoring
+spec:
+  replicas: 2
+  monitoring:
+    namespaced: true
+</code></pre>
 <p>To view the metrics and traces port-forward the services:</p>
 <pre><code>kubectl port-forward prometheus-0 9090
 kubectl port-forward jaeger-0 16686
 </code></pre>
 <p>Then navigate to http://localhost:9090 for metrics and http://localhost:16686 for traces.</p>
+<h2 id="exposed-metrics"><a class="header" href="#exposed-metrics">Exposed Metrics</a></h2>
+<p>The opentelemetry collector exposes metrics on two different ports under the <code>otel</code> service:</p>
+<ul>
+<li>otel:9464 - All metrics collected</li>
+<li>otel:9465 - Only simulation metrics</li>
+</ul>
+<p>Simulations will publish specific summary metrics about the simulation run.
+This is typically a collection of metrics per simulation run and is much lighter weight than all metrics from all pods in the network.</p>
+<p>Scrape the <code>otel:9465</code> endpoint if you want on the simulation metrics.</p>
+<blockquote>
+<p>NOTE: The prometheus-0 pod will scrape all metrics so you can easily inspect all activity on the network.</p>
+</blockquote>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="ipfs"><a class="header" href="#ipfs">IPFS</a></h1>
 <p>The IPFS behavior used by CAS and Ceramic can be customized using the same IPFS spec.</p>
 <h2 id="rust-ipfs"><a class="header" href="#rust-ipfs">Rust IPFS</a></h2>

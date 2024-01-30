@@ -25,6 +25,10 @@ const EVENT_SYNC_METRIC_NAME: &str = "recon_key_insert_count_total";
 /// Options to Simulate command
 #[derive(Args, Debug)]
 pub struct Opts {
+    /// Unique name for this simulation run.
+    #[arg(long, env = "SIMULATE_NAME")]
+    name: String,
+
     /// Simulation scenario to run.
     #[arg(long, value_enum, env = "SIMULATE_SCENARIO")]
     scenario: Scenario,
@@ -547,6 +551,7 @@ struct MetricsInner {
     min_peer_rps: Option<f64>,
 
     attrs: Vec<KeyValue>,
+
     duration: ObservableGauge<u64>,
     maximum_users: ObservableGauge<u64>,
     users_total: ObservableGauge<u64>,
@@ -567,6 +572,7 @@ struct MetricsInner {
 impl Metrics {
     fn init(opts: &Opts) -> Result<Self> {
         let mut attrs = vec![
+            KeyValue::new("simulation", opts.name.clone()),
             KeyValue::new("scenario", opts.scenario.name()),
             KeyValue::new("nonce", opts.nonce.to_string()),
             KeyValue::new("mode", if opts.manager { "manager" } else { "worker" }),
@@ -669,7 +675,7 @@ impl MetricsInner {
         // TODO add simulation specific attributes
         if let Some(min_peer_rps) = self.min_peer_rps {
             self.simulation_min_peer_requests_per_second
-                .observe(cx, min_peer_rps, &[]);
+                .observe(cx, min_peer_rps, &self.attrs);
         }
         if let Some(ref metrics) = self.goose_metrics {
             self.duration

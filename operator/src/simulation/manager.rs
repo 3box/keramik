@@ -29,6 +29,7 @@ pub fn service_spec() -> ServiceSpec {
 
 // ManagerConfig defines which properties of the JobSpec can be customized.
 pub struct ManagerConfig {
+    pub name: String,
     pub scenario: String,
     pub users: u32,
     pub run_time: u32,
@@ -48,6 +49,11 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
         EnvVar {
             name: "RUST_LOG".to_owned(),
             value: Some("info,keramik_runner=trace".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "SIMULATE_NAME".to_owned(),
+            value: Some(config.name.to_owned()),
             ..Default::default()
         },
         EnvVar {

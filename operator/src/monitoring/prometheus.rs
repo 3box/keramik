@@ -146,7 +146,8 @@ fn config_map_data() -> BTreeMap<String, String> {
             static_configs:
               - targets:
                 - 'localhost:9090'
-                - 'otel:9090'
+                - 'otel:9464'
+                - 'otel:9465'
                 - 'otel:8888'"#
             .to_owned(),
     )])

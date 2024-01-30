@@ -13,6 +13,7 @@ metadata:
   name: <unique-name>-small
 spec:
   replicas: 2
+  monitoring: true # Required if you plan to run a simulation
 ```
 
 The `<unique-name>` can be any unique string, your initials are a good default if you are deploying the network to a cloud cluster.

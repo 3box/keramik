@@ -32,7 +32,7 @@ If you want to run it against a defined network, set the namespace to the same a
 namespace is set to the same network applied when [the network was setup](./setup_network.md).
 Additionally, you can define the scenario you want to run, the number of users to run for each node, and the number of minutes it will run.
 
-Before running the simulation make sure the `network` is ready.
+Before running the simulation make sure the `network` is ready and has [monitoring](./monitoring.md) enabled.
 
 ```
 kubectl describe network <unique-name>-small
@@ -48,6 +48,7 @@ Name:         nc-small
   Replicas:        2
 ...
 ```
+
 
 Once ready, apply this simulation defintion to the k8s cluster:
 
@@ -84,6 +85,7 @@ metadata:
   name: custom-js-ceramic
 spec:
   replicas: 2
+  monitoring: true
   ceramic:
     - image: ceramicnetwork/composedb:dev
       imagePullPolicy: IfNotPresent
@@ -109,6 +111,7 @@ metadata:
   name: custom-ipfs
 spec:
   replicas: 2
+  monitoring: true
   ceramic:
     - ipfs:
         rust:

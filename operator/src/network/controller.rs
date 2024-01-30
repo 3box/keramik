@@ -179,14 +179,9 @@ pub async fn run() {
 
 const MAX_CERAMICS: usize = 10;
 
+#[derive(Default)]
 struct MonitoringConfig {
     namespaced: bool,
-}
-
-impl Default for MonitoringConfig {
-    fn default() -> Self {
-        Self { namespaced: false }
-    }
 }
 
 impl From<&Option<MonitoringSpec>> for MonitoringConfig {

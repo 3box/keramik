@@ -41,11 +41,15 @@ Request {
                   },
                   {
                     "name": "RUST_LOG",
-                    "value": "info,keramik_runner=trace"
+                    "value": "info"
                   },
                   {
                     "name": "RUST_BACKTRACE",
                     "value": "1"
+                  },
+                  {
+                    "name": "SIMULATE_NAME",
+                    "value": "sim-test"
                   },
                   {
                     "name": "SIMULATE_SCENARIO",

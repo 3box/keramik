@@ -423,7 +423,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -41,7 +41,7 @@
+            @@ -45,7 +45,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -436,7 +436,7 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -49,7 +49,7 @@
+            @@ -53,7 +53,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -449,7 +449,7 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -49,7 +49,7 @@
+            @@ -53,7 +53,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -479,7 +479,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -61,7 +61,7 @@
+            @@ -65,7 +65,7 @@
                                },
                                {
                                  "name": "SIMULATE_USERS",
@@ -509,7 +509,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -65,7 +65,7 @@
+            @@ -69,7 +69,7 @@
                                },
                                {
                                  "name": "SIMULATE_RUN_TIME",
@@ -589,7 +589,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -41,7 +41,7 @@
+            @@ -45,7 +45,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -598,7 +598,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_MANAGER",
-            @@ -76,8 +76,8 @@
+            @@ -80,8 +80,8 @@
                                  "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
                                }
                              ],
@@ -613,7 +613,7 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -49,7 +49,7 @@
+            @@ -53,7 +53,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -622,7 +622,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -72,8 +72,8 @@
+            @@ -76,8 +76,8 @@
                                  "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
                                }
                              ],
@@ -637,7 +637,7 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -49,7 +49,7 @@
+            @@ -53,7 +53,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -646,7 +646,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -72,8 +72,8 @@
+            @@ -76,8 +76,8 @@
                                  "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
                                }
                              ],
@@ -678,7 +678,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -74,6 +74,10 @@
+            @@ -78,6 +78,10 @@
                                {
                                  "name": "DID_PRIVATE_KEY",
                                  "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
@@ -691,35 +691,35 @@ mod tests {
                              "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
         "#]]);
         stub.worker_jobs[0].patch(expect![[r#"
-        --- original
-        +++ modified
-        @@ -70,6 +70,10 @@
-                           {
-                             "name": "DID_PRIVATE_KEY",
-                             "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
-        +                  },
-        +                  {
-        +                    "name": "SIMULATE_THROTTLE_REQUESTS",
-        +                    "value": "100"
-                           }
-                         ],
-                         "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
-    "#]]);
+            --- original
+            +++ modified
+            @@ -74,6 +74,10 @@
+                               {
+                                 "name": "DID_PRIVATE_KEY",
+                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            +                  },
+            +                  {
+            +                    "name": "SIMULATE_THROTTLE_REQUESTS",
+            +                    "value": "100"
+                               }
+                             ],
+                             "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+        "#]]);
         stub.worker_jobs[1].patch(expect![[r#"
-        --- original
-        +++ modified
-        @@ -70,6 +70,10 @@
-                           {
-                             "name": "DID_PRIVATE_KEY",
-                             "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
-        +                  },
-        +                  {
-        +                    "name": "SIMULATE_THROTTLE_REQUESTS",
-        +                    "value": "100"
-                           }
-                         ],
-                         "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
-    "#]]);
+            --- original
+            +++ modified
+            @@ -74,6 +74,10 @@
+                               {
+                                 "name": "DID_PRIVATE_KEY",
+                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            +                  },
+            +                  {
+            +                    "name": "SIMULATE_THROTTLE_REQUESTS",
+            +                    "value": "100"
+                               }
+                             ],
+                             "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+        "#]]);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await
@@ -741,7 +741,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -74,6 +74,10 @@
+            @@ -78,6 +78,10 @@
                                {
                                  "name": "DID_PRIVATE_KEY",
                                  "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"

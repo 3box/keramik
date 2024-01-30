@@ -45,7 +45,7 @@ use crate::{
         ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo, NetworkConfig},
         datadog::DataDogConfig,
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
-        peers, CasSpec, Network, NetworkStatus, NetworkType,
+        peers, CasSpec, MonitoringSpec, Network, NetworkStatus, NetworkType,
     },
     utils::Clock,
     CONTROLLER_NAME,
@@ -179,6 +179,29 @@ pub async fn run() {
 
 const MAX_CERAMICS: usize = 10;
 
+struct MonitoringConfig {
+    namespaced: bool,
+}
+
+impl Default for MonitoringConfig {
+    fn default() -> Self {
+        Self { namespaced: false }
+    }
+}
+
+impl From<&Option<MonitoringSpec>> for MonitoringConfig {
+    fn from(value: &Option<MonitoringSpec>) -> Self {
+        let default = MonitoringConfig::default();
+        if let Some(value) = value {
+            Self {
+                namespaced: value.namespaced.unwrap_or(default.namespaced),
+            }
+        } else {
+            default
+        }
+    }
+}
+
 /// Perform a reconcile pass for the Network CRD
 async fn reconcile(
     network: Arc<Network>,
@@ -229,9 +252,9 @@ async fn reconcile(
     let ns = apply_network_namespace(cx.clone(), network.clone()).await?;
 
     let net_config: NetworkConfig = spec.into();
+    let monitoring_config: MonitoringConfig = (&spec.monitoring).into();
 
-    if net_config.monitoring {
-        info!("configuring opentelemetry monitoring");
+    if monitoring_config.namespaced {
         let orefs = network
             .controller_owner_ref(&())
             .map(|oref| vec![oref])
@@ -843,8 +866,8 @@ mod tests {
         network::{
             ipfs_rpc::{tests::MockIpfsRpcClientTest, PeerStatus},
             stub::{CeramicStub, Stub},
-            BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, NetworkSpec,
-            NetworkStatus, NetworkType, ResourceLimitsSpec, RustIpfsSpec,
+            BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, MonitoringSpec,
+            NetworkSpec, NetworkStatus, NetworkType, ResourceLimitsSpec, RustIpfsSpec,
         },
         utils::{
             test::{timeout_after_1s, ApiServerVerifier, WithStatus},
@@ -3423,7 +3446,9 @@ mod tests {
     async fn monitoring() {
         // Setup network spec and status
         let network = Network::test().with_spec(NetworkSpec {
-            monitoring: Some(true),
+            monitoring: Some(MonitoringSpec {
+                namespaced: Some(true),
+            }),
             ..Default::default()
         });
         let mock_rpc_client = default_ipfs_rpc_mock();

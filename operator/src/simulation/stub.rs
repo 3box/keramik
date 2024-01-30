@@ -25,7 +25,10 @@ impl Simulation {
         let mut sim = Simulation::new("test", SimulationSpec::default());
         let meta = sim.meta_mut();
         meta.namespace = Some("test".to_owned());
-        sim.with_status(SimulationStatus { nonce: 42 })
+        sim.with_status(SimulationStatus {
+            name: "sim-test".to_string(),
+            nonce: 42,
+        })
     }
     /// Modify a network to have an expected spec
     pub fn with_spec(self, spec: SimulationSpec) -> Self {

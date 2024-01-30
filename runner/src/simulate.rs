@@ -837,6 +837,7 @@ mod test {
 
     fn get_opts(scenario: Scenario, manager: bool, target_request_rate: Option<usize>) -> Opts {
         Opts {
+            name: "sim-test".to_string(),
             scenario,
             manager,
             target_peer: 0,

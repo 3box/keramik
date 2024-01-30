@@ -40,6 +40,10 @@ Request {
                     "value": "info,keramik_runner=trace"
                   },
                   {
+                    "name": "SIMULATE_NAME",
+                    "value": "sim-test"
+                  },
+                  {
                     "name": "SIMULATE_SCENARIO",
                     "value": ""
                   },

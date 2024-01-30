@@ -16,7 +16,8 @@ metadata:
   name: network-with-monitoring
 spec:
   replicas: 2
-  monitoring: true
+  monitoring:
+    namespaced: true
 ```
 
 To view the metrics and traces port-forward the services:

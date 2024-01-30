@@ -24,10 +24,16 @@ Request {
             "targetPort": 4317
           },
           {
-            "name": "prom-metrics",
-            "port": 9090,
+            "name": "all-metrics",
+            "port": 9464,
             "protocol": "TCP",
-            "targetPort": 9090
+            "targetPort": 9464
+          },
+          {
+            "name": "sim-metrics",
+            "port": 9465,
+            "protocol": "TCP",
+            "targetPort": 9465
           },
           {
             "name": "self-metrics",

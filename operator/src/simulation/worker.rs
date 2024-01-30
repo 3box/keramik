@@ -35,7 +35,7 @@ pub fn worker_job_spec(config: WorkerConfig) -> JobSpec {
         },
         EnvVar {
             name: "RUST_LOG".to_owned(),
-            value: Some("info,keramik_runner=trace".to_owned()),
+            value: Some("info".to_owned()),
             ..Default::default()
         },
         EnvVar {

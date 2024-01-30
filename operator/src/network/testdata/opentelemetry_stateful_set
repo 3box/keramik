@@ -32,8 +32,7 @@ Request {
           "spec": {
             "containers": [
               {
-                "command": [
-                  "/otelcol-custom",
+                "args": [
                   "--config=/config/otel-config.yaml"
                 ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/otelcol",
@@ -44,8 +43,12 @@ Request {
                     "name": "otlp-receiver"
                   },
                   {
-                    "containerPort": 9090,
-                    "name": "prom-metrics"
+                    "containerPort": 9464,
+                    "name": "all-metrics"
+                  },
+                  {
+                    "containerPort": 9465,
+                    "name": "sim-metrics"
                   },
                   {
                     "containerPort": 8888,

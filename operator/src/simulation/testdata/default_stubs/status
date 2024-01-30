@@ -7,6 +7,7 @@ Request {
     },
     body: {
       "status": {
+        "name": "sim-test",
         "nonce": 42
       }
     },

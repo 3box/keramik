@@ -6,6 +6,7 @@ WORKDIR /home/builder/keramik/
 # Use the same ids as the parent docker image by default
 # ARG UID=1001
 # ARG GID=1001
+USER root
 
 # Copy in source code
 COPY . .

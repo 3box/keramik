@@ -85,7 +85,8 @@ metadata:
   name: custom-js-ceramic
 spec:
   replicas: 2
-  monitoring: true
+  monitoring:
+    namespaced: true
   ceramic:
     - image: ceramicnetwork/composedb:dev
       imagePullPolicy: IfNotPresent
@@ -111,7 +112,8 @@ metadata:
   name: custom-ipfs
 spec:
   replicas: 2
-  monitoring: true
+  monitoring:
+    namespaced: true
   ceramic:
     - ipfs:
         rust:

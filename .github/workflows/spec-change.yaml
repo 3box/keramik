@@ -1,0 +1,28 @@
+name: Spec change check
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled]
+  push:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Skip this job if the PR has the `spec-change` label
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'spec-change') }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+    - name: check for spec changes
+      run: |
+        cargo run --bin crdgen > crdgen.yaml
+        diff crdgen.yaml ./k8s/crds/v1alpha1.yaml > diff.txt
+        if [ -s diff.txt ]; then
+          echo "Files are different"
+          echo "::set-output name=DIFF::$(cat diff.txt)"
+          exit 1
+        else
+          echo "no diff"
+        fi
+

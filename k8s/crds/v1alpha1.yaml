@@ -1,0 +1,606 @@
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: networks.keramik.3box.io
+spec:
+  group: keramik.3box.io
+  names:
+    categories: []
+    kind: Network
+    plural: networks
+    shortNames: []
+    singular: network
+  scope: Cluster
+  versions:
+  - additionalPrinterColumns: []
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for NetworkSpec via `CustomResource`
+        properties:
+          spec:
+            description: Primary CRD for creating and managing a Ceramic network.
+            properties:
+              bootstrap:
+                description: Describes how new peers in the network should be bootstrapped.
+                nullable: true
+                properties:
+                  enabled:
+                    description: When true bootstrap job will run, defaults to true.
+                    nullable: true
+                    type: boolean
+                  image:
+                    description: Image of the runner for the bootstrap job.
+                    nullable: true
+                    type: string
+                  imagePullPolicy:
+                    description: Image pull policy for the bootstrap job.
+                    nullable: true
+                    type: string
+                  method:
+                    description: Bootstrap method. Defaults to ring.
+                    nullable: true
+                    type: string
+                  n:
+                    description: Number of nodes to connect to each peer.
+                    format: int32
+                    nullable: true
+                    type: integer
+                type: object
+              cas:
+                description: Describes how CAS should be deployed.
+                nullable: true
+                properties:
+                  casResourceLimits:
+                    description: Resource limits for the CAS pod, applies to both requests and limits.
+                    nullable: true
+                    properties:
+                      cpu:
+                        description: Cpu resource limit
+                        nullable: true
+                        type: string
+                      memory:
+                        description: Memory resource limit
+                        nullable: true
+                        type: string
+                      storage:
+                        description: Ephemeral storage resource limit
+                        nullable: true
+                        type: string
+                    type: object
+                  ganacheResourceLimits:
+                    description: Resource limits for the Ganache pod, applies to both requests and limits.
+                    nullable: true
+                    properties:
+                      cpu:
+                        description: Cpu resource limit
+                        nullable: true
+                        type: string
+                      memory:
+                        description: Memory resource limit
+                        nullable: true
+                        type: string
+                      storage:
+                        description: Ephemeral storage resource limit
+                        nullable: true
+                        type: string
+                    type: object
+                  image:
+                    description: Image of CAS
+                    nullable: true
+                    type: string
+                  imagePullPolicy:
+                    description: Image pull policy for the bootstrap job.
+                    nullable: true
+                    type: string
+                  ipfs:
+                    description: Configuration of the IPFS container
+                    nullable: true
+                    oneOf:
+                    - required:
+                      - rust
+                    - required:
+                      - go
+                    properties:
+                      go:
+                        description: Go IPFS specification
+                        properties:
+                          commands:
+                            description: List of ipfs commands to run during initialization.
+                            items:
+                              type: string
+                            nullable: true
+                            type: array
+                          image:
+                            description: Name of image to use
+                            nullable: true
+                            type: string
+                          imagePullPolicy:
+                            description: Image pull policy for the image
+                            nullable: true
+                            type: string
+                          resourceLimits:
+                            description: Resource limits for ipfs nodes, applies to both requests and limits.
+                            nullable: true
+                            properties:
+                              cpu:
+                                description: Cpu resource limit
+                                nullable: true
+                                type: string
+                              memory:
+                                description: Memory resource limit
+                                nullable: true
+                                type: string
+                              storage:
+                                description: Ephemeral storage resource limit
+                                nullable: true
+                                type: string
+                            type: object
+                        type: object
+                      rust:
+                        description: Rust IPFS specification
+                        properties:
+                          env:
+                            additionalProperties:
+                              type: string
+                            description: 'Extra env values to pass to the image. CAUTION: Any env vars specified in this set will override any predefined values.'
+                            nullable: true
+                            type: object
+                          image:
+                            description: Name of image to use
+                            nullable: true
+                            type: string
+                          imagePullPolicy:
+                            description: Image pull policy for the image
+                            nullable: true
+                            type: string
+                          resourceLimits:
+                            description: Resource limits for ipfs nodes, applies to both requests and limits.
+                            nullable: true
+                            properties:
+                              cpu:
+                                description: Cpu resource limit
+                                nullable: true
+                                type: string
+                              memory:
+                                description: Memory resource limit
+                                nullable: true
+                                type: string
+                              storage:
+                                description: Ephemeral storage resource limit
+                                nullable: true
+                                type: string
+                            type: object
+                          rustLog:
+                            description: Value of the RUST_LOG env var.
+                            nullable: true
+                            type: string
+                        type: object
+                    type: object
+                  ipfsResourceLimits:
+                    description: Resource limits for the CAS IPFS pod, applies to both requests and limits.
+                    nullable: true
+                    properties:
+                      cpu:
+                        description: Cpu resource limit
+                        nullable: true
+                        type: string
+                      memory:
+                        description: Memory resource limit
+                        nullable: true
+                        type: string
+                      storage:
+                        description: Ephemeral storage resource limit
+                        nullable: true
+                        type: string
+                    type: object
+                  localstackResourceLimits:
+                    description: Resource limits for the LocalStack pod, applies to both requests and limits.
+                    nullable: true
+                    properties:
+                      cpu:
+                        description: Cpu resource limit
+                        nullable: true
+                        type: string
+                      memory:
+                        description: Memory resource limit
+                        nullable: true
+                        type: string
+                      storage:
+                        description: Ephemeral storage resource limit
+                        nullable: true
+                        type: string
+                    type: object
+                  postgresResourceLimits:
+                    description: Resource limits for the CAS Postgres pod, applies to both requests and limits.
+                    nullable: true
+                    properties:
+                      cpu:
+                        description: Cpu resource limit
+                        nullable: true
+                        type: string
+                      memory:
+                        description: Memory resource limit
+                        nullable: true
+                        type: string
+                      storage:
+                        description: Ephemeral storage resource limit
+                        nullable: true
+                        type: string
+                    type: object
+                type: object
+              casApiUrl:
+                description: URL for Ceramic Anchor Service (CAS)
+                nullable: true
+                type: string
+              ceramic:
+                description: Describes how each peer should behave. Multiple ceramic specs can be defined. Total replicas will be split across each ceramic spec according to relative weights. It is possible that if the weight is small enough compared to others that a single spec will be assigned zero replicas.
+                items:
+                  description: Describes how a Ceramic peer should behave.
+                  properties:
+                    env:
+                      additionalProperties:
+                        type: string
+                      description: 'Extra env values to pass to the image. CAUTION: Any env vars specified in this set will override any predefined values.'
+                      nullable: true
+                      type: object
+                    image:
+                      description: Image of the ceramic container.
+                      nullable: true
+                      type: string
+                    imagePullPolicy:
+                      description: Pull policy for the ceramic container image.
+                      nullable: true
+                      type: string
+                    initConfigMap:
+                      description: Name of a config map with a ceramic-init.sh script that runs as an initialization step.
+                      nullable: true
+                      type: string
+                    ipfs:
+                      description: Configuration of the IPFS container
+                      nullable: true
+                      oneOf:
+                      - required:
+                        - rust
+                      - required:
+                        - go
+                      properties:
+                        go:
+                          description: Go IPFS specification
+                          properties:
+                            commands:
+                              description: List of ipfs commands to run during initialization.
+                              items:
+                                type: string
+                              nullable: true
+                              type: array
+                            image:
+                              description: Name of image to use
+                              nullable: true
+                              type: string
+                            imagePullPolicy:
+                              description: Image pull policy for the image
+                              nullable: true
+                              type: string
+                            resourceLimits:
+                              description: Resource limits for ipfs nodes, applies to both requests and limits.
+                              nullable: true
+                              properties:
+                                cpu:
+                                  description: Cpu resource limit
+                                  nullable: true
+                                  type: string
+                                memory:
+                                  description: Memory resource limit
+                                  nullable: true
+                                  type: string
+                                storage:
+                                  description: Ephemeral storage resource limit
+                                  nullable: true
+                                  type: string
+                              type: object
+                          type: object
+                        rust:
+                          description: Rust IPFS specification
+                          properties:
+                            env:
+                              additionalProperties:
+                                type: string
+                              description: 'Extra env values to pass to the image. CAUTION: Any env vars specified in this set will override any predefined values.'
+                              nullable: true
+                              type: object
+                            image:
+                              description: Name of image to use
+                              nullable: true
+                              type: string
+                            imagePullPolicy:
+                              description: Image pull policy for the image
+                              nullable: true
+                              type: string
+                            resourceLimits:
+                              description: Resource limits for ipfs nodes, applies to both requests and limits.
+                              nullable: true
+                              properties:
+                                cpu:
+                                  description: Cpu resource limit
+                                  nullable: true
+                                  type: string
+                                memory:
+                                  description: Memory resource limit
+                                  nullable: true
+                                  type: string
+                                storage:
+                                  description: Ephemeral storage resource limit
+                                  nullable: true
+                                  type: string
+                              type: object
+                            rustLog:
+                              description: Value of the RUST_LOG env var.
+                              nullable: true
+                              type: string
+                          type: object
+                      type: object
+                    resourceLimits:
+                      description: Resource limits for ceramic nodes, applies to both requests and limits.
+                      nullable: true
+                      properties:
+                        cpu:
+                          description: Cpu resource limit
+                          nullable: true
+                          type: string
+                        memory:
+                          description: Memory resource limit
+                          nullable: true
+                          type: string
+                        storage:
+                          description: Ephemeral storage resource limit
+                          nullable: true
+                          type: string
+                      type: object
+                    weight:
+                      description: Relative weight of the spec compared to others.
+                      format: int32
+                      nullable: true
+                      type: integer
+                  type: object
+                nullable: true
+                type: array
+              datadog:
+                description: Descibes if/how datadog should be deployed.
+                nullable: true
+                properties:
+                  enabled:
+                    description: When true datadog telemetry will be collected.
+                    nullable: true
+                    type: boolean
+                  profilingEnabled:
+                    description: When true profiles will be collected.
+                    nullable: true
+                    type: boolean
+                  version:
+                    description: Version of the DataDog agent.
+                    nullable: true
+                    type: string
+                type: object
+              devMode:
+                description: Enable dev mode for the network. This will remove resource requests/limits that are not explicitly overridden by the spec. This allows deploying the network on a smaller machine, as well as running every container with unlimited resources.
+                nullable: true
+                type: boolean
+              ethRpcUrl:
+                description: Ethereum RPC URL for Ceramic nodes to use for verifying anchors
+                nullable: true
+                type: string
+              monitoring:
+                description: Enable monitoring resources to be deployed into the network.
+                nullable: true
+                properties:
+                  namespaced:
+                    description: Deploy monitoring resources into the network namespace directly
+                    nullable: true
+                    type: boolean
+                type: object
+              networkType:
+                description: Ceramic network type
+                enum:
+                - mainnet
+                - testnet-clay
+                - dev-unstable
+                - local
+                - inmemory
+                nullable: true
+                type: string
+              privateKeySecret:
+                description: Name of secret containing the private key used for signing anchor requests and generating the Admin DID.
+                nullable: true
+                type: string
+              replicas:
+                description: Number of Ceramic peers
+                format: int32
+                type: integer
+              ttlSeconds:
+                description: The number of seconds this network should live. If unset the network lives forever.
+                format: uint64
+                minimum: 0.0
+                nullable: true
+                type: integer
+            required:
+            - replicas
+            type: object
+          status:
+            description: Current status of the network.
+            nullable: true
+            properties:
+              expirationTime:
+                description: Time when the network will expire and be deleted. If unset the network lives forever.
+                format: date-time
+                nullable: true
+                type: string
+              namespace:
+                description: K8s namespace this network is deployed in
+                nullable: true
+                type: string
+              peers:
+                description: Information about each Ceramic peer
+                items:
+                  description: Represents a generic Peer in the network.
+                  oneOf:
+                  - required:
+                    - ceramic
+                  - required:
+                    - ipfs
+                  properties:
+                    ceramic:
+                      description: Describes a peer that participates via Ceramic protocols.
+                      properties:
+                        ceramicAddr:
+                          description: Ceramic API address of the peer.
+                          type: string
+                        ipfsRpcAddr:
+                          description: RPC address of the peer.
+                          type: string
+                        p2pAddrs:
+                          description: Set of p2p addresses of the peer. Each address contains the /p2p/<peer_id> protocol.
+                          items:
+                            type: string
+                          type: array
+                        peerId:
+                          description: The public ID of the peer.
+                          type: string
+                      required:
+                      - ceramicAddr
+                      - ipfsRpcAddr
+                      - p2pAddrs
+                      - peerId
+                      type: object
+                    ipfs:
+                      description: Describes a peer that only participates using IPFS protocols.
+                      properties:
+                        ipfsRpcAddr:
+                          description: RPC address of the peer.
+                          type: string
+                        p2pAddrs:
+                          description: Set of p2p addresses of the peer. Each address contains the /p2p/<peer_id> protocol.
+                          items:
+                            type: string
+                          type: array
+                        peerId:
+                          description: The public ID of the peer.
+                          type: string
+                      required:
+                      - ipfsRpcAddr
+                      - p2pAddrs
+                      - peerId
+                      type: object
+                  type: object
+                type: array
+              readyReplicas:
+                description: Describes how new peers in the network should be bootstrapped.
+                format: int32
+                type: integer
+              replicas:
+                description: Number of Ceramic peers
+                format: int32
+                type: integer
+            required:
+            - peers
+            - readyReplicas
+            - replicas
+            type: object
+        required:
+        - spec
+        title: Network
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: simulations.keramik.3box.io
+spec:
+  group: keramik.3box.io
+  names:
+    categories: []
+    kind: Simulation
+    plural: simulations
+    shortNames: []
+    singular: simulation
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns: []
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: Auto-generated derived type for SimulationSpec via `CustomResource`
+        properties:
+          spec:
+            description: Primary CRD for creating and managing a Ceramic Simulation.
+            properties:
+              devMode:
+                description: Enable dev mode for the simulation. This will remove resource limits that are not explicitly set in the simulation spec.
+                nullable: true
+                type: boolean
+              image:
+                description: Image for all jobs created by the simulation.
+                nullable: true
+                type: string
+              imagePullPolicy:
+                description: Pull policy for image.
+                nullable: true
+                type: string
+              runTime:
+                description: Time in minutes to run the simulation
+                format: uint32
+                minimum: 0.0
+                type: integer
+              scenario:
+                description: Simulation runner scenario
+                type: string
+              successRequestTarget:
+                description: Request target for the scenario to be a success. Scenarios can use this to validate throughput and correctness before returning. The exact definition is left to the scenario (requests per second, total requests, rps/node etc).
+                format: uint
+                minimum: 0.0
+                nullable: true
+                type: integer
+              throttleRequests:
+                description: Throttle requests (per second) for a simulation. Currently on a per-worker basis.
+                format: uint
+                minimum: 0.0
+                nullable: true
+                type: integer
+              users:
+                description: Number of users
+                format: uint32
+                minimum: 0.0
+                type: integer
+            required:
+            - runTime
+            - scenario
+            - users
+            type: object
+          status:
+            description: Current status of a simulation.
+            nullable: true
+            properties:
+              name:
+                description: Unique name for this simulation
+                type: string
+              nonce:
+                description: Unique value for this simulation. Used to enable determisitically psuedo-random values during any simulation logic.
+                format: uint32
+                minimum: 0.0
+                type: integer
+            required:
+            - name
+            - nonce
+            type: object
+        required:
+        - spec
+        title: Simulation
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

@@ -70,6 +70,10 @@ spec:
     targetPort: 8080
     protocol: TCP
     name: http
+  - port: 9464
+    targetPort: 9464
+    protocol: TCP
+    name: metrics
   selector:
     app: keramik-operator
 ---
@@ -118,6 +122,9 @@ spec:
         ports:
         - name: http
           containerPort: 8080
+          protocol: TCP
+        - name: metrics
+          containerPort: 9464
           protocol: TCP
         env:
         # We are pointing to tempo or grafana tracing agent's otlp grpc receiver port

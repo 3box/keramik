@@ -10,8 +10,8 @@ use keramik_common::telemetry;
 
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use opentelemetry::global::{shutdown_meter_provider, shutdown_tracer_provider};
 use opentelemetry::{global, KeyValue};
-use opentelemetry::{global::shutdown_tracer_provider, Context};
 use tracing::info;
 
 use crate::{bootstrap::bootstrap, simulate::simulate};
@@ -68,8 +68,8 @@ async fn main() -> Result<()> {
     tracing_log::LogTracer::init()?;
 
     let args = Cli::parse();
-    let cx = Context::current();
-    let metrics_controller = telemetry::init(args.otlp_endpoint.clone()).await?;
+    telemetry::init_tracing(args.otlp_endpoint.clone()).await?;
+    let metrics_controller = telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?;
 
     let meter = global::meter("keramik");
     let runs = meter
@@ -77,7 +77,7 @@ async fn main() -> Result<()> {
         .with_description("Number of runs of the runner")
         .init();
 
-    runs.add(&cx, 1, &[KeyValue::new("command", args.command.name())]);
+    runs.add(1, &[KeyValue::new("command", args.command.name())]);
 
     info!(?args.command, ?args.otlp_endpoint, "starting runner");
     let success = match args.command {
@@ -88,7 +88,9 @@ async fn main() -> Result<()> {
 
     // Flush traces and metrics before shutdown
     shutdown_tracer_provider();
-    metrics_controller.stop(&cx)?;
+    metrics_controller.force_flush()?;
+    drop(metrics_controller);
+    shutdown_meter_provider();
 
     // This fixes lost metrics not sure why :(
     // Seems to be related to the inflight gRPC request getting cancelled

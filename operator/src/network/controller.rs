@@ -31,7 +31,7 @@ use kube::{
     },
     Resource,
 };
-use opentelemetry::global;
+use opentelemetry::{global, KeyValue};
 use rand::RngCore;
 use tracing::{debug, error, info, trace, warn};
 
@@ -208,8 +208,33 @@ async fn reconcile(
         .u64_counter("network_reconcile_count")
         .with_description("Number of network reconciles")
         .init();
-    runs.add(1, &[]);
-
+    match reconcile_(network, cx).await {
+        Ok(action) => {
+            runs.add(
+                1,
+                &[KeyValue {
+                    key: "result".into(),
+                    value: "ok".into(),
+                }],
+            );
+            Ok(action)
+        }
+        Err(err) => {
+            runs.add(
+                1,
+                &[KeyValue {
+                    key: "result".into(),
+                    value: "err".into(),
+                }],
+            );
+            Err(err)
+        }
+    }
+}
+async fn reconcile_(
+    network: Arc<Network>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+) -> Result<Action, Error> {
     let spec = network.spec();
     debug!(?spec, "reconcile");
 

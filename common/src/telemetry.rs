@@ -127,7 +127,7 @@ pub async fn init_metrics_prom(
     Ok((meter, shutdown, join))
 }
 
-// /metrics scrape endpoin
+// /metrics scrape endpoint.
 async fn handle(_req: Request<Body>) -> Result<Response<Body>, Infallible> {
     let mut data = Vec::new();
     let encoder = TextEncoder::new();

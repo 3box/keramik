@@ -21,6 +21,7 @@ use kube::{
     },
     Resource, ResourceExt,
 };
+use opentelemetry::global;
 use rand::{distributions::Alphanumeric, thread_rng, Rng, RngCore};
 
 use tracing::{debug, error, info};
@@ -128,6 +129,13 @@ async fn reconcile(
     simulation: Arc<Simulation>,
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
 ) -> Result<Action, Error> {
+    let meter = global::meter("keramik");
+    let runs = meter
+        .u64_counter("simulation_reconcile_count")
+        .with_description("Number of simulation reconciles")
+        .init();
+    runs.add(1, &[]);
+
     let spec = simulation.spec();
 
     let status = if let Some(status) = &simulation.status {

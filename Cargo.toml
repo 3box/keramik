@@ -15,12 +15,8 @@ keramik-common = { path = "./common/", default-features = false }
 multiaddr = "0.17"
 multibase = "0.9.1"
 multihash = "0.18"
-opentelemetry = { version = "0.18", features = [
-    "metrics",
-    "trace",
-    "rt-tokio",
-] }
-opentelemetry-otlp = { version = "0.11", features = [
+opentelemetry = { version = "0.21", features = ["metrics", "trace"] }
+opentelemetry-otlp = { version = "0.14", features = [
     "metrics",
     "trace",
     "tokio",
@@ -32,7 +28,7 @@ serde_json = "1"
 tokio = { version = "1", features = ["full", "tracing"] }
 tonic = { version = "0.8" }
 tracing = "0.1.37"
-tracing-opentelemetry = "0.18"
+tracing-opentelemetry = "0.22"
 tracing-subscriber = { version = "0.3", features = ["json", "env-filter"] }
 tracing-log = "0.1.3"
 

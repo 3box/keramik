@@ -31,6 +31,7 @@ use kube::{
     },
     Resource,
 };
+use opentelemetry::global;
 use rand::RngCore;
 use tracing::{debug, error, info, trace, warn};
 
@@ -202,6 +203,13 @@ async fn reconcile(
     network: Arc<Network>,
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
 ) -> Result<Action, Error> {
+    let meter = global::meter("keramik");
+    let runs = meter
+        .u64_counter("network_reconcile_count")
+        .with_description("Number of network reconciles")
+        .init();
+    runs.add(1, &[]);
+
     let spec = network.spec();
     debug!(?spec, "reconcile");
 

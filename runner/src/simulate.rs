@@ -8,7 +8,11 @@ use anyhow::{anyhow, bail, Result};
 use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
 use keramik_common::peer_info::Peer;
-use opentelemetry::{global, metrics::ObservableGauge, Context, KeyValue};
+use opentelemetry::{
+    global,
+    metrics::{ObservableGauge, Observer},
+    KeyValue,
+};
 use reqwest::Url;
 use tracing::{error, info, warn};
 
@@ -635,6 +639,19 @@ impl Metrics {
             )
             .init();
 
+        let instruments = [
+            duration.as_any(),
+            maximum_users.as_any(),
+            users_total.as_any(),
+            scenarios_total.as_any(),
+            scenarios_duration_percentiles.as_any(),
+            txs_total.as_any(),
+            txs_duration_percentiles.as_any(),
+            requests_total.as_any(),
+            requests_status_codes_total.as_any(),
+            requests_duration_percentiles.as_any(),
+            simulation_min_peer_requests_per_second.as_any(),
+        ];
         let inner = Arc::new(Mutex::new(MetricsInner {
             goose_metrics: None,
             min_peer_rps: None,
@@ -652,11 +669,11 @@ impl Metrics {
             simulation_min_peer_requests_per_second,
         }));
         let m = inner.clone();
-        meter.register_callback(move |cx| {
+        meter.register_callback(&instruments, move |observer| {
             let mut metrics = m
                 .lock()
                 .expect("should be able to acquire metrics lock for reading");
-            metrics.observe(cx)
+            metrics.observe(observer)
         })?;
         Ok(Self { inner })
     }
@@ -671,35 +688,38 @@ impl Metrics {
 }
 
 impl MetricsInner {
-    fn observe(&mut self, cx: &Context) {
-        // TODO add simulation specific attributes
+    fn observe(&mut self, observer: &dyn Observer) {
         if let Some(min_peer_rps) = self.min_peer_rps {
-            self.simulation_min_peer_requests_per_second
-                .observe(cx, min_peer_rps, &self.attrs);
+            observer.observe_f64(
+                &self.simulation_min_peer_requests_per_second,
+                min_peer_rps,
+                &self.attrs,
+            );
         }
         if let Some(ref metrics) = self.goose_metrics {
-            self.duration
-                .observe(cx, metrics.duration as u64, &self.attrs);
-            self.maximum_users
-                .observe(cx, metrics.maximum_users as u64, &self.attrs);
-            self.users_total
-                .observe(cx, metrics.total_users as u64, &self.attrs);
+            observer.observe_u64(&self.duration, metrics.duration as u64, &self.attrs);
+            observer.observe_u64(
+                &self.maximum_users,
+                metrics.maximum_users as u64,
+                &self.attrs,
+            );
+            observer.observe_u64(&self.users_total, metrics.total_users as u64, &self.attrs);
 
             for scenario_metrics in &metrics.scenarios {
                 // Push and pop unique attributes for each new metric
                 self.attrs
                     .push(KeyValue::new("name", scenario_metrics.name.clone()));
 
-                self.scenarios_total.observe(
-                    cx,
+                observer.observe_u64(
+                    &self.scenarios_total,
                     scenario_metrics.times.count() as u64,
                     &self.attrs,
                 );
 
                 for q in [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] {
                     self.attrs.push(KeyValue::new("percentile", q.to_string()));
-                    self.scenarios_duration_percentiles.observe(
-                        cx,
+                    observer.observe_f64(
+                        &self.scenarios_duration_percentiles,
                         scenario_metrics.times.quantile(q),
                         &self.attrs,
                     );
@@ -722,19 +742,21 @@ impl MetricsInner {
                 ));
 
                 self.attrs.push(KeyValue::new("result", "success"));
-                self.txs_total
-                    .observe(cx, tx_metrics.success_count as u64, &self.attrs);
+                observer.observe_u64(
+                    &self.txs_total,
+                    tx_metrics.success_count as u64,
+                    &self.attrs,
+                );
                 self.attrs.pop();
 
                 self.attrs.push(KeyValue::new("result", "fail"));
-                self.txs_total
-                    .observe(cx, tx_metrics.fail_count as u64, &self.attrs);
+                observer.observe_u64(&self.txs_total, tx_metrics.fail_count as u64, &self.attrs);
                 self.attrs.pop();
 
                 for q in [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] {
                     self.attrs.push(KeyValue::new("percentile", q.to_string()));
-                    self.txs_duration_percentiles.observe(
-                        cx,
+                    observer.observe_f64(
+                        &self.txs_duration_percentiles,
                         tx_metrics.times.quantile(q),
                         &self.attrs,
                     );
@@ -754,26 +776,35 @@ impl MetricsInner {
                     .push(KeyValue::new("method", format!("{}", req_metrics.method)));
 
                 self.attrs.push(KeyValue::new("result", "success"));
-                self.requests_total
-                    .observe(cx, req_metrics.success_count as u64, &self.attrs);
+                observer.observe_u64(
+                    &self.requests_total,
+                    req_metrics.success_count as u64,
+                    &self.attrs,
+                );
                 self.attrs.pop();
 
                 self.attrs.push(KeyValue::new("result", "fail"));
-                self.requests_total
-                    .observe(cx, req_metrics.fail_count as u64, &self.attrs);
+                observer.observe_u64(
+                    &self.requests_total,
+                    req_metrics.fail_count as u64,
+                    &self.attrs,
+                );
                 self.attrs.pop();
 
                 for (code, count) in &req_metrics.status_code_counts {
                     self.attrs.push(KeyValue::new("code", code.to_string()));
-                    self.requests_status_codes_total
-                        .observe(cx, *count as u64, &self.attrs);
+                    observer.observe_u64(
+                        &self.requests_status_codes_total,
+                        *count as u64,
+                        &self.attrs,
+                    );
                     self.attrs.pop();
                 }
 
                 for q in [0.5, 0.75, 0.9, 0.95, 0.99, 0.999] {
                     self.attrs.push(KeyValue::new("percentile", q.to_string()));
-                    self.requests_duration_percentiles.observe(
-                        cx,
+                    observer.observe_f64(
+                        &self.requests_duration_percentiles,
                         req_metrics.raw_data.times.quantile(q),
                         &self.attrs,
                     );

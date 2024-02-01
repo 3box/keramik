@@ -21,7 +21,7 @@ use kube::{
     },
     Resource, ResourceExt,
 };
-use opentelemetry::global;
+use opentelemetry::{global, KeyValue};
 use rand::{distributions::Alphanumeric, thread_rng, Rng, RngCore};
 
 use tracing::{debug, error, info};
@@ -123,7 +123,6 @@ pub async fn run() {
         })
         .await;
 }
-
 /// Perform a reconile pass for the Simulation CRD
 async fn reconcile(
     simulation: Arc<Simulation>,
@@ -134,8 +133,35 @@ async fn reconcile(
         .u64_counter("simulation_reconcile_count")
         .with_description("Number of simulation reconciles")
         .init();
-    runs.add(1, &[]);
 
+    match reconcile_(simulation, cx).await {
+        Ok(action) => {
+            runs.add(
+                1,
+                &[KeyValue {
+                    key: "result".into(),
+                    value: "ok".into(),
+                }],
+            );
+            Ok(action)
+        }
+        Err(err) => {
+            runs.add(
+                1,
+                &[KeyValue {
+                    key: "result".into(),
+                    value: "err".into(),
+                }],
+            );
+            Err(err)
+        }
+    }
+}
+/// Perform a reconile pass for the Simulation CRD
+async fn reconcile_(
+    simulation: Arc<Simulation>,
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+) -> Result<Action, Error> {
     let spec = simulation.spec();
 
     let status = if let Some(status) = &simulation.status {

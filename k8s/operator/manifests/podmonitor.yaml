@@ -1,0 +1,12 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: keramik-operator
+spec:
+  podMetricsEndpoints:
+  - interval: 10s
+    path: /metrics
+    targetPort: 9464
+  selector:
+    matchLabels:
+      app: keramik-operator

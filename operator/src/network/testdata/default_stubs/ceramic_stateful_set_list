@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets?&labelSelector=ceramic-role%3Dstateful_set",
+    headers: {},
+    body: ,
+}

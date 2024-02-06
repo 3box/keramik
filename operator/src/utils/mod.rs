@@ -17,6 +17,7 @@ use k8s_openapi::{
     chrono::{DateTime, Utc},
 };
 
+use crate::labels::managed_labels_extend;
 use crate::{labels::managed_labels, network::ipfs_rpc::IpfsRpcClient, CONTROLLER_NAME};
 
 use kube::{
@@ -70,13 +71,14 @@ impl Clock for UtcClock {
         Utc::now()
     }
 }
-/// Apply a Service
-pub async fn apply_service(
+/// Apply a Service with extra labels
+pub async fn apply_service_with_labels(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
     spec: ServiceSpec,
+    labels: Option<BTreeMap<String, String>>,
 ) -> Result<Option<ServiceStatus>, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
     let services: Api<Service> = Api::namespaced(cx.k_client.clone(), ns);
@@ -86,7 +88,7 @@ pub async fn apply_service(
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
             owner_references: Some(orefs),
-            labels: managed_labels(),
+            labels: managed_labels_extend(labels),
             ..ObjectMeta::default()
         },
         spec: Some(spec),
@@ -96,6 +98,16 @@ pub async fn apply_service(
         .patch(name, &serverside, &Patch::Apply(service))
         .await?;
     Ok(service.status)
+}
+/// Apply a Service with default managed labels
+pub async fn apply_service(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    orefs: Vec<OwnerReference>,
+    name: &str,
+    spec: ServiceSpec,
+) -> Result<Option<ServiceStatus>, kube::error::Error> {
+    apply_service_with_labels(cx, ns, orefs, name, spec, None).await
 }
 /// Delete a service in namespace
 pub async fn delete_service(
@@ -138,13 +150,14 @@ pub async fn apply_job(
     Ok(job.status)
 }
 
-/// Apply a stateful set in namespace
-pub async fn apply_stateful_set(
+/// Apply a stateful set in namespace with extra labels
+pub async fn apply_stateful_set_with_labels(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
     orefs: Vec<OwnerReference>,
     name: &str,
     spec: StatefulSetSpec,
+    labels: Option<BTreeMap<String, String>>,
 ) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
     let serverside = PatchParams::apply(CONTROLLER_NAME);
     let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), ns);
@@ -154,7 +167,7 @@ pub async fn apply_stateful_set(
         metadata: ObjectMeta {
             name: Some(name.to_owned()),
             owner_references: Some(orefs),
-            labels: managed_labels(),
+            labels: managed_labels_extend(labels),
             ..ObjectMeta::default()
         },
         spec: Some(spec),
@@ -164,6 +177,16 @@ pub async fn apply_stateful_set(
         .patch(name, &serverside, &Patch::Apply(stateful_set))
         .await?;
     Ok(stateful_set.status)
+}
+/// Apply a stateful set in namespace with default managed labels
+pub async fn apply_stateful_set(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    orefs: Vec<OwnerReference>,
+    name: &str,
+    spec: StatefulSetSpec,
+) -> Result<Option<StatefulSetStatus>, kube::error::Error> {
+    apply_stateful_set_with_labels(cx, ns, orefs, name, spec, None).await
 }
 
 /// Delete a stateful set in namespace

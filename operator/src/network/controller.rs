@@ -12,13 +12,13 @@ use k8s_openapi::{
     api::{
         apps::v1::{StatefulSet, StatefulSetStatus},
         batch::v1::Job,
-        core::v1::{ConfigMap, Namespace, Pod, Secret, Service, ServiceStatus},
+        core::v1::{Namespace, Pod, Secret, Service, ServiceStatus},
     },
     apimachinery::pkg::apis::meta::v1::Time,
 };
 use keramik_common::peer_info::{CeramicPeerInfo, Peer};
 use kube::{
-    api::{DeleteParams, Patch, PatchParams},
+    api::{DeleteParams, ListParams, Patch, PatchParams},
     client::Client,
     core::{object::HasSpec, ObjectMeta},
     runtime::Controller,
@@ -48,13 +48,12 @@ use crate::{
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
         peers, CasSpec, MonitoringSpec, Network, NetworkStatus, NetworkType,
     },
-    utils::Clock,
+    utils::{
+        apply_config_map, apply_job, apply_service, apply_service_with_labels, apply_stateful_set,
+        apply_stateful_set_with_labels, delete_service, delete_stateful_set,
+        generate_random_secret, Clock, Context,
+    },
     CONTROLLER_NAME,
-};
-
-use crate::utils::{
-    apply_config_map, apply_job, apply_service, apply_stateful_set, delete_service,
-    delete_stateful_set, generate_random_secret, Context,
 };
 
 // A list of constants used in various K8s resources.
@@ -94,6 +93,12 @@ pub const BOOTSTRAP_JOB_NAME: &str = "bootstrap";
 
 pub(crate) static NETWORK_DEV_MODE_RESOURCES: AtomicBool = AtomicBool::new(false);
 
+const CERAMIC_ROLE_LABEL: &str = "ceramic-role";
+const CERAMIC_SERVICE_VALUE: &str = "service";
+const CERAMIC_SERVICE_SELECTOR: &str = "ceramic-role=service";
+const CERAMIC_STATEFUL_SET_VALUE: &str = "stateful_set";
+const CERAMIC_STATEFUL_SET_SELECTOR: &str = "ceramic-role=stateful_set";
+
 /// Handle errors during reconciliation.
 fn on_error(
     _network: Arc<Network>,
@@ -128,40 +133,10 @@ pub async fn run() {
     // Add api for other resources, ie ceramic nodes
     let networks: Api<Network> = Api::all(k_client.clone());
     let namespaces: Api<Namespace> = Api::all(k_client.clone());
-    let statefulsets = Api::<StatefulSet>::all(k_client.clone());
-    let services = Api::<Service>::all(k_client.clone());
-    let config_maps = Api::<ConfigMap>::all(k_client.clone());
-    let secrets = Api::<Secret>::all(k_client.clone());
-    let jobs = Api::<Job>::all(k_client.clone());
-    let pods = Api::<Pod>::all(k_client.clone());
 
     Controller::new(networks.clone(), Config::default())
         .owns(
             namespaces,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            statefulsets,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            services,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            config_maps,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            secrets,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            jobs,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            pods,
             watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
         )
         .run(reconcile, on_error, context)
@@ -342,11 +317,40 @@ async fn reconcile_(
         .await?;
     }
 
+    // Reconile the set of ceramic services and stateful_sets
     let total_weight = ceramic_configs.0.iter().fold(0, |acc, c| acc + c.weight) as f64;
     let mut ceramics = Vec::with_capacity(ceramic_configs.0.len());
+    let stateful_sets: Api<StatefulSet> = Api::namespaced(cx.k_client.clone(), &ns);
+    let services: Api<Service> = Api::namespaced(cx.k_client.clone(), &ns);
+    let mut ceramic_stateful_sets: Vec<StatefulSet> = stateful_sets
+        .list(&ListParams::default().labels(CERAMIC_STATEFUL_SET_SELECTOR))
+        .await?
+        .into_iter()
+        .collect();
+    let mut ceramic_services: Vec<Service> = services
+        .list(&ListParams::default().labels(CERAMIC_SERVICE_SELECTOR))
+        .await?
+        .into_iter()
+        .collect();
     for i in 0..MAX_CERAMICS {
         let suffix = format!("{}", i);
-        if let Some(config) = ceramic_configs.0.get(i) {
+        let info = CeramicInfo::new(&suffix, 0);
+        let config = ceramic_configs.0.get(i);
+        if let Some(config) = config {
+            // Remove configured stateful_sets and services from the lists
+            if let Some(pos) = ceramic_stateful_sets
+                .iter()
+                .position(|ss| ss.name_any() == info.stateful_set)
+            {
+                ceramic_stateful_sets.swap_remove(pos);
+            };
+            if let Some(pos) = ceramic_services
+                .iter()
+                .position(|ss| ss.name_any() == info.service)
+            {
+                ceramic_services.swap_remove(pos);
+            };
+
             let replicas = ((config.weight as f64 / total_weight) * spec.replicas as f64) as i32;
             let info = CeramicInfo::new(&suffix, replicas);
 
@@ -355,13 +359,23 @@ async fn reconcile_(
                 config,
                 net_config: &net_config,
                 datadog: &datadog,
-            })
-        } else {
-            let info = CeramicInfo::new(&suffix, 0);
-            trace!(?info, "deleting extra ceramic");
-            delete_ceramic(cx.clone(), &ns, &info).await?;
+            });
         }
     }
+    // Delete any extra stateful_sets or services
+    for stateful_set in ceramic_stateful_sets {
+        debug!(
+            name = stateful_set.name_any(),
+            "deleting extra ceramic stateful_set"
+        );
+        delete_stateful_set(cx.clone(), &ns, &stateful_set.name_any()).await?;
+    }
+    for service in ceramic_services {
+        debug!(name = service.name_any(), "deleting extra ceramic service");
+        delete_service(cx.clone(), &ns, &service.name_any()).await?;
+    }
+
+    // Reconile replica counts
     let computed_replicas = ceramics
         .iter()
         .fold(0, |acc, bundle| acc + bundle.info.replicas);
@@ -420,7 +434,7 @@ async fn reconcile_(
         )
         .await?;
 
-    Ok(Action::requeue(Duration::from_secs(30)))
+    Ok(Action::requeue(Duration::from_secs(10)))
 }
 
 // Applies the namespace
@@ -656,16 +670,6 @@ async fn apply_ceramic<'a>(
 
     Ok(())
 }
-// Deletes the configured ceramic
-async fn delete_ceramic(
-    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
-    ns: &str,
-    info: &CeramicInfo,
-) -> Result<(), kube::error::Error> {
-    delete_stateful_set(cx.clone(), ns, &info.stateful_set).await?;
-    delete_service(cx, ns, &info.service).await?;
-    Ok(())
-}
 
 async fn apply_ceramic_service(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
@@ -678,7 +682,18 @@ async fn apply_ceramic_service(
         .map(|oref| vec![oref])
         .unwrap_or_default();
 
-    apply_service(cx, ns, orefs, &info.service, ceramic::service_spec()).await
+    apply_service_with_labels(
+        cx,
+        ns,
+        orefs,
+        &info.service,
+        ceramic::service_spec(),
+        Some(BTreeMap::from_iter([(
+            CERAMIC_ROLE_LABEL.to_string(),
+            CERAMIC_SERVICE_VALUE.to_string(),
+        )])),
+    )
+    .await
 }
 
 async fn apply_ceramic_stateful_set<'a>(
@@ -693,7 +708,18 @@ async fn apply_ceramic_stateful_set<'a>(
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
         .unwrap_or_default();
-    apply_stateful_set(cx, ns, orefs, &statefulset_name, spec).await
+    apply_stateful_set_with_labels(
+        cx,
+        ns,
+        orefs,
+        &statefulset_name,
+        spec,
+        Some(BTreeMap::from_iter([(
+            CERAMIC_ROLE_LABEL.to_string(),
+            CERAMIC_STATEFUL_SET_VALUE.to_string(),
+        )])),
+    )
+    .await
 }
 
 async fn apply_bootstrap_job(
@@ -906,15 +932,19 @@ mod tests {
     use expect_test::{expect, expect_file};
     use k8s_openapi::{
         api::{
+            apps::v1::StatefulSet,
             batch::v1::{Job, JobStatus},
-            core::v1::{Pod, PodCondition, PodStatus, Secret},
+            core::v1::{Pod, PodCondition, PodStatus, Secret, Service},
         },
         apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::Time},
         chrono::{DateTime, TimeZone, Utc},
         ByteString,
     };
     use keramik_common::peer_info::IpfsPeerInfo;
-    use kube::Resource;
+    use kube::{
+        core::{ListMeta, ObjectList, ObjectMeta, TypeMeta},
+        Resource,
+    };
     use tracing::debug;
     use tracing_test::traced_test;
 
@@ -1058,7 +1088,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -17,7 +17,7 @@
+            @@ -18,7 +18,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -1186,7 +1216,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -17,7 +17,7 @@
+            @@ -18,7 +18,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -1295,7 +1325,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -17,7 +17,7 @@
+            @@ -18,7 +18,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -1444,7 +1474,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -17,7 +17,7 @@
+            @@ -18,7 +18,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -1577,7 +1607,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -17,7 +17,7 @@
+            @@ -18,7 +18,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -1714,7 +1744,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -17,7 +17,7 @@
+            @@ -18,7 +18,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -1844,7 +1874,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -17,7 +17,7 @@
+            @@ -18,7 +18,7 @@
                    },
                    "spec": {
                      "podManagementPolicy": "Parallel",
@@ -2030,7 +2060,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,46 +137,8 @@
+            @@ -138,46 +138,8 @@
                              ]
                            },
                            {
@@ -2079,7 +2109,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -211,6 +173,11 @@
+            @@ -212,6 +174,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2091,7 +2121,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -319,6 +286,13 @@
+            @@ -320,6 +287,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -2159,7 +2189,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,46 +137,8 @@
+            @@ -138,46 +138,8 @@
                              ]
                            },
                            {
@@ -2208,7 +2238,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -197,14 +159,14 @@
+            @@ -198,14 +160,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2229,7 +2259,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -211,6 +173,11 @@
+            @@ -212,6 +174,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2241,7 +2271,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -319,6 +286,13 @@
+            @@ -320,6 +287,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -2307,7 +2337,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -137,46 +137,8 @@
+            @@ -138,46 +138,8 @@
                              ]
                            },
                            {
@@ -2356,7 +2386,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -211,6 +173,16 @@
+            @@ -212,6 +174,16 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2373,7 +2403,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -319,6 +291,13 @@
+            @@ -320,6 +292,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "ipfs-data"
                              }
@@ -2444,7 +2474,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -155,6 +155,10 @@
+            @@ -156,6 +156,10 @@
                                  "value": "0"
                                },
                                {
@@ -2455,7 +2485,7 @@ mod tests {
                                  "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
                                  "value": "0.0.0.0:9465"
                                },
-            @@ -171,11 +175,19 @@
+            @@ -172,11 +176,19 @@
                                  "value": "/ip4/0.0.0.0/tcp/4001"
                                },
                                {
@@ -2476,7 +2506,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -197,14 +209,14 @@
+            @@ -198,14 +210,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2806,7 +2836,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -115,14 +115,14 @@
+            @@ -116,14 +116,14 @@
                              },
                              "resources": {
                                "limits": {
@@ -2827,7 +2857,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -274,14 +274,14 @@
+            @@ -275,14 +275,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -3000,7 +3030,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -46,15 +46,15 @@
+            @@ -47,15 +47,15 @@
                              "env": [
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -3019,7 +3049,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -75,10 +75,6 @@
+            @@ -76,10 +76,6 @@
                                {
                                  "name": "CERAMIC_LOG_LEVEL",
                                  "value": "2"
@@ -3030,7 +3060,7 @@ mod tests {
                                }
                              ],
                              "image": "ceramicnetwork/composedb:latest",
-            @@ -160,7 +156,7 @@
+            @@ -161,7 +157,7 @@
                                },
                                {
                                  "name": "CERAMIC_ONE_NETWORK",
@@ -3039,7 +3069,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_ONE_STORE_DIR",
-            @@ -234,15 +230,15 @@
+            @@ -235,15 +231,15 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -3058,7 +3088,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -263,10 +259,6 @@
+            @@ -264,10 +260,6 @@
                                {
                                  "name": "CERAMIC_LOG_LEVEL",
                                  "value": "2"
@@ -3094,7 +3124,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -81,8 +81,8 @@
+            @@ -82,8 +82,8 @@
                                  "value": "/ceramic/local-0"
                                }
                              ],
@@ -3105,7 +3135,7 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
-            @@ -269,8 +269,8 @@
+            @@ -270,8 +270,8 @@
                                  "value": "/ceramic/local-0"
                                }
                              ],
@@ -3141,7 +3171,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -27,11 +27,16 @@
+            @@ -28,11 +28,16 @@
                      "template": {
                        "metadata": {
                          "annotations": {
@@ -3159,7 +3189,7 @@ mod tests {
                          }
                        },
                        "spec": {
-            @@ -79,6 +84,22 @@
+            @@ -80,6 +85,22 @@
                                {
                                  "name": "CERAMIC_NETWORK_TOPIC",
                                  "value": "/ceramic/local-0"
@@ -3246,8 +3276,6 @@ mod tests {
         });
         let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
-        // Remove first deletes
-        stub.ceramic_deletes = stub.ceramic_deletes.into_iter().skip(2).collect();
         // Expect new ceramic
         stub.ceramics.push(CeramicStub {
             configmaps: vec![
@@ -3281,8 +3309,6 @@ mod tests {
         });
         let mock_rpc_client = default_ipfs_rpc_mock();
         let mut stub = Stub::default().with_network(network.clone());
-        // Remove first deletes
-        stub.ceramic_deletes = stub.ceramic_deletes.into_iter().skip(2).collect();
         // Expect new Go based ceramics.
         stub.ceramics.push(CeramicStub {
             configmaps: vec![
@@ -3292,6 +3318,85 @@ mod tests {
             stateful_set: expect_file!["./testdata/ceramic_go_ss_1"].into(),
             service: expect_file!["./testdata/ceramic_go_svc_1"].into(),
         });
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn multiple_extra_ceramics() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramic_list_stateful_sets.1 = Some(ObjectList {
+            items: vec![
+                StatefulSet {
+                    metadata: ObjectMeta {
+                        name: Some("ceramic-0".to_string()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                StatefulSet {
+                    metadata: ObjectMeta {
+                        name: Some("ceramic-1".to_string()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                StatefulSet {
+                    metadata: ObjectMeta {
+                        name: Some("ceramic-2".to_string()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ],
+            types: TypeMeta::default(),
+            metadata: ListMeta::default(),
+        });
+        stub.ceramic_list_services.1 = Some(ObjectList {
+            items: vec![
+                Service {
+                    metadata: ObjectMeta {
+                        name: Some("ceramic-0".to_string()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                Service {
+                    metadata: ObjectMeta {
+                        name: Some("ceramic-1".to_string()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+                Service {
+                    metadata: ObjectMeta {
+                        name: Some("ceramic-2".to_string()),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                },
+            ],
+            types: TypeMeta::default(),
+            metadata: ListMeta::default(),
+        });
+
+        stub.ceramic_deletes
+            .push(expect_file!["./testdata/delete_extra_ceramic_ss_2"].into());
+        stub.ceramic_deletes
+            .push(expect_file!["./testdata/delete_extra_ceramic_ss_1"].into());
+        stub.ceramic_deletes
+            .push(expect_file!["./testdata/delete_extra_ceramic_svc_2"].into());
+        stub.ceramic_deletes
+            .push(expect_file!["./testdata/delete_extra_ceramic_svc_1"].into());
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
         let mocksrv = stub.run(fakeserver);
@@ -3325,8 +3430,6 @@ mod tests {
         // + 1 for cas
         let mock_rpc_client = ipfs_rpc_mock_n(replicas as usize + 1);
         let mut stub = Stub::default().with_network(network.clone());
-        // Remove first deletes
-        stub.ceramic_deletes = Vec::new();
         // Expect new ceramics
         stub.ceramics = Vec::new();
         for i in 0..weights.len() {
@@ -3439,7 +3542,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -79,6 +79,10 @@
+            @@ -80,6 +80,10 @@
                                {
                                  "name": "CERAMIC_NETWORK_TOPIC",
                                  "value": "/ceramic/local-0"
@@ -3450,7 +3553,7 @@ mod tests {
                                }
                              ],
                              "image": "ceramicnetwork/composedb:latest",
-            @@ -267,6 +271,10 @@
+            @@ -268,6 +272,10 @@
                                {
                                  "name": "CERAMIC_NETWORK_TOPIC",
                                  "value": "/ceramic/local-0"

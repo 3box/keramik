@@ -18,3 +18,15 @@ pub fn managed_labels() -> Option<BTreeMap<String, String>> {
         "keramik".to_owned(),
     )]))
 }
+/// Labels that indicate the resource is managed by the keramik operator extend with custom labels.
+pub fn managed_labels_extend(
+    extend_labels: Option<BTreeMap<String, String>>,
+) -> Option<BTreeMap<String, String>> {
+    if let Some(extend_labels) = extend_labels {
+        let mut labels = managed_labels().unwrap();
+        labels.extend(extend_labels);
+        Some(labels)
+    } else {
+        managed_labels()
+    }
+}

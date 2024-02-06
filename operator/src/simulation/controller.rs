@@ -1,11 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use futures::stream::StreamExt;
-use k8s_openapi::api::{
-    apps::v1::StatefulSet,
-    batch::v1::Job,
-    core::v1::{ConfigMap, Namespace, Pod, Service},
-};
+use k8s_openapi::api::{apps::v1::StatefulSet, batch::v1::Job, core::v1::ConfigMap};
 
 use kube::{
     api::{Patch, PatchParams},
@@ -38,7 +34,7 @@ use crate::{
 use crate::network::{
     ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
     peers::PEERS_MAP_KEY,
-    Network, PEERS_CONFIG_MAP_NAME,
+    PEERS_CONFIG_MAP_NAME,
 };
 
 use keramik_common::peer_info::Peer;
@@ -77,37 +73,12 @@ pub async fn run() {
     );
 
     // Add api for other resources, ie ceramic nodes
-    let networks: Api<Network> = Api::all(k_client.clone());
     let simulations: Api<Simulation> = Api::all(k_client.clone());
-    let namespaces: Api<Namespace> = Api::all(k_client.clone());
-    let services = Api::<Service>::all(k_client.clone());
-    let config_maps = Api::<ConfigMap>::all(k_client.clone());
     let jobs = Api::<Job>::all(k_client.clone());
-    let pods = Api::<Pod>::all(k_client.clone());
 
     Controller::new(simulations.clone(), Config::default())
         .owns(
-            networks,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            namespaces,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            services,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            config_maps,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
             jobs,
-            watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
-        )
-        .owns(
-            pods,
             watcher::Config::default().labels(MANAGED_BY_LABEL_SELECTOR),
         )
         .run(reconcile, on_error, context)

@@ -10,6 +10,7 @@ Request {
       "kind": "Service",
       "metadata": {
         "labels": {
+          "ceramic-role": "service",
           "managed-by": "keramik"
         },
         "name": "ceramic-3",

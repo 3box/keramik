@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/api/v1/namespaces/keramik-test/services?&labelSelector=ceramic-role%3Dservice",
+    headers: {},
+    body: ,
+}

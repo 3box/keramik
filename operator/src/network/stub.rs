@@ -5,8 +5,9 @@ use expect_test::{expect_file, ExpectFile};
 use k8s_openapi::api::{
     apps::v1::StatefulSet,
     batch::v1::Job,
-    core::v1::{Pod, Secret},
+    core::v1::{Pod, Secret, Service},
 };
+use kube::core::{ListMeta, ObjectList, TypeMeta};
 
 use crate::{
     labels::managed_labels,
@@ -59,6 +60,8 @@ pub struct Stub {
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
     pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
     pub ceramic_admin_secret: Option<(ExpectPatch<ExpectFile>, Option<Secret>)>,
+    pub ceramic_list_stateful_sets: (ExpectPatch<ExpectFile>, Option<ObjectList<StatefulSet>>),
+    pub ceramic_list_services: (ExpectPatch<ExpectFile>, Option<ObjectList<Service>>),
     pub ceramic_deletes: Vec<ExpectPatch<ExpectFile>>,
     pub ceramic_pod_status: Vec<(ExpectPatch<ExpectFile>, Option<Pod>)>,
     pub keramik_peers_configmap: ExpectPatch<ExpectFile>,
@@ -116,26 +119,23 @@ impl Default for Stub {
             ),
             ceramic_admin_secret_source: None,
             ceramic_admin_secret: None,
-            ceramic_deletes: vec![
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_1"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_1"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_2"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_2"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_3"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_3"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_4"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_4"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_5"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_5"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_6"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_6"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_7"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_7"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_8"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_8"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_ss_9"].into(),
-                expect_file!["./testdata/default_stubs/delete_ceramic_svc_9"].into(),
-            ],
+            ceramic_list_stateful_sets: (
+                expect_file!["./testdata/default_stubs/ceramic_stateful_set_list"].into(),
+                Some(ObjectList {
+                    items: vec![],
+                    types: TypeMeta::default(),
+                    metadata: ListMeta::default(),
+                }),
+            ),
+            ceramic_list_services: (
+                expect_file!["./testdata/default_stubs/ceramic_service_list"].into(),
+                Some(ObjectList {
+                    items: vec![],
+                    types: TypeMeta::default(),
+                    metadata: ListMeta::default(),
+                }),
+            ),
+            ceramic_deletes: vec![],
             ceramic_pod_status: vec![],
             ceramics: vec![CeramicStub {
                 configmaps: vec![
@@ -284,6 +284,20 @@ impl Stub {
                 .await
                 .expect("ceramic-admin secret should be created");
         }
+        fakeserver
+            .handle_request_response(
+                self.ceramic_list_stateful_sets.0,
+                self.ceramic_list_stateful_sets.1.as_ref(),
+            )
+            .await
+            .expect("ceramic should list stateful sets");
+        fakeserver
+            .handle_request_response(
+                self.ceramic_list_services.0,
+                self.ceramic_list_services.1.as_ref(),
+            )
+            .await
+            .expect("ceramic should list services");
         for ceramic_delete in self.ceramic_deletes {
             fakeserver
                 .handle_request_response(ceramic_delete, None::<&StatefulSet>)

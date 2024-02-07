@@ -15,7 +15,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_0"
             }
           },
           {
@@ -23,7 +23,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_1"
             }
           },
           {
@@ -31,7 +31,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-2.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-2.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-2.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_2"
             }
           },
           {
@@ -39,7 +39,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-3.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-3.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-3.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_3"
             }
           },
           {
@@ -47,7 +47,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-4.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-4.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-4.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_4"
             }
           },
           {
@@ -55,7 +55,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-5.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-5.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-5.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_5"
             }
           },
           {
@@ -63,7 +63,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-6.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-6.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-6.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_6"
             }
           },
           {
@@ -71,7 +71,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-7.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-7.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-7.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_7"
             }
           },
           {
@@ -79,7 +79,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-8.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-8.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-8.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_8"
             }
           },
           {
@@ -87,7 +87,7 @@ Request {
               "ceramicAddr": "http://ceramic-0-9.ceramic-0.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-0-9.ceramic-0.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-0-9.ceramic-0.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_9"
             }
           },
           {
@@ -95,7 +95,7 @@ Request {
               "ceramicAddr": "http://ceramic-1-0.ceramic-1.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-1-0.ceramic-1.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-1-0.ceramic-1.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_10"
             }
           },
           {
@@ -103,7 +103,7 @@ Request {
               "ceramicAddr": "http://ceramic-1-1.ceramic-1.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-1-1.ceramic-1.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-1-1.ceramic-1.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_11"
             }
           },
           {
@@ -111,7 +111,7 @@ Request {
               "ceramicAddr": "http://ceramic-2-0.ceramic-2.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-2-0.ceramic-2.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-2-0.ceramic-2.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_12"
             }
           },
           {
@@ -119,7 +119,7 @@ Request {
               "ceramicAddr": "http://ceramic-3-0.ceramic-3.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-3-0.ceramic-3.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-3-0.ceramic-3.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_13"
             }
           },
           {
@@ -127,7 +127,7 @@ Request {
               "ceramicAddr": "http://ceramic-4-0.ceramic-4.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-4-0.ceramic-4.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-4-0.ceramic-4.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_14"
             }
           },
           {
@@ -135,7 +135,7 @@ Request {
               "ceramicAddr": "http://ceramic-5-0.ceramic-5.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-5-0.ceramic-5.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-5-0.ceramic-5.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_15"
             }
           },
           {
@@ -143,7 +143,7 @@ Request {
               "ceramicAddr": "http://ceramic-6-0.ceramic-6.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-6-0.ceramic-6.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-6-0.ceramic-6.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_16"
             }
           },
           {
@@ -151,7 +151,7 @@ Request {
               "ceramicAddr": "http://ceramic-7-0.ceramic-7.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-7-0.ceramic-7.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-7-0.ceramic-7.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_17"
             }
           },
           {
@@ -159,7 +159,7 @@ Request {
               "ceramicAddr": "http://ceramic-8-0.ceramic-8.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-8-0.ceramic-8.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-8-0.ceramic-8.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_18"
             }
           },
           {
@@ -167,14 +167,14 @@ Request {
               "ceramicAddr": "http://ceramic-9-0.ceramic-9.keramik-test.svc.cluster.local:7007",
               "ipfsRpcAddr": "http://ceramic-9-0.ceramic-9.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://ceramic-9-0.ceramic-9.keramik-test.svc.cluster.local:5001"
+              "peerId": "peer_id_19"
             }
           },
           {
             "ipfs": {
               "ipfsRpcAddr": "http://cas-ipfs-0.cas-ipfs.keramik-test.svc.cluster.local:5001",
               "p2pAddrs": [],
-              "peerId": "peer_id_http://cas-ipfs-0.cas-ipfs.keramik-test.svc.cluster.local:5001"
+              "peerId": "cas_peer_id"
             }
           }
         ],

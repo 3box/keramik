@@ -8,13 +8,14 @@ use serde::Deserialize;
 #[async_trait]
 pub trait IpfsRpcClient {
     async fn peer_info(&self, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo>;
-    async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus>;
+    async fn connected_peers(&self, ipfs_rpc_addr: &str) -> Result<Vec<Peer>>;
 }
-/// Status of the current peer
-#[derive(Debug, Clone)]
-pub struct PeerStatus {
-    /// Number of connected peers
-    pub connected_peers: i32,
+
+/// Information about connected peers
+#[derive(Debug, Clone, serde::Deserialize)]
+pub struct Peer {
+    pub addr: String,
+    pub id: String,
 }
 
 #[derive(Deserialize)]
@@ -81,7 +82,7 @@ impl IpfsRpcClient for HttpRpcClient {
             ))
         }
     }
-    async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus> {
+    async fn connected_peers(&self, ipfs_rpc_addr: &str) -> Result<Vec<Peer>> {
         let client = reqwest::Client::new();
         let resp = client
             .post(format!("{}/api/v0/swarm/peers", ipfs_rpc_addr))
@@ -93,19 +94,12 @@ impl IpfsRpcClient for HttpRpcClient {
         }
 
         #[derive(serde::Deserialize)]
-        struct Peer {
-            //We currently do not care about any of the information of connected peers,
-            // just the number of them. As a result this struct does not have any fields.
-        }
-        #[derive(serde::Deserialize)]
         struct Response {
             #[serde(rename = "Peers")]
             peers: Option<Vec<Peer>>,
         }
         let data: Response = resp.json().await?;
-        Ok(PeerStatus {
-            connected_peers: data.peers.unwrap_or_default().len() as i32,
-        })
+        Ok(data.peers.unwrap_or_default())
     }
 }
 
@@ -120,7 +114,7 @@ pub(crate) mod tests {
         #[async_trait]
         impl IpfsRpcClient for IpfsRpcClientTest {
             async fn peer_info(&self, ipfs_rpc_addr: &str) -> Result<IpfsPeerInfo>;
-            async fn peer_status(&self, ipfs_rpc_addr: &str) -> Result<PeerStatus>;
+            async fn connected_peers(&self, ipfs_rpc_addr: &str) -> Result<Vec<Peer>>;
         }
     }
 }

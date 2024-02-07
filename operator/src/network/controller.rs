@@ -1,6 +1,6 @@
 use std::{
     cmp::min,
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     str::from_utf8,
     sync::{atomic::AtomicBool, Arc},
     time::Duration,
@@ -16,7 +16,7 @@ use k8s_openapi::{
     },
     apimachinery::pkg::apis::meta::v1::Time,
 };
-use keramik_common::peer_info::{CeramicPeerInfo, Peer};
+use keramik_common::peer_info::{CeramicPeerInfo, Peer, PeerId};
 use kube::{
     api::{DeleteParams, ListParams, Patch, PatchParams},
     client::Client,
@@ -45,7 +45,7 @@ use crate::{
         cas,
         ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo, NetworkConfig},
         datadog::DataDogConfig,
-        ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
+        ipfs_rpc::{self, HttpRpcClient, IpfsRpcClient},
         peers, CasSpec, MonitoringSpec, Network, NetworkStatus, NetworkType,
     },
     utils::{
@@ -748,7 +748,7 @@ async fn update_peer_status(
     ceramics: &[CeramicBundle<'_>],
     desired_replicas: i32,
     status: &mut NetworkStatus,
-) -> Result<Option<i32>, Error> {
+) -> Result<Option<usize>, Error> {
     status.replicas = desired_replicas;
     // Forget all previous status
     status.peers.clear();
@@ -795,20 +795,31 @@ async fn update_peer_status(
         }
     };
 
-    // Determine the status of each peer
+    let keramik_peers: BTreeSet<&PeerId> = status.peers.iter().map(|peer| peer.id()).collect();
+
+    // Query each Keramik peer's connected peers
     let mut min_connected_peers = None;
     for peer in &status.peers {
-        let peer_status = match cx.rpc_client.peer_status(peer.ipfs_rpc_addr()).await {
+        let connected_peers = match cx.rpc_client.connected_peers(peer.ipfs_rpc_addr()).await {
             Ok(res) => res,
             Err(err) => {
                 warn!(%err, peer = peer.id(), "failed to get peer status for peer");
                 continue;
             }
         };
-        debug!(peer = peer.id(), ?peer_status, "peer status");
+        // Filter out connected Keramik peers since we only care about Keramik peers for the purpose of bootstrapping
+        let connected_peers: Vec<ipfs_rpc::Peer> = connected_peers
+            .into_iter()
+            .filter(|peer| keramik_peers.contains(&peer.id))
+            .collect();
+        debug!(
+            peer = peer.id(),
+            connected_peers.len = connected_peers.len(),
+            "connected peers"
+        );
         min_connected_peers = Some(min(
-            min_connected_peers.unwrap_or(peer_status.connected_peers),
-            peer_status.connected_peers,
+            min_connected_peers.unwrap_or(connected_peers.len()),
+            connected_peers.len(),
         ));
     }
 
@@ -918,7 +929,7 @@ mod tests {
     use crate::{
         labels::managed_labels,
         network::{
-            ipfs_rpc::{tests::MockIpfsRpcClientTest, PeerStatus},
+            ipfs_rpc::{tests::MockIpfsRpcClientTest, Peer},
             stub::{CeramicStub, Stub},
             BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, MonitoringSpec,
             NetworkSpec, NetworkStatus, NetworkType, ResourceLimitsSpec, RustIpfsSpec,
@@ -961,34 +972,77 @@ mod tests {
         mock_cas_peer_info_not_ready(&mut mock_rpc_client);
         mock_rpc_client
     }
-    fn ipfs_rpc_mock_n(n: usize) -> MockIpfsRpcClientTest {
+    fn ipfs_rpc_mock_n(n: usize, cas_ipfs_connected: bool) -> MockIpfsRpcClientTest {
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
-        mock_rpc_client
-            .expect_peer_status()
-            .times(n)
-            .returning(|_| Ok(PeerStatus { connected_peers: 1 }));
-        mock_rpc_client
-            .expect_peer_info()
-            .times(n)
-            .returning(|addr| {
-                Ok(IpfsPeerInfo {
-                    peer_id: format!("peer_id_{addr}"),
-                    ipfs_rpc_addr: addr.to_string(),
-                    p2p_addrs: vec![],
-                })
+        // Prepare the list of all Keramik peers
+        let mut keramik_peers = Vec::new();
+        for idx in 0..n {
+            keramik_peers.push(Peer {
+                id: format!("peer_id_{idx}"),
+                addr: format!("/ip4/127.0.0.1/tcp/4001/p2p/peer_id_{idx}"),
             });
+        }
+        for idx in 0..n {
+            // Filter out the current peer from the list of Keramik peers to get its list of connected peers
+            let mut connected_peers: Vec<_> = keramik_peers
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != idx)
+                .map(|(_, item)| item.clone())
+                .collect();
+            if cas_ipfs_connected {
+                connected_peers.push(Peer {
+                    id: "cas_peer_id".to_string(),
+                    addr: "/ip4/127.0.0.1/tcp/4001/p2p/cas_peer_id".to_owned(),
+                });
+            }
+            mock_rpc_client
+                .expect_connected_peers()
+                .once()
+                .return_once(move |_| Ok(connected_peers));
+            mock_rpc_client
+                .expect_peer_info()
+                .once()
+                .return_once(move |addr| {
+                    Ok(IpfsPeerInfo {
+                        peer_id: format!("peer_id_{idx}"),
+                        ipfs_rpc_addr: addr.to_string(),
+                        p2p_addrs: vec![],
+                    })
+                });
+        }
+        // If CAS IPFS was connected, add its info to the end.
+        if cas_ipfs_connected {
+            mock_rpc_client
+                .expect_connected_peers()
+                .once()
+                .return_once(move |_| Ok(keramik_peers));
+            mock_rpc_client
+                .expect_peer_info()
+                .once()
+                .return_once(move |addr| {
+                    Ok(IpfsPeerInfo {
+                        peer_id: "cas_peer_id".to_string(),
+                        ipfs_rpc_addr: addr.to_string(),
+                        p2p_addrs: vec![],
+                    })
+                });
+        }
         mock_rpc_client
     }
     // Mock for any peer that is connected
-    fn mock_connected_peer_status(mock: &mut MockIpfsRpcClientTest) {
-        mock.expect_peer_status()
-            .once()
-            .return_once(|_| Ok(PeerStatus { connected_peers: 1 }));
+    fn mock_connected_peer_status(mock: &mut MockIpfsRpcClientTest, peer_id: String) {
+        mock.expect_connected_peers().once().return_once(|_| {
+            Ok(vec![Peer {
+                id: peer_id,
+                addr: "/ip4/127.0.0.1/tcp/4001".to_string(),
+            }])
+        });
     }
     fn mock_not_connected_peer_status(mock: &mut MockIpfsRpcClientTest) {
-        mock.expect_peer_status()
+        mock.expect_connected_peers()
             .once()
-            .return_once(|_| Ok(PeerStatus { connected_peers: 0 }));
+            .return_once(|_| Ok(vec![]));
     }
 
     // Mock for cas peer info call that is NOT ready
@@ -1079,9 +1133,9 @@ mod tests {
 
         mock_cas_peer_info_ready(&mut mock_rpc_client);
         // Report that at least one peer is not connected so we need to bootstrap
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_0".to_string());
         mock_not_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_1".to_string());
 
         let mut stub = Stub::default().with_network(network.clone());
         // Patch expected request values
@@ -1209,7 +1263,7 @@ mod tests {
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
         // We expect only cas will be checked since both pods report they are not ready
         mock_cas_peer_info_ready(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "cas_peer_id".to_string());
 
         let mut stub = Stub::default().with_network(network.clone());
         // Patch expected request values
@@ -1316,9 +1370,9 @@ mod tests {
         });
         mock_cas_peer_info_ready(&mut mock_rpc_client);
         // Report that at least one peer is not connected so we need to bootstrap
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_0".to_string());
         mock_not_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_1".to_string());
 
         let mut stub = Stub::default().with_network(network.clone());
         // Patch expected request values
@@ -1598,9 +1652,9 @@ mod tests {
         });
         mock_cas_peer_info_ready(&mut mock_rpc_client);
         // Report that peers are connected so we do not need to bootstrap;
-        mock_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_0".to_string());
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_1".to_string());
+        mock_connected_peer_status(&mut mock_rpc_client, "cas_peer_id".to_string());
 
         let mut stub = Stub::default().with_network(network.clone());
         // Patch expected request values
@@ -1735,9 +1789,9 @@ mod tests {
         });
         mock_cas_peer_info_ready(&mut mock_rpc_client);
         // Report all peers are connected
-        mock_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_0".to_owned());
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_1".to_owned());
+        mock_connected_peer_status(&mut mock_rpc_client, "cas_peer_id".to_owned());
 
         let mut stub = Stub::default().with_network(network.clone());
         // Patch expected request values
@@ -1865,9 +1919,9 @@ mod tests {
         });
         mock_cas_peer_info_ready(&mut mock_rpc_client);
         // Report all peers are connected
-        mock_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_0".to_owned());
+        mock_connected_peer_status(&mut mock_rpc_client, "peer_id_1".to_owned());
+        mock_connected_peer_status(&mut mock_rpc_client, "cas_peer_id".to_owned());
 
         let mut stub = Stub::default().with_network(network.clone());
         // Patch expected request values
@@ -1975,7 +2029,7 @@ mod tests {
     async fn reconcile_cas_ipfs_peer() {
         let mut mock_rpc_client = MockIpfsRpcClientTest::new();
         mock_cas_peer_info_ready(&mut mock_rpc_client);
-        mock_connected_peer_status(&mut mock_rpc_client);
+        mock_connected_peer_status(&mut mock_rpc_client, "cas_peer_id".to_owned());
 
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -3427,8 +3481,7 @@ mod tests {
 
             ..Default::default()
         });
-        // + 1 for cas
-        let mock_rpc_client = ipfs_rpc_mock_n(replicas as usize + 1);
+        let mock_rpc_client = ipfs_rpc_mock_n(replicas as usize, true);
         let mut stub = Stub::default().with_network(network.clone());
         // Expect new ceramics
         stub.ceramics = Vec::new();

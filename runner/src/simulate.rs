@@ -476,7 +476,10 @@ impl ScenarioState {
                     (CommandResult::Success, Some(min_peer_rps))
                 } else {
                     warn!(?errors, "FAILURE! Not all peers met the threshold");
-                    (CommandResult::Failure(anyhow!(errors.join("\n"))), None)
+                    (
+                        CommandResult::Failure(anyhow!(errors.join("\n"))),
+                        Some(min_peer_rps),
+                    )
                 }
             }
         }

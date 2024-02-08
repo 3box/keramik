@@ -18,6 +18,7 @@ spec:
   replicas: 2
   monitoring:
     namespaced: true
+    podMonitor: true
 ```
 
 To view the metrics and traces port-forward the services:
@@ -40,3 +41,10 @@ This is typically a collection of metrics per simulation run and is much lighter
 Scrape the `otel:9465` endpoint if you want on the simulation metrics.
 
 >NOTE: The prometheus-0 pod will scrape all metrics so you can easily inspect all activity on the network.
+
+## Pod Monitoring
+
+If pod monitoring is enabled, the operator will create custom resources for monitoring the network pods. The Grafana
+Cloud Agent will then consume this configuration and send the metrics to Grafana Cloud.
+
+This option expects the `PodMonitor` custom resource definition to already be installed in the network namespace.

@@ -606,6 +606,7 @@ pub fn cas_ipfs_service_spec() -> ServiceSpec {
             ..Default::default()
         }]),
         selector: selector_labels(CAS_IPFS_APP),
+        cluster_ip: Some("None".to_owned()),
         type_: Some("ClusterIP".to_owned()),
         ..Default::default()
     }

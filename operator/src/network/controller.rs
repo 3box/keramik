@@ -33,7 +33,7 @@ use kube::{
 };
 use opentelemetry::{global, KeyValue};
 use rand::RngCore;
-use tracing::{debug, error, info, trace, warn};
+use tracing::{debug, error, info, warn};
 
 use crate::{
     labels::{managed_labels, MANAGED_BY_LABEL_SELECTOR},
@@ -791,7 +791,7 @@ async fn update_peer_status(
             status.peers.push(Peer::Ipfs(info));
         }
         Err(err) => {
-            trace!(%err, "failed to get peer info for cas-ipfs");
+            warn!(%err, "failed to get peer info for cas-ipfs");
         }
     };
 

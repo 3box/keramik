@@ -14,15 +14,16 @@ use k8s_openapi::{
         batch::v1::Job,
         core::v1::{Namespace, Pod, Secret, Service, ServiceStatus},
     },
+    apiextensions_apiserver::pkg::apis::apiextensions::v1::CustomResourceDefinition,
     apimachinery::pkg::apis::meta::v1::Time,
 };
 use keramik_common::peer_info::{CeramicPeerInfo, Peer, PeerId};
 use kube::{
-    api::{DeleteParams, ListParams, Patch, PatchParams},
+    api::{DeleteParams, ListParams, Patch, PatchParams, PostParams},
     client::Client,
     core::{object::HasSpec, ObjectMeta},
     runtime::Controller,
-    Api, ResourceExt,
+    Api, CustomResourceExt, ResourceExt,
 };
 use kube::{
     runtime::{
@@ -48,6 +49,7 @@ use crate::{
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
         node_affinity::NodeAffinityConfig,
         peers, CasSpec, MonitoringSpec, Network, NetworkStatus, NetworkType,
+        PodMetricsEndpointSpec, PodMonitor, PodMonitorSpec, SelectorSpec,
     },
     utils::{
         apply_config_map, apply_job, apply_service, apply_service_with_labels, apply_stateful_set,
@@ -160,6 +162,7 @@ const MAX_CERAMICS: usize = 10;
 #[derive(Default)]
 struct MonitoringConfig {
     namespaced: bool,
+    pod_monitoring: bool,
 }
 
 impl From<&Option<MonitoringSpec>> for MonitoringConfig {
@@ -168,6 +171,7 @@ impl From<&Option<MonitoringSpec>> for MonitoringConfig {
         if let Some(value) = value {
             Self {
                 namespaced: value.namespaced.unwrap_or(default.namespaced),
+                pod_monitoring: value.pod_monitoring.unwrap_or(default.pod_monitoring),
             }
         } else {
             default
@@ -261,6 +265,12 @@ async fn reconcile_(
     let node_affinity_config: NodeAffinityConfig = spec.into();
 
     if monitoring_config.namespaced {
+        if monitoring_config.pod_monitoring {
+            apply_pod_monitor(cx.clone(), network.clone(), "ceramic", 9464, "ceramic").await?;
+            apply_pod_monitor(cx.clone(), network.clone(), "ceramic-one", 9465, "ceramic").await?;
+            apply_pod_monitor(cx.clone(), network.clone(), "otel", 9464, "otel").await?;
+        }
+
         let orefs = network
             .controller_owner_ref(&())
             .map(|oref| vec![oref])
@@ -960,6 +970,54 @@ async fn reset_bootstrap_job(
             .await?;
         }
     } // no job exists, nothing to do
+    Ok(())
+}
+
+async fn apply_pod_monitor(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    network: Arc<Network>,
+    monitor_name: &str,
+    monitor_port: u32,
+    monitor_label: &str,
+) -> Result<(), Error> {
+    // Create the pod monitor CR only if the CRD already exists
+    let crds: Api<CustomResourceDefinition> = Api::all(cx.k_client.clone());
+    let crd = crds.get(PodMonitor::crd_name()).await;
+    if crd.is_ok() {
+        // Instantiate the pod monitor CR if it doesn't already exist
+        let ns = "keramik-".to_owned() + &network.name_any();
+        let pod_monitors: Api<PodMonitor> = Api::namespaced(cx.k_client.clone(), ns.as_str());
+        let pod_monitor = pod_monitors.get_opt(monitor_name).await?;
+        if pod_monitor.is_none() {
+            let mut pod_monitor = PodMonitor::new(
+                monitor_name,
+                PodMonitorSpec {
+                    pod_metrics_endpoints: vec![PodMetricsEndpointSpec {
+                        interval: Some("10s".to_owned()),
+                        path: Some("/metrics".to_owned()),
+                        target_port: Some(monitor_port),
+                    }],
+                    selector: Some(SelectorSpec {
+                        match_labels: {
+                            let mut map = BTreeMap::new();
+                            map.insert("app".to_owned(), monitor_label.to_owned());
+                            map
+                        },
+                    }),
+                },
+            );
+            pod_monitor.metadata.owner_references =
+                network.controller_owner_ref(&()).map(|oref| vec![oref]);
+            pod_monitors
+                .create(&PostParams::default(), &pod_monitor)
+                .await?;
+        }
+    } else {
+        warn!(
+            "{} pod monitor instance requested but CRD not installed",
+            monitor_name
+        );
+    }
     Ok(())
 }
 
@@ -3671,6 +3729,7 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
+                pod_monitoring: None,
             }),
             ..Default::default()
         });
@@ -3696,6 +3755,160 @@ mod tests {
             .expect("reconciler");
         timeout_after_1s(mocksrv).await;
     }
+
+    #[tokio::test]
+    async fn monitoring_with_no_pod_monitor_crd() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            monitoring: Some(MonitoringSpec {
+                namespaced: Some(true),
+                pod_monitoring: Some(true),
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.monitoring = vec![
+            expect_file!["./testdata/jaeger_service"],
+            expect_file!["./testdata/jaeger_stateful_set"],
+            expect_file!["./testdata/prom_config"],
+            expect_file!["./testdata/prom_stateful_set"],
+            expect_file!["./testdata/opentelemetry_sa"],
+            expect_file!["./testdata/opentelemetry_cr"],
+            expect_file!["./testdata/opentelemetry_crb"],
+            expect_file!["./testdata/opentelemetry_config"],
+            expect_file!["./testdata/opentelemetry_service"],
+            expect_file!["./testdata/opentelemetry_stateful_set"],
+        ];
+        stub.pod_monitor = vec![
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], false),
+                None,
+                None,
+            ),
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], false),
+                None,
+                None,
+            ),
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], false),
+                None,
+                None,
+            ),
+        ];
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    async fn monitoring_with_absent_pod_monitors() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            monitoring: Some(MonitoringSpec {
+                namespaced: Some(true),
+                pod_monitoring: Some(true),
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.monitoring = vec![
+            expect_file!["./testdata/jaeger_service"],
+            expect_file!["./testdata/jaeger_stateful_set"],
+            expect_file!["./testdata/prom_config"],
+            expect_file!["./testdata/prom_stateful_set"],
+            expect_file!["./testdata/opentelemetry_sa"],
+            expect_file!["./testdata/opentelemetry_cr"],
+            expect_file!["./testdata/opentelemetry_crb"],
+            expect_file!["./testdata/opentelemetry_config"],
+            expect_file!["./testdata/opentelemetry_service"],
+            expect_file!["./testdata/opentelemetry_stateful_set"],
+        ];
+        stub.pod_monitor = vec![
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], true),
+                Some((expect_file!["./testdata/pod_monitor_get_ceramic"], false)),
+                Some(expect_file!["./testdata/pod_monitor_post_ceramic"]),
+            ),
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], true),
+                Some((
+                    expect_file!["./testdata/pod_monitor_get_ceramic_one"],
+                    false,
+                )),
+                Some(expect_file!["./testdata/pod_monitor_post_ceramic_one"]),
+            ),
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], true),
+                Some((expect_file!["./testdata/pod_monitor_get_otel"], false)),
+                Some(expect_file!["./testdata/pod_monitor_post_otel"]),
+            ),
+        ];
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    async fn monitoring_with_existing_pod_monitors() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            monitoring: Some(MonitoringSpec {
+                namespaced: Some(true),
+                pod_monitoring: Some(true),
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.monitoring = vec![
+            expect_file!["./testdata/jaeger_service"],
+            expect_file!["./testdata/jaeger_stateful_set"],
+            expect_file!["./testdata/prom_config"],
+            expect_file!["./testdata/prom_stateful_set"],
+            expect_file!["./testdata/opentelemetry_sa"],
+            expect_file!["./testdata/opentelemetry_cr"],
+            expect_file!["./testdata/opentelemetry_crb"],
+            expect_file!["./testdata/opentelemetry_config"],
+            expect_file!["./testdata/opentelemetry_service"],
+            expect_file!["./testdata/opentelemetry_stateful_set"],
+        ];
+        stub.pod_monitor = vec![
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], true),
+                Some((expect_file!["./testdata/pod_monitor_get_ceramic"], true)),
+                None,
+            ),
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], true),
+                Some((expect_file!["./testdata/pod_monitor_get_ceramic_one"], true)),
+                None,
+            ),
+            (
+                (expect_file!["./testdata/pod_monitor_get_crd"], true),
+                Some((expect_file!["./testdata/pod_monitor_get_otel"], true)),
+                None,
+            ),
+        ];
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
     #[tokio::test]
     async fn storage_class_rust() {
         // Setup network spec and status

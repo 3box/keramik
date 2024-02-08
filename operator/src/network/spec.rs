@@ -265,4 +265,44 @@ pub struct ResourceLimitsSpec {
 pub struct MonitoringSpec {
     /// Deploy monitoring resources into the network namespace directly
     pub namespaced: Option<bool>,
+    /// Deploy pod monitors
+    pub pod_monitoring: Option<bool>,
+}
+
+/// CRD for pod monitors.
+#[derive(CustomResource, Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[kube(
+    group = "monitoring.coreos.com",
+    version = "v1",
+    kind = "PodMonitor",
+    plural = "podmonitors",
+    namespaced,
+    derive = "PartialEq"
+)]
+#[serde(rename_all = "camelCase")]
+pub struct PodMonitorSpec {
+    /// The pod monitor endpoint specs
+    pub pod_metrics_endpoints: Vec<PodMetricsEndpointSpec>,
+    /// The selector for the pod to monitor
+    pub selector: Option<SelectorSpec>,
+}
+
+/// Describes the pod monitor endpoint
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PodMetricsEndpointSpec {
+    /// Monitoring interval
+    pub interval: Option<String>,
+    /// Monitoring path
+    pub path: Option<String>,
+    /// Monitoring port
+    pub target_port: Option<u32>,
+}
+
+/// Describes the selector for the pod monitor
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SelectorSpec {
+    /// The selector match labels
+    pub match_labels: BTreeMap<String, String>,
 }

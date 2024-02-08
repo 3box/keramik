@@ -982,13 +982,12 @@ mod tests {
                 addr: format!("/ip4/127.0.0.1/tcp/4001/p2p/peer_id_{idx}"),
             });
         }
-        for idx in 0..n {
+        for i in 0..n {
             // Filter out the current peer from the list of Keramik peers to get its list of connected peers
             let mut connected_peers: Vec<_> = keramik_peers
                 .iter()
                 .enumerate()
-                .filter(|(j, _)| *j != idx)
-                .map(|(_, item)| item.clone())
+                .filter_map(|(j, item)| if j != i { Some(item.clone()) } else { None })
                 .collect();
             if cas_ipfs_connected {
                 connected_peers.push(Peer {
@@ -1005,7 +1004,7 @@ mod tests {
                 .once()
                 .return_once(move |addr| {
                     Ok(IpfsPeerInfo {
-                        peer_id: format!("peer_id_{idx}"),
+                        peer_id: format!("peer_id_{i}"),
                         ipfs_rpc_addr: addr.to_string(),
                         p2p_addrs: vec![],
                     })

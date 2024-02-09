@@ -375,7 +375,7 @@ async fn reconcile_(
         delete_service(cx.clone(), &ns, &service.name_any()).await?;
     }
 
-    // Reconile replica counts
+    // Reconcile replica counts
     let computed_replicas = ceramics
         .iter()
         .fold(0, |acc, bundle| acc + bundle.info.replicas);
@@ -784,16 +784,20 @@ async fn update_peer_status(
     // Update ready_replicas count
     status.ready_replicas = status.peers.len() as i32;
 
-    // CAS IPFS peer
-    let ipfs_rpc_addr = format!("http://{CAS_IPFS_SERVICE_NAME}-0.{CAS_IPFS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
-    match cx.rpc_client.peer_info(&ipfs_rpc_addr).await {
-        Ok(info) => {
-            status.peers.push(Peer::Ipfs(info));
-        }
-        Err(err) => {
-            warn!(%err, "failed to get peer info for cas-ipfs");
-        }
-    };
+    // Only check for CAS IPFS if the network is local
+    let network_config: NetworkConfig = network.spec().into();
+    if network_config.network_type == NetworkType::Local {
+        // CAS IPFS peer
+        let ipfs_rpc_addr = format!("http://{CAS_IPFS_SERVICE_NAME}-0.{CAS_IPFS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
+        match cx.rpc_client.peer_info(&ipfs_rpc_addr).await {
+            Ok(info) => {
+                status.peers.push(Peer::Ipfs(info));
+            }
+            Err(err) => {
+                warn!(%err, "failed to get peer info for cas-ipfs");
+            }
+        };
+    }
 
     let keramik_peers: BTreeSet<&PeerId> = status.peers.iter().map(|peer| peer.id()).collect();
 
@@ -979,7 +983,6 @@ mod tests {
         for idx in 0..n {
             keramik_peers.push(Peer {
                 id: format!("peer_id_{idx}"),
-                addr: format!("/ip4/127.0.0.1/tcp/4001/p2p/peer_id_{idx}"),
             });
         }
         for i in 0..n {
@@ -992,7 +995,6 @@ mod tests {
             if cas_ipfs_connected {
                 connected_peers.push(Peer {
                     id: "cas_peer_id".to_string(),
-                    addr: "/ip4/127.0.0.1/tcp/4001/p2p/cas_peer_id".to_owned(),
                 });
             }
             mock_rpc_client
@@ -1031,12 +1033,9 @@ mod tests {
     }
     // Mock for any peer that is connected
     fn mock_connected_peer_status(mock: &mut MockIpfsRpcClientTest, peer_id: String) {
-        mock.expect_connected_peers().once().return_once(|_| {
-            Ok(vec![Peer {
-                id: peer_id,
-                addr: "/ip4/127.0.0.1/tcp/4001".to_string(),
-            }])
-        });
+        mock.expect_connected_peers()
+            .once()
+            .return_once(|_| Ok(vec![Peer { id: peer_id }]));
     }
     fn mock_not_connected_peer_status(mock: &mut MockIpfsRpcClientTest) {
         mock.expect_connected_peers()
@@ -3063,7 +3062,7 @@ mod tests {
                 namespace: Some("keramik-test".to_owned()),
                 ..Default::default()
             });
-        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
         let mut stub = Stub::default().with_network(network.clone());
         // Tell the stub to skip all CAS-related configuration
         stub.postgres_auth_secret.2 = false;

@@ -807,7 +807,7 @@ async fn update_peer_status(
                 continue;
             }
         };
-        // Filter out connected Keramik peers since we only care about Keramik peers for the purpose of bootstrapping
+        // Filter out non-Keramik peers since we only care about connected Keramik peers for the purpose of bootstrapping
         let connected_peers: Vec<ipfs_rpc::Peer> = connected_peers
             .into_iter()
             .filter(|peer| keramik_peers.contains(&peer.id))

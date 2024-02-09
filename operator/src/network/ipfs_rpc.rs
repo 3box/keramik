@@ -14,7 +14,7 @@ pub trait IpfsRpcClient {
 /// Information about connected peers
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct Peer {
-    pub addr: String,
+    #[serde(rename = "Peer")]
     pub id: String,
 }
 

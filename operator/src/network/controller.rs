@@ -45,7 +45,7 @@ use crate::{
         cas,
         ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo, NetworkConfig},
         datadog::DataDogConfig,
-        ipfs_rpc::{self, HttpRpcClient, IpfsRpcClient},
+        ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
         peers, CasSpec, MonitoringSpec, Network, NetworkStatus, NetworkType,
     },
     utils::{
@@ -807,19 +807,15 @@ async fn update_peer_status(
                 continue;
             }
         };
-        // Filter out non-Keramik peers since we only care about connected Keramik peers for the purpose of bootstrapping
-        let connected_peers: Vec<ipfs_rpc::Peer> = connected_peers
+        // Count and filter out non-Keramik peers since we only care about connected Keramik peers for the purpose of bootstrapping
+        let connected_peers_count = connected_peers
             .into_iter()
             .filter(|peer| keramik_peers.contains(&peer.id))
-            .collect();
-        debug!(
-            peer = peer.id(),
-            connected_peers.len = connected_peers.len(),
-            "connected peers"
-        );
+            .count();
+        debug!(peer = peer.id(), connected_peers_count, "connected peers");
         min_connected_peers = Some(min(
-            min_connected_peers.unwrap_or(connected_peers.len()),
-            connected_peers.len(),
+            min_connected_peers.unwrap_or(connected_peers_count),
+            connected_peers_count,
         ));
     }
 

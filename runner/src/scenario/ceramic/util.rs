@@ -1,3 +1,11 @@
+use ceramic_core::{
+    ssi::{
+        did::{DIDMethod, DocumentBuilder, Source},
+        jwk::{self, Params},
+    },
+    DidDocument,
+};
+
 use crate::scenario::ceramic::CeramicClient;
 use ceramic_http_client::{api, ceramic_event::StreamId, ModelDefinition};
 use goose::goose::{GooseMethod, GooseRequest, GooseUser};
@@ -112,4 +120,29 @@ pub async fn index_model(
             Some(&format!("Failed to index model: {}", resp.text().await?)),
         )
     }
+}
+
+/// Returns (Private Key, DID Document)
+pub fn generate_did_and_pk() -> anyhow::Result<(String, DidDocument)> {
+    let key = jwk::JWK::generate_ed25519()?;
+    let private_key = if let Params::OKP(params) = &key.params {
+        let pk = params
+            .private_key
+            .as_ref()
+            .ok_or_else(|| anyhow::anyhow!("No private key"))?;
+        hex::encode(pk.0.as_slice())
+    } else {
+        anyhow::bail!("Invalid private key");
+    };
+
+    let did = did_method_key::DIDKey
+        .generate(&Source::Key(&key))
+        .ok_or_else(|| anyhow::anyhow!("Failed to generate DID"))?;
+
+    let doc: DidDocument = DocumentBuilder::default()
+        .id(did)
+        .build()
+        .map_err(|e| anyhow::anyhow!("failed to build DID document: {}", e))?;
+    tracing::debug!("Generated DID: {:?}", doc);
+    Ok((private_key, doc))
 }

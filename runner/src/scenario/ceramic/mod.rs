@@ -28,4 +28,10 @@ impl Credentials {
         let signer = JwkSigner::new(did.clone(), &private_key).await?;
         Ok(Self { signer, did })
     }
+
+    pub async fn new_generate_did_key() -> Result<Self, anyhow::Error> {
+        let (pk, did) = util::generate_did_and_pk()?;
+        let signer = JwkSigner::new(did.clone(), &pk).await?;
+        Ok(Self { signer, did })
+    }
 }

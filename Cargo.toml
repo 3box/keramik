@@ -11,6 +11,7 @@ ceramic-core = { git = "https://github.com/ceramicnetwork/rust-ceramic.git", bra
 iroh-car = { git = "https://github.com/ceramicnetwork/rust-ceramic.git", branch = "main" }
 env_logger = "0.10.0"
 expect-patch = { path = "./expect-patch/" }
+hex = "0.4.3"
 keramik-common = { path = "./common/", default-features = false }
 multiaddr = "0.17"
 multibase = "0.9.1"

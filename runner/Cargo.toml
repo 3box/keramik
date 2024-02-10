@@ -14,7 +14,9 @@ iroh-car.workspace = true
 ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs.git", branch = "main", default-features = false }
 #ceramic-http-client = { path = "../../ceramic-http-client-rs", default-features = false }
 clap.workspace = true
+did-method-key = "0.2"
 goose = { version = "0.16", features = ["gaggle"] }
+hex.workspace = true
 keramik-common = { workspace = true, features = ["telemetry", "tokio-console"] }
 libipld = "0.16.0"
 multihash.workspace = true
@@ -22,7 +24,7 @@ opentelemetry.workspace = true
 rand = "0.8.5"
 redis = { version = "0.24", features = ["tokio-comp"] }
 reqwest.workspace = true
-schemars = "0.8.12"
+schemars.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tokio.workspace = true

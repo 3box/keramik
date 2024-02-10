@@ -149,9 +149,9 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         let event_id = format!("F{}", random_event_id(&user_data.model_id.to_string()));
         let event_key_body = if user_data.with_data {
             let payload = random_car_1kb_body().await;
-            serde_json::json!({"eventId": event_id, "eventData": payload})
+            serde_json::json!({"id": event_id, "data": payload})
         } else {
-            serde_json::json!({"eventId": event_id})
+            serde_json::json!({"id": event_id})
         };
         let cnt = NEW_EVENT_CNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 

@@ -3651,4 +3651,156 @@ mod tests {
             .expect("reconciler");
         timeout_after_1s(mocksrv).await;
     }
+    #[tokio::test]
+    async fn storage_class_rust() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            ceramic: Some(vec![CeramicSpec {
+                ipfs: Some(IpfsSpec::Rust(RustIpfsSpec {
+                    storage_class: Some("fastDisk".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramics[0].stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -361,7 +361,8 @@
+                             "requests": {
+                               "storage": "10Gi"
+                             }
+            -              }
+            +              },
+            +              "storageClassName": "fastDisk"
+                         }
+                       }
+                     ]
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn storage_class_go() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            ceramic: Some(vec![CeramicSpec {
+                ipfs: Some(IpfsSpec::Go(GoIpfsSpec {
+                    storage_class: Some("fastDisk".to_string()),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramics[0]
+            .configmaps
+            .push(expect_file!["./testdata/go_ipfs_configmap"].into());
+        stub.ceramics[0].stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -138,46 +138,8 @@
+                             ]
+                           },
+                           {
+            -                "env": [
+            -                  {
+            -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
+            -                    "value": "0.0.0.0:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
+            -                    "value": "0.0.0.0:9465"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_STORE_DIR",
+            -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                  },
+            -                  {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                  }
+            -                ],
+            -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
+            -                "imagePullPolicy": "Always",
+            +                "image": "ipfs/kubo:v0.19.1@sha256:c4527752a2130f55090be89ade8dde8f8a5328ec72570676b90f66e2cabf827d",
+            +                "imagePullPolicy": "IfNotPresent",
+                             "name": "ipfs",
+                             "ports": [
+                               {
+            @@ -212,6 +174,11 @@
+                               {
+                                 "mountPath": "/data/ipfs",
+                                 "name": "ipfs-data"
+            +                  },
+            +                  {
+            +                    "mountPath": "/container-init.d/001-config.sh",
+            +                    "name": "ipfs-container-init-0",
+            +                    "subPath": "001-config.sh"
+                               }
+                             ]
+                           }
+            @@ -320,6 +287,13 @@
+                             "persistentVolumeClaim": {
+                               "claimName": "ipfs-data"
+                             }
+            +              },
+            +              {
+            +                "configMap": {
+            +                  "defaultMode": 493,
+            +                  "name": "ipfs-container-init-0"
+            +                },
+            +                "name": "ipfs-container-init-0"
+                           }
+                         ]
+                       }
+            @@ -361,7 +335,8 @@
+                             "requests": {
+                               "storage": "10Gi"
+                             }
+            -              }
+            +              },
+            +              "storageClassName": "fastDisk"
+                         }
+                       }
+                     ]
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
 }

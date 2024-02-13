@@ -113,7 +113,7 @@ are running on you may run out of resources. You can check your resource usage w
 kubectl describe nodes
 ```
 
-You can also set resources for IPFS within ceramic similarly
+You can also set resources for IPFS within ceramic similarly.
 
 ```yaml
 # network configuration
@@ -131,7 +131,10 @@ spec:
            cpu: "4"
            memory: "8Gi"
            storage: "2Gi"
+         storageClass: "fastDisk"
 ```
+
+Additionally the storage class can be set. The storage class must be created out of band but can be referenced as above.
 
 Setting resources for CAS is slightly different, using `casResourceLimits` to set CAS resources
 

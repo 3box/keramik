@@ -264,11 +264,8 @@ impl ScenarioState {
                 ceramic::new_streams::scenario(self.scenario.into()).await?
             }
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
-            Scenario::CeramicModelReuse => {
-                ceramic::model_reuse::scenario(self.scenario.into()).await?
-            }
-            Scenario::ReconEventSync => ceramic::recon_sync::event_sync_scenario().await?,
-            Scenario::ReconEventKeySync => ceramic::recon_sync::event_key_sync_scenario().await?,
+            Scenario::CeramicModelReuse => ceramic::simple::scenario(self.scenario.into()).await?,
+            Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
         };
         self.collect_before_metrics().await?;

@@ -110,7 +110,7 @@ async fn setup(
 
     tracing::debug!(%model_id, "syncing model");
 
-    let path = format!("/ceramic/subscribe/model/{}?limit=1", model_id);
+    let path = format!("/ceramic/interests/model/{}", model_id);
     let user_data = ReconCeramicModelInstanceTestUser {
         model_id,
         with_data,
@@ -118,11 +118,11 @@ async fn setup(
     user.set_session_data(user_data);
 
     let request_builder = user
-        .get_request_builder(&GooseMethod::Get, &path)?
+        .get_request_builder(&GooseMethod::Post, &path)?
         .timeout(Duration::from_secs(5));
     let req = GooseRequest::builder()
         .set_request_builder(request_builder)
-        .expect_status_code(200)
+        .expect_status_code(204)
         .build();
 
     let _goose = user.request(req).await?;

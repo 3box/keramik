@@ -1,9 +1,7 @@
 pub mod model_instance;
-pub mod model_reuse;
 mod models;
 pub mod new_streams;
 pub mod query;
-pub mod recon_sync;
 pub mod simple;
 pub mod util;
 pub mod write_only;

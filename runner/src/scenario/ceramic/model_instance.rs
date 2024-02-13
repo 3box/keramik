@@ -7,6 +7,7 @@ use ceramic_http_client::{
 };
 use goose::{metrics::GooseRequestMetric, prelude::*};
 use redis::AsyncCommands;
+use tracing::warn;
 
 use crate::{
     goose_try,
@@ -15,7 +16,7 @@ use crate::{
             models::{self, RandomModelInstance},
             CeramicClient, Credentials,
         },
-        get_redis_client,
+        get_redis_client, is_goose_leader,
     },
 };
 
@@ -23,6 +24,8 @@ use super::CeramicScenarioParameters;
 
 const SMALL_MODEL_ID_KEY: &str = "small_model_reuse_model_id";
 const LARGE_MODEL_ID_KEY: &str = "large_model_reuse_model_id";
+const SMALL_MID_ID_KEY: &str = "small_model_reuse_mid_id";
+const LARGE_MID_ID_KEY: &str = "large_model_reuse_mid_id";
 
 pub(crate) async fn set_key_to_stream_id(
     conn: &mut redis::aio::Connection,
@@ -81,10 +84,6 @@ impl CeramicModelInstanceTestUser {
         &self.config.user_cli
     }
 
-    pub fn redis_cli(&self) -> &redis::Client {
-        &self.config.redis_cli
-    }
-
     /// Call this before starting the scenario to verify everything is configured appropriately
     pub async fn prep_scenario(
         params: CeramicScenarioParameters,
@@ -118,14 +117,13 @@ impl CeramicModelInstanceTestUser {
             }
             super::ReuseType::Shared => {
                 let mut conn = config.redis_cli.get_async_connection().await.unwrap();
-                if user.weighted_users_index == 0 {
+                if is_goose_leader() {
                     let (small, large) =
                         Self::generate_list_models(user, &config.admin_cli).await?;
                     ModelInstanceRequests::index_model(user, &config.admin_cli, &small, "small")
                         .await?;
                     ModelInstanceRequests::index_model(user, &config.admin_cli, &large, "large")
                         .await?;
-
                     let _ = set_key_to_stream_id(&mut conn, SMALL_MODEL_ID_KEY, &small).await;
                     let _ = set_key_to_stream_id(&mut conn, LARGE_MODEL_ID_KEY, &large).await;
 
@@ -138,14 +136,47 @@ impl CeramicModelInstanceTestUser {
             }
         };
 
-        let (small_model_instance_ids, large_model_instance_ids) = Self::generate_mids(
-            user,
-            &config.user_cli,
-            &small_model_id,
-            &large_model_id,
-            config.params.number_of_documents,
-        )
-        .await?;
+        let (small_model_instance_ids, large_model_instance_ids) = match config
+            .params
+            .model_instance_reuse
+        {
+            super::ReuseType::PerUser => {
+                Self::generate_mids(
+                    user,
+                    &config.user_cli,
+                    &small_model_id,
+                    &large_model_id,
+                    config.params.number_of_documents,
+                )
+                .await?
+            }
+            super::ReuseType::Shared => {
+                if config.params.number_of_documents != 1 {
+                    warn!("Shared model instance reuse only supports 1 document per model currently. Only using the first document for each model.");
+                }
+                let mut conn = config.redis_cli.get_async_connection().await.unwrap();
+                if is_goose_leader() {
+                    let (small, large) = Self::generate_mids(
+                        user,
+                        &config.user_cli,
+                        &small_model_id,
+                        &large_model_id,
+                        config.params.number_of_documents,
+                    )
+                    .await?;
+                    let small_mid = small.first().unwrap();
+                    let large_mid = large.first().unwrap();
+                    let _ = set_key_to_stream_id(&mut conn, SMALL_MID_ID_KEY, small_mid).await;
+                    let _ = set_key_to_stream_id(&mut conn, LARGE_MID_ID_KEY, large_mid).await;
+
+                    (small, large)
+                } else {
+                    let small = loop_until_key_value_set(&mut conn, SMALL_MID_ID_KEY).await;
+                    let large = loop_until_key_value_set(&mut conn, LARGE_MID_ID_KEY).await;
+                    (vec![small], vec![large])
+                }
+            }
+        };
 
         let resp = Self {
             config,
@@ -397,7 +428,7 @@ impl ModelInstanceRequests {
             .build();
         let mut goose = user.request(req).await?;
         let resp: api::StreamsResponseOrError = goose.response?.json().await?;
-        let resp = goose_try!(user, &name, &mut goose.request, { resp.resolve(&tx_name) })?;
+        let resp = goose_try!(user, &name, &mut goose.request, { resp.resolve(tx_name) })?;
         Ok(resp.stream_id)
     }
 

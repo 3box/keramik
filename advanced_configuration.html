@@ -230,7 +230,7 @@ spec:
 are running on you may run out of resources. You can check your resource usage with</p>
 <pre><code class="language-shell">kubectl describe nodes
 </code></pre>
-<p>You can also set resources for IPFS within ceramic similarly</p>
+<p>You can also set resources for IPFS within ceramic similarly.</p>
 <pre><code class="language-yaml"># network configuration
 ---
 apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
@@ -246,7 +246,9 @@ spec:
            cpu: &quot;4&quot;
            memory: &quot;8Gi&quot;
            storage: &quot;2Gi&quot;
+         storageClass: &quot;fastDisk&quot;
 </code></pre>
+<p>Additionally the storage class can be set. The storage class must be created out of band but can be referenced as above.</p>
 <p>Setting resources for CAS is slightly different, using <code>casResourceLimits</code> to set CAS resources</p>
 <pre><code class="language-yaml"># network configuration
 ---

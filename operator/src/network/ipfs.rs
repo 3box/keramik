@@ -77,12 +77,19 @@ impl IpfsConfig {
             IpfsConfig::Go(config) => config.volumes(&info),
         }
     }
+    pub fn storage_class_name(&self) -> Option<String> {
+        match self {
+            IpfsConfig::Rust(r) => r.storage_class.clone(),
+            IpfsConfig::Go(g) => g.storage_class.clone(),
+        }
+    }
 }
 
 pub struct RustIpfsConfig {
     image: String,
     image_pull_policy: String,
     resource_limits: ResourceLimitsConfig,
+    storage_class: Option<String>,
     rust_log: String,
     env: Option<BTreeMap<String, String>>,
 }
@@ -110,6 +117,7 @@ impl Default for RustIpfsConfig {
                 memory: Some(Quantity("512Mi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            storage_class: None,
             rust_log: "info,ceramic_one=debug,multipart=error".to_owned(),
             env: None,
         }
@@ -126,6 +134,7 @@ impl From<RustIpfsSpec> for RustIpfsConfig {
                 default.resource_limits,
             ),
             rust_log: value.rust_log.unwrap_or(default.rust_log),
+            storage_class: value.storage_class,
             env: value.env,
         }
     }
@@ -237,6 +246,7 @@ pub struct GoIpfsConfig {
     image: String,
     image_pull_policy: String,
     resource_limits: ResourceLimitsConfig,
+    storage_class: Option<String>,
     commands: Vec<String>,
 }
 
@@ -263,6 +273,7 @@ impl Default for GoIpfsConfig {
                 memory: Some(Quantity("512Mi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            storage_class: None,
             commands: vec![],
         }
     }
@@ -277,6 +288,7 @@ impl From<GoIpfsSpec> for GoIpfsConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            storage_class: value.storage_class,
             commands: value.commands.unwrap_or(default.commands),
         }
     }

@@ -590,6 +590,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                         )])),
                         ..Default::default()
                     }),
+                    storage_class_name: bundle.config.ipfs.storage_class_name(),
                     ..Default::default()
                 }),
                 ..Default::default()

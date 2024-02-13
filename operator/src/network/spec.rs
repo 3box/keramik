@@ -175,6 +175,8 @@ pub struct RustIpfsSpec {
     pub image_pull_policy: Option<String>,
     /// Resource limits for ipfs nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Name of the storage class for the PVC of the IPFS container
+    pub storage_class: Option<String>,
     /// Value of the RUST_LOG env var.
     pub rust_log: Option<String>,
     /// Extra env values to pass to the image.
@@ -192,6 +194,8 @@ pub struct GoIpfsSpec {
     pub image_pull_policy: Option<String>,
     /// Resource limits for ipfs nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Name of the storage class for the PVC of the IPFS container
+    pub storage_class: Option<String>,
     /// List of ipfs commands to run during initialization.
     pub commands: Option<Vec<String>>,
 }

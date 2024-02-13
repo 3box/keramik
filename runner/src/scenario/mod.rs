@@ -3,6 +3,7 @@ use goose::GooseError;
 
 pub mod ceramic;
 pub mod ipfs_block_fetch;
+pub mod recon_sync;
 
 pub(crate) async fn get_redis_client() -> Result<redis::Client, GooseError> {
     let redis_host =

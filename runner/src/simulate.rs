@@ -17,7 +17,7 @@ use reqwest::Url;
 use tracing::{error, info, warn};
 
 use crate::{
-    scenario::{ceramic, ipfs_block_fetch},
+    scenario::{ceramic, ipfs_block_fetch, recon_sync},
     utils::parse_peers_info,
     CommandResult,
 };
@@ -269,6 +269,7 @@ impl ScenarioState {
             }
             Scenario::ReconEventSync => ceramic::recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => ceramic::recon_sync::event_key_sync_scenario().await?,
+            Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -365,7 +366,7 @@ impl ScenarioState {
                 // which is not how most scenarios work. It also uses the IPFS metrics endpoint. We could parameterize or use a
                 // trait, but we don't yet have a use case, and might need to use transactions, or multiple requests, or something
                 // entirely different. Anyway, to avoid generalizing the exception we keep it simple.
-                let req_name = ceramic::recon_sync::CREATE_EVENT_REQ_NAME;
+                let req_name = recon_sync::CREATE_EVENT_REQ_NAME;
 
                 let metric = match metrics
                     .requests

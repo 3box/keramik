@@ -5,7 +5,7 @@ use k8s_openapi::api::{
     },
 };
 
-use crate::network::{BootstrapSpec, PEERS_CONFIG_MAP_NAME};
+use crate::network::{node_affinity::NodeAffinityConfig, BootstrapSpec, PEERS_CONFIG_MAP_NAME};
 
 // BootstrapConfig defines which properties of the JobSpec can be customized.
 pub struct BootstrapConfig {
@@ -51,11 +51,14 @@ impl From<BootstrapSpec> for BootstrapConfig {
     }
 }
 
-pub fn bootstrap_job_spec(config: BootstrapConfig) -> JobSpec {
+pub fn bootstrap_job_spec(
+    config: BootstrapConfig,
+    node_affinity_config: &NodeAffinityConfig,
+) -> JobSpec {
     debug_assert!(config.enabled);
     JobSpec {
         backoff_limit: Some(4),
-        template: PodTemplateSpec {
+        template: node_affinity_config.apply_to_pod_template(PodTemplateSpec {
             spec: Some(PodSpec {
                 containers: vec![Container {
                     name: "bootstrap".to_owned(),
@@ -112,7 +115,7 @@ pub fn bootstrap_job_spec(config: BootstrapConfig) -> JobSpec {
                 ..Default::default()
             }),
             ..Default::default()
-        },
+        }),
         ..Default::default()
     }
 }

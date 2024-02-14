@@ -52,6 +52,10 @@ pub struct NetworkSpec {
     pub dev_mode: Option<bool>,
     /// Enable monitoring resources to be deployed into the network.
     pub monitoring: Option<MonitoringSpec>,
+    /// A list of node selector terms. These node select terms will be applied to all pods in the network.
+    /// As such you must ensure that the selected nodes have the capacity to handle the entire
+    /// network workload.
+    pub node_selector_terms: Option<Vec<k8s_openapi::api::core::v1::NodeSelectorTerm>>,
 }
 
 /// Local network ID.

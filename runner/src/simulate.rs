@@ -94,6 +94,8 @@ pub enum Scenario {
     IpfsRpc,
     /// Simple Ceramic Scenario
     CeramicSimple,
+    /// Simple scenario using unique DIDs for every user writing model instance documents.
+    CeramicUserSimple,
     /// WriteOnly Ceramic Scenario
     CeramicWriteOnly,
     /// New Streams Ceramic Scenario
@@ -116,6 +118,7 @@ impl Scenario {
         match self {
             Scenario::IpfsRpc => "ipfs_rpc",
             Scenario::CeramicSimple => "ceramic_simple",
+            Scenario::CeramicUserSimple => "ceramic_user_simple",
             Scenario::CeramicWriteOnly => "ceramic_write_only",
             Scenario::CeramicNewStreams => "ceramic_new_streams",
             Scenario::CeramicQuery => "ceramic_query",
@@ -131,6 +134,7 @@ impl Scenario {
                 Ok(peer.ipfs_rpc_addr().to_owned())
             }
             Self::CeramicSimple
+            | Self::CeramicUserSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
             | Self::CeramicQuery
@@ -251,11 +255,18 @@ impl ScenarioState {
     async fn build_goose_scenario(&mut self) -> Result<goose::prelude::Scenario> {
         let scenario = match self.scenario {
             Scenario::IpfsRpc => ipfs_block_fetch::scenario(self.topo)?,
-            Scenario::CeramicSimple => ceramic::simple::scenario().await?,
-            Scenario::CeramicWriteOnly => ceramic::write_only::scenario().await?,
-            Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
-            Scenario::CeramicQuery => ceramic::query::scenario().await?,
-            Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
+            Scenario::CeramicSimple => ceramic::simple::scenario(self.scenario.into()).await?,
+            Scenario::CeramicUserSimple => ceramic::simple::scenario(self.scenario.into()).await?,
+            Scenario::CeramicWriteOnly => {
+                ceramic::write_only::scenario(self.scenario.into()).await?
+            }
+            Scenario::CeramicNewStreams => {
+                ceramic::new_streams::scenario(self.scenario.into()).await?
+            }
+            Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
+            Scenario::CeramicModelReuse => {
+                ceramic::model_reuse::scenario(self.scenario.into()).await?
+            }
             Scenario::ReconEventSync => ceramic::recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => ceramic::recon_sync::event_key_sync_scenario().await?,
         };
@@ -307,6 +318,7 @@ impl ScenarioState {
             match self.scenario {
                 Scenario::IpfsRpc
                 | Scenario::CeramicSimple
+                | Scenario::CeramicUserSimple
                 | Scenario::CeramicWriteOnly
                 | Scenario::CeramicNewStreams
                 | Scenario::CeramicQuery
@@ -342,6 +354,7 @@ impl ScenarioState {
         match self.scenario {
             Scenario::IpfsRpc
             | Scenario::CeramicSimple
+            | Scenario::CeramicUserSimple
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
@@ -385,6 +398,7 @@ impl ScenarioState {
         match self.scenario {
             Scenario::IpfsRpc
             | Scenario::CeramicSimple
+            | Scenario::CeramicUserSimple
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery

@@ -43,6 +43,17 @@ pub struct LargeModel {
 
 impl GetRootSchema for LargeModel {}
 
+impl LargeModel {
+    pub fn new(name: String, description: String, tpe: i64) -> Self {
+        Self {
+            creator: "keramik".to_string(),
+            name,
+            description,
+            tpe,
+        }
+    }
+}
+
 impl RandomModelInstance for LargeModel {
     fn random() -> Self {
         let mut rng = thread_rng();

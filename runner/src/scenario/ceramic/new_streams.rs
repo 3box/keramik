@@ -1,25 +1,22 @@
-use crate::goose_try;
-use ceramic_http_client::CeramicHttpClient;
-use goose::prelude::*;
 use std::sync::Arc;
 
-use crate::scenario::ceramic::util::goose_error;
-use crate::scenario::ceramic::{
-    models,
-    simple::{setup, LoadTestUserData},
-    Credentials, RandomModelInstance, StreamsResponseOrError,
+use goose::prelude::*;
+
+use crate::scenario::ceramic::{models, simple::setup, RandomModelInstance};
+
+use super::{
+    model_instance::{CeramicModelInstanceTestUser, ModelInstanceRequests},
+    CeramicScenarioParameters,
 };
 
-pub async fn scenario() -> Result<Scenario, GooseError> {
-    let creds = Credentials::from_env().await.map_err(goose_error)?;
-    let cli = CeramicHttpClient::new(creds.signer);
+pub async fn scenario(params: CeramicScenarioParameters) -> Result<Scenario, GooseError> {
+    let config = CeramicModelInstanceTestUser::prep_scenario(params)
+        .await
+        .unwrap();
 
-    let setup_cli = cli;
-    let test_start = Transaction::new(Arc::new(move |user| {
-        Box::pin(setup(user, setup_cli.clone()))
-    }))
-    .set_name("setup")
-    .set_on_start();
+    let test_start = Transaction::new(Arc::new(move |user| Box::pin(setup(user, config.clone()))))
+        .set_name("setup")
+        .set_on_start();
 
     let instantiate_small_model =
         transaction!(instantiate_small_model).set_name("instantiate_small_model");
@@ -33,55 +30,27 @@ pub async fn scenario() -> Result<Scenario, GooseError> {
 }
 
 async fn instantiate_small_model(user: &mut GooseUser) -> TransactionResult {
-    let user_data: &LoadTestUserData = user.get_session_data_unchecked();
-    let model = user_data.small_model_id.clone();
-    let cli = &user_data.cli;
-    let req = cli
-        .create_list_instance_request(&model, &models::SmallModel::random())
-        .await
-        .unwrap();
-    let req = GooseRequest::builder()
-        .method(GooseMethod::Post)
-        .set_request_builder(
-            user.client
-                .post(user.build_url(cli.streams_endpoint())?)
-                .json(&req),
-        )
-        .expect_status_code(200)
-        .build();
-    let mut goose = user.request(req).await?;
-    let resp: StreamsResponseOrError = goose.response?.json().await?;
-    goose_try!(
+    let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
+    ModelInstanceRequests::create_model_instance(
         user,
-        "create_instance",
-        &mut goose.request,
-        resp.resolve("instantiate_small_model")
-    )?;
+        user_data.user_cli(),
+        &user_data.small_model_id,
+        "instantiate_small_model_instance",
+        &models::SmallModel::random(),
+    )
+    .await?;
     Ok(())
 }
 
 async fn instantiate_large_model(user: &mut GooseUser) -> TransactionResult {
-    let user_data: &LoadTestUserData = user.get_session_data_unchecked();
-    let model = user_data.large_model_id.clone();
-    let cli = &user_data.cli;
-    let url = user.build_url(cli.streams_endpoint())?;
-    let req = cli
-        .create_list_instance_request(&model, &models::LargeModel::random())
-        .await
-        .unwrap();
-    let req = user.client.post(url).json(&req);
-    let req = GooseRequest::builder()
-        .method(GooseMethod::Post)
-        .set_request_builder(req)
-        .expect_status_code(200)
-        .build();
-    let mut goose = user.request(req).await?;
-    let resp: StreamsResponseOrError = goose.response?.json().await?;
-    goose_try!(
+    let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
+    ModelInstanceRequests::create_model_instance(
         user,
-        "create_instance",
-        &mut goose.request,
-        resp.resolve("instantiate_large_model")
-    )?;
+        user_data.user_cli(),
+        &user_data.large_model_id,
+        "instantiate_large_model_instance",
+        &models::LargeModel::random(),
+    )
+    .await?;
     Ok(())
 }

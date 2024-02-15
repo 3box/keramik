@@ -11,3 +11,4 @@ __pycache__
 
 # allow a sample network in the repo
 !local-scripts/small.yaml
+!local-scripts/kind.yaml

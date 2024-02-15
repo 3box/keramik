@@ -2126,7 +2126,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -138,46 +138,8 @@
+            @@ -218,46 +218,8 @@
                              ]
                            },
                            {
@@ -2175,7 +2175,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -212,6 +174,11 @@
+            @@ -292,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2187,9 +2187,9 @@ mod tests {
                                }
                              ]
                            }
-            @@ -320,6 +287,13 @@
+            @@ -431,6 +398,13 @@
                              "persistentVolumeClaim": {
-                               "claimName": "ipfs-data"
+                               "claimName": "postgres-data"
                              }
             +              },
             +              {
@@ -2255,7 +2255,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -138,46 +138,8 @@
+            @@ -218,46 +218,8 @@
                              ]
                            },
                            {
@@ -2304,7 +2304,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -198,14 +160,14 @@
+            @@ -278,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2325,7 +2325,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -212,6 +174,11 @@
+            @@ -292,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2337,9 +2337,9 @@ mod tests {
                                }
                              ]
                            }
-            @@ -320,6 +287,13 @@
+            @@ -431,6 +398,13 @@
                              "persistentVolumeClaim": {
-                               "claimName": "ipfs-data"
+                               "claimName": "postgres-data"
                              }
             +              },
             +              {
@@ -2403,7 +2403,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -138,46 +138,8 @@
+            @@ -218,46 +218,8 @@
                              ]
                            },
                            {
@@ -2452,7 +2452,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -212,6 +174,16 @@
+            @@ -292,6 +254,16 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2469,9 +2469,9 @@ mod tests {
                                }
                              ]
                            }
-            @@ -320,6 +292,13 @@
+            @@ -431,6 +403,13 @@
                              "persistentVolumeClaim": {
-                               "claimName": "ipfs-data"
+                               "claimName": "postgres-data"
                              }
             +              },
             +              {
@@ -2540,7 +2540,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -156,6 +156,10 @@
+            @@ -236,6 +236,10 @@
                                  "value": "0"
                                },
                                {
@@ -2551,7 +2551,7 @@ mod tests {
                                  "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
                                  "value": "0.0.0.0:9465"
                                },
-            @@ -172,11 +176,19 @@
+            @@ -252,11 +256,19 @@
                                  "value": "/ip4/0.0.0.0/tcp/4001"
                                },
                                {
@@ -2572,7 +2572,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -198,14 +210,14 @@
+            @@ -278,14 +290,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2902,7 +2902,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -116,14 +116,14 @@
+            @@ -138,14 +138,14 @@
                              },
                              "resources": {
                                "limits": {
@@ -2923,7 +2923,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -275,14 +275,14 @@
+            @@ -377,14 +377,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -3115,10 +3115,10 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -76,10 +76,6 @@
-                               {
-                                 "name": "CERAMIC_LOG_LEVEL",
-                                 "value": "2"
+            @@ -98,10 +98,6 @@
+                                     "name": "postgres-auth"
+                                   }
+                                 }
             -                  },
             -                  {
             -                    "name": "CERAMIC_NETWORK_TOPIC",
@@ -3126,7 +3126,7 @@ mod tests {
                                }
                              ],
                              "image": "ceramicnetwork/composedb:latest",
-            @@ -161,7 +157,7 @@
+            @@ -241,7 +237,7 @@
                                },
                                {
                                  "name": "CERAMIC_ONE_NETWORK",
@@ -3135,7 +3135,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_ONE_STORE_DIR",
-            @@ -235,15 +231,15 @@
+            @@ -315,15 +311,15 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -3154,10 +3154,10 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -264,10 +260,6 @@
-                               {
-                                 "name": "CERAMIC_LOG_LEVEL",
-                                 "value": "2"
+            @@ -366,10 +362,6 @@
+                                     "name": "postgres-auth"
+                                   }
+                                 }
             -                  },
             -                  {
             -                    "name": "CERAMIC_NETWORK_TOPIC",
@@ -3190,7 +3190,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -82,8 +82,8 @@
+            @@ -104,8 +104,8 @@
                                  "value": "/ceramic/local-0"
                                }
                              ],
@@ -3201,7 +3201,7 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
-            @@ -270,8 +270,8 @@
+            @@ -372,8 +372,8 @@
                                  "value": "/ceramic/local-0"
                                }
                              ],
@@ -3255,7 +3255,7 @@ mod tests {
                          }
                        },
                        "spec": {
-            @@ -80,6 +85,22 @@
+            @@ -102,6 +107,22 @@
                                {
                                  "name": "CERAMIC_NETWORK_TOPIC",
                                  "value": "/ceramic/local-0"
@@ -3607,7 +3607,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -80,6 +80,10 @@
+            @@ -102,6 +102,10 @@
                                {
                                  "name": "CERAMIC_NETWORK_TOPIC",
                                  "value": "/ceramic/local-0"
@@ -3618,7 +3618,7 @@ mod tests {
                                }
                              ],
                              "image": "ceramicnetwork/composedb:latest",
-            @@ -268,6 +272,10 @@
+            @@ -370,6 +374,10 @@
                                {
                                  "name": "CERAMIC_NETWORK_TOPIC",
                                  "value": "/ceramic/local-0"
@@ -3687,7 +3687,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -361,7 +361,8 @@
+            @@ -472,7 +472,8 @@
                              "requests": {
                                "storage": "10Gi"
                              }
@@ -3695,8 +3695,8 @@ mod tests {
             +              },
             +              "storageClassName": "fastDisk"
                          }
-                       }
-                     ]
+                       },
+                       {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -3727,7 +3727,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -138,46 +138,8 @@
+            @@ -218,46 +218,8 @@
                              ]
                            },
                            {
@@ -3776,7 +3776,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -212,6 +174,11 @@
+            @@ -292,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -3788,9 +3788,9 @@ mod tests {
                                }
                              ]
                            }
-            @@ -320,6 +287,13 @@
+            @@ -431,6 +398,13 @@
                              "persistentVolumeClaim": {
-                               "claimName": "ipfs-data"
+                               "claimName": "postgres-data"
                              }
             +              },
             +              {
@@ -3802,7 +3802,7 @@ mod tests {
                            }
                          ]
                        }
-            @@ -361,7 +335,8 @@
+            @@ -472,7 +446,8 @@
                              "requests": {
                                "storage": "10Gi"
                              }
@@ -3810,8 +3810,8 @@ mod tests {
             +              },
             +              "storageClassName": "fastDisk"
                          }
-                       }
-                     ]
+                       },
+                       {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

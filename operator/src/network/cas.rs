@@ -30,7 +30,7 @@ use crate::network::{
 };
 use crate::{
     labels::{managed_labels, selector_labels},
-    network::ipfs::IpfsInfo,
+    network::{ipfs::IpfsInfo, node_affinity::NodeAffinityConfig},
 };
 
 const CAS_IPFS_INFO_SUFFIX: &str = "cas";
@@ -139,6 +139,7 @@ pub fn cas_stateful_set_spec(
     ns: &str,
     config: impl Into<CasConfig>,
     datadog: &DataDogConfig,
+    node_affinity_config: &NodeAffinityConfig,
 ) -> StatefulSetSpec {
     let config = config.into();
     let pg_env = vec![
@@ -298,7 +299,7 @@ pub fn cas_stateful_set_spec(
             ..Default::default()
         },
         service_name: CAS_SERVICE_NAME.to_owned(),
-        template: PodTemplateSpec {
+        template: node_affinity_config.apply_to_pod_template(PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 labels: selector_labels(CAS_APP).map(|mut lbls| {
                     lbls.append(&mut managed_labels().unwrap());
@@ -498,7 +499,7 @@ pub fn cas_stateful_set_spec(
                 }]),
                 ..Default::default()
             }),
-        },
+        }),
         volume_claim_templates: Some(vec![PersistentVolumeClaim {
             metadata: ObjectMeta {
                 name: Some("cas-data".to_owned()),
@@ -560,21 +561,23 @@ pub fn cas_ipfs_stateful_set_spec(
             ..Default::default()
         },
         service_name: CAS_IPFS_SERVICE_NAME.to_owned(),
-        template: PodTemplateSpec {
-            metadata: Some(ObjectMeta {
-                labels: selector_labels(CAS_IPFS_APP),
-                annotations: Some(BTreeMap::from_iter(vec![(
-                    "prometheus/path".to_owned(),
-                    "/metrics".to_owned(),
-                )])),
-                ..Default::default()
+        template: net_config
+            .node_affinity_config
+            .apply_to_pod_template(PodTemplateSpec {
+                metadata: Some(ObjectMeta {
+                    labels: selector_labels(CAS_IPFS_APP),
+                    annotations: Some(BTreeMap::from_iter(vec![(
+                        "prometheus/path".to_owned(),
+                        "/metrics".to_owned(),
+                    )])),
+                    ..Default::default()
+                }),
+                spec: Some(PodSpec {
+                    containers: vec![config.ipfs.container(ipfs_info, net_config)],
+                    volumes: Some(volumes),
+                    ..Default::default()
+                }),
             }),
-            spec: Some(PodSpec {
-                containers: vec![config.ipfs.container(ipfs_info, net_config)],
-                volumes: Some(volumes),
-                ..Default::default()
-            }),
-        },
         volume_claim_templates: Some(vec![PersistentVolumeClaim {
             metadata: ObjectMeta {
                 name: Some(IPFS_DATA_PV_CLAIM.to_owned()),
@@ -611,7 +614,10 @@ pub fn cas_ipfs_service_spec() -> ServiceSpec {
         ..Default::default()
     }
 }
-pub fn ganache_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+pub fn ganache_stateful_set_spec(
+    config: impl Into<CasConfig>,
+    node_affinity_config: &NodeAffinityConfig,
+) -> StatefulSetSpec {
     let config = config.into();
     StatefulSetSpec {
         replicas: Some(1),
@@ -620,7 +626,7 @@ pub fn ganache_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpe
             ..Default::default()
         },
         service_name: GANACHE_SERVICE_NAME.to_owned(),
-        template: PodTemplateSpec {
+        template: node_affinity_config.apply_to_pod_template(PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 labels: selector_labels(GANACHE_APP),
                 ..Default::default()
@@ -665,7 +671,7 @@ pub fn ganache_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpe
                 }]),
                 ..Default::default()
             }),
-        },
+        }),
         volume_claim_templates: Some(vec![PersistentVolumeClaim {
             metadata: ObjectMeta {
                 name: Some("ganache-data".to_owned()),
@@ -701,7 +707,10 @@ pub fn ganache_service_spec() -> ServiceSpec {
         ..Default::default()
     }
 }
-pub fn postgres_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+pub fn postgres_stateful_set_spec(
+    config: impl Into<CasConfig>,
+    node_affinity_config: &NodeAffinityConfig,
+) -> StatefulSetSpec {
     let config = config.into();
     StatefulSetSpec {
         replicas: Some(1),
@@ -710,7 +719,7 @@ pub fn postgres_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
             ..Default::default()
         },
         service_name: CAS_POSTGRES_SERVICE_NAME.to_owned(),
-        template: PodTemplateSpec {
+        template: node_affinity_config.apply_to_pod_template(PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 labels: selector_labels(CAS_POSTGRES_APP),
                 ..Default::default()
@@ -785,7 +794,7 @@ pub fn postgres_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSp
                 }]),
                 ..Default::default()
             }),
-        },
+        }),
         volume_claim_templates: Some(vec![PersistentVolumeClaim {
             metadata: ObjectMeta {
                 name: Some("postgres-data".to_owned()),
@@ -821,7 +830,10 @@ pub fn postgres_service_spec() -> ServiceSpec {
     }
 }
 
-pub fn localstack_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSetSpec {
+pub fn localstack_stateful_set_spec(
+    config: impl Into<CasConfig>,
+    node_affinity_config: &NodeAffinityConfig,
+) -> StatefulSetSpec {
     let config = config.into();
     StatefulSetSpec {
         replicas: Some(1),
@@ -830,7 +842,7 @@ pub fn localstack_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSet
             ..Default::default()
         },
         service_name: LOCALSTACK_SERVICE_NAME.to_owned(),
-        template: PodTemplateSpec {
+        template: node_affinity_config.apply_to_pod_template(PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 labels: selector_labels(LOCALSTACK_APP),
                 ..Default::default()
@@ -866,7 +878,7 @@ pub fn localstack_stateful_set_spec(config: impl Into<CasConfig>) -> StatefulSet
                 }]),
                 ..Default::default()
             }),
-        },
+        }),
         volume_claim_templates: Some(vec![PersistentVolumeClaim {
             metadata: ObjectMeta {
                 name: Some("localstack-data".to_owned()),

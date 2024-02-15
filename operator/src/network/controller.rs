@@ -46,6 +46,7 @@ use crate::{
         ceramic::{self, CeramicBundle, CeramicConfigs, CeramicInfo, NetworkConfig},
         datadog::DataDogConfig,
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
+        node_affinity::NodeAffinityConfig,
         peers, CasSpec, MonitoringSpec, Network, NetworkStatus, NetworkType,
     },
     utils::{
@@ -256,6 +257,7 @@ async fn reconcile_(
 
     let net_config: NetworkConfig = spec.into();
     let monitoring_config: MonitoringConfig = (&spec.monitoring).into();
+    let node_affinity_config: NodeAffinityConfig = spec.into();
 
     if monitoring_config.namespaced {
         let orefs = network
@@ -420,7 +422,14 @@ async fn reconcile_(
         // Always apply the bootstrap job if we have at least 2 peers,
         // This way if the job is deleted externally for any reason it will rerun.
         if status.peers.len() >= 2 {
-            apply_bootstrap_job(cx.clone(), &ns, network.clone(), bootstrap_config).await?;
+            apply_bootstrap_job(
+                cx.clone(),
+                &ns,
+                network.clone(),
+                bootstrap_config,
+                &node_affinity_config,
+            )
+            .await?;
         }
     }
 
@@ -541,7 +550,12 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas",
-        cas::cas_stateful_set_spec(ns, cas_spec.clone(), datadog),
+        cas::cas_stateful_set_spec(
+            ns,
+            cas_spec.clone(),
+            datadog,
+            &net_config.node_affinity_config,
+        ),
     )
     .await?;
     apply_stateful_set(
@@ -557,7 +571,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "ganache",
-        cas::ganache_stateful_set_spec(cas_spec.clone()),
+        cas::ganache_stateful_set_spec(cas_spec.clone(), &net_config.node_affinity_config),
     )
     .await?;
     apply_stateful_set(
@@ -565,7 +579,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "cas-postgres",
-        cas::postgres_stateful_set_spec(cas_spec.clone()),
+        cas::postgres_stateful_set_spec(cas_spec.clone(), &net_config.node_affinity_config),
     )
     .await?;
     apply_stateful_set(
@@ -573,7 +587,7 @@ async fn apply_cas(
         ns,
         orefs.clone(),
         "localstack",
-        cas::localstack_stateful_set_spec(cas_spec.clone()),
+        cas::localstack_stateful_set_spec(cas_spec.clone(), &net_config.node_affinity_config),
     )
     .await?;
 
@@ -727,9 +741,10 @@ async fn apply_bootstrap_job(
     ns: &str,
     network: Arc<Network>,
     config: BootstrapConfig,
+    node_affinity_config: &NodeAffinityConfig,
 ) -> Result<(), Error> {
     debug!("applying bootstrap job");
-    let spec = bootstrap::bootstrap_job_spec(config);
+    let spec = bootstrap::bootstrap_job_spec(config, node_affinity_config);
     let orefs: Vec<_> = network
         .controller_owner_ref(&())
         .map(|oref| vec![oref])
@@ -945,7 +960,10 @@ mod tests {
         api::{
             apps::v1::StatefulSet,
             batch::v1::{Job, JobStatus},
-            core::v1::{Pod, PodCondition, PodStatus, Secret, Service},
+            core::v1::{
+                NodeSelectorRequirement, NodeSelectorTerm, Pod, PodCondition, PodStatus, Secret,
+                Service,
+            },
         },
         apimachinery::pkg::{api::resource::Quantity, apis::meta::v1::Time},
         chrono::{DateTime, TimeZone, Utc},
@@ -3794,6 +3812,211 @@ mod tests {
                          }
                        }
                      ]
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn node_affinity() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            node_selector_terms: Some(vec![NodeSelectorTerm {
+                match_expressions: Some(vec![NodeSelectorRequirement {
+                    key: "cpu".to_string(),
+                    operator: "In".to_string(),
+                    values: Some(vec!["intel".to_string()]),
+                }]),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.cas_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -32,6 +32,25 @@
+                         }
+                       },
+                       "spec": {
+            +            "affinity": {
+            +              "nodeAffinity": {
+            +                "requiredDuringSchedulingIgnoredDuringExecution": {
+            +                  "nodeSelectorTerms": [
+            +                    {
+            +                      "matchExpressions": [
+            +                        {
+            +                          "key": "cpu",
+            +                          "operator": "In",
+            +                          "values": [
+            +                            "intel"
+            +                          ]
+            +                        }
+            +                      ]
+            +                    }
+            +                  ]
+            +                }
+            +              }
+            +            },
+                         "containers": [
+                           {
+                             "env": [
+        "#]]);
+        stub.cas_ipfs_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -33,6 +33,25 @@
+                         }
+                       },
+                       "spec": {
+            +            "affinity": {
+            +              "nodeAffinity": {
+            +                "requiredDuringSchedulingIgnoredDuringExecution": {
+            +                  "nodeSelectorTerms": [
+            +                    {
+            +                      "matchExpressions": [
+            +                        {
+            +                          "key": "cpu",
+            +                          "operator": "In",
+            +                          "values": [
+            +                            "intel"
+            +                          ]
+            +                        }
+            +                      ]
+            +                    }
+            +                  ]
+            +                }
+            +              }
+            +            },
+                         "containers": [
+                           {
+                             "env": [
+        "#]]);
+        stub.ganache_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -30,6 +30,25 @@
+                         }
+                       },
+                       "spec": {
+            +            "affinity": {
+            +              "nodeAffinity": {
+            +                "requiredDuringSchedulingIgnoredDuringExecution": {
+            +                  "nodeSelectorTerms": [
+            +                    {
+            +                      "matchExpressions": [
+            +                        {
+            +                          "key": "cpu",
+            +                          "operator": "In",
+            +                          "values": [
+            +                            "intel"
+            +                          ]
+            +                        }
+            +                      ]
+            +                    }
+            +                  ]
+            +                }
+            +              }
+            +            },
+                         "containers": [
+                           {
+                             "command": [
+        "#]]);
+        stub.cas_postgres_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -30,6 +30,25 @@
+                         }
+                       },
+                       "spec": {
+            +            "affinity": {
+            +              "nodeAffinity": {
+            +                "requiredDuringSchedulingIgnoredDuringExecution": {
+            +                  "nodeSelectorTerms": [
+            +                    {
+            +                      "matchExpressions": [
+            +                        {
+            +                          "key": "cpu",
+            +                          "operator": "In",
+            +                          "values": [
+            +                            "intel"
+            +                          ]
+            +                        }
+            +                      ]
+            +                    }
+            +                  ]
+            +                }
+            +              }
+            +            },
+                         "containers": [
+                           {
+                             "env": [
+        "#]]);
+        stub.localstack_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -30,6 +30,25 @@
+                         }
+                       },
+                       "spec": {
+            +            "affinity": {
+            +              "nodeAffinity": {
+            +                "requiredDuringSchedulingIgnoredDuringExecution": {
+            +                  "nodeSelectorTerms": [
+            +                    {
+            +                      "matchExpressions": [
+            +                        {
+            +                          "key": "cpu",
+            +                          "operator": "In",
+            +                          "values": [
+            +                            "intel"
+            +                          ]
+            +                        }
+            +                      ]
+            +                    }
+            +                  ]
+            +                }
+            +              }
+            +            },
+                         "containers": [
+                           {
+                             "image": "gresau/localstack-persist:2",
+        "#]]);
+
+        stub.ceramics[0].stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -36,6 +36,25 @@
+                         }
+                       },
+                       "spec": {
+            +            "affinity": {
+            +              "nodeAffinity": {
+            +                "requiredDuringSchedulingIgnoredDuringExecution": {
+            +                  "nodeSelectorTerms": [
+            +                    {
+            +                      "matchExpressions": [
+            +                        {
+            +                          "key": "cpu",
+            +                          "operator": "In",
+            +                          "values": [
+            +                            "intel"
+            +                          ]
+            +                        }
+            +                      ]
+            +                    }
+            +                  ]
+            +                }
+            +              }
+            +            },
+                         "containers": [
+                           {
+                             "command": [
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

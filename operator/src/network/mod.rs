@@ -20,6 +20,8 @@ pub(crate) mod ipfs;
 #[cfg(feature = "controller")]
 pub(crate) mod ipfs_rpc;
 #[cfg(feature = "controller")]
+mod node_affinity;
+#[cfg(feature = "controller")]
 pub(crate) mod peers;
 #[cfg(feature = "controller")]
 pub(crate) mod resource_limits;

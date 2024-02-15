@@ -16,21 +16,20 @@ use k8s_openapi::{
 };
 use kube::core::ObjectMeta;
 
-use crate::network::{
-    controller::{CAS_SERVICE_NAME, CERAMIC_APP, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME},
-    datadog::DataDogConfig,
-    ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
-    resource_limits::ResourceLimitsConfig,
-    CeramicSpec, NetworkSpec,
-};
 use crate::{
     labels::{managed_labels, selector_labels},
-    network::NetworkType,
+    network::{
+        controller::{
+            CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
+            GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME, NETWORK_DEV_MODE_RESOURCES,
+        },
+        datadog::DataDogConfig,
+        ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
+        node_affinity::NodeAffinityConfig,
+        resource_limits::ResourceLimitsConfig,
+        CeramicSpec, NetworkSpec, NetworkType,
+    },
 };
-
-use crate::network::controller::{CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT};
-
-use super::controller::NETWORK_DEV_MODE_RESOURCES;
 
 pub fn config_maps(
     info: &CeramicInfo,
@@ -168,6 +167,7 @@ pub struct NetworkConfig {
     pub network_type: NetworkType,
     pub eth_rpc_url: String,
     pub cas_api_url: String,
+    pub node_affinity_config: NodeAffinityConfig,
 }
 
 impl Default for NetworkConfig {
@@ -177,6 +177,7 @@ impl Default for NetworkConfig {
             network_type: NetworkType::default(),
             eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
             cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
+            node_affinity_config: NodeAffinityConfig::default(),
         }
     }
 }
@@ -192,6 +193,7 @@ impl From<&NetworkSpec> for NetworkConfig {
                 .unwrap_or(default.network_type),
             eth_rpc_url: value.eth_rpc_url.to_owned().unwrap_or(default.eth_rpc_url),
             cas_api_url: value.cas_api_url.to_owned().unwrap_or(default.cas_api_url),
+            node_affinity_config: value.into(),
         }
     }
 }
@@ -424,75 +426,114 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             ..Default::default()
         },
         service_name: bundle.info.service.clone(),
-        template: PodTemplateSpec {
-            metadata: Some(ObjectMeta {
-                annotations: Some(BTreeMap::from_iter(vec![(
-                    "prometheus/path".to_owned(),
-                    "/metrics".to_owned(),
-                )]))
-                .map(|mut annotations| {
-                    bundle.datadog.inject_annotations(&mut annotations);
-                    annotations
-                }),
+        template: bundle
+            .net_config
+            .node_affinity_config
+            .apply_to_pod_template(PodTemplateSpec {
+                metadata: Some(ObjectMeta {
+                    annotations: Some(BTreeMap::from_iter(vec![(
+                        "prometheus/path".to_owned(),
+                        "/metrics".to_owned(),
+                    )]))
+                    .map(|mut annotations| {
+                        bundle.datadog.inject_annotations(&mut annotations);
+                        annotations
+                    }),
 
-                labels: selector_labels(CERAMIC_APP).map(|mut lbls| {
-                    lbls.append(&mut managed_labels().unwrap());
-                    bundle
-                        .datadog
-                        .inject_labels(&mut lbls, ns.to_owned(), "ceramic".to_owned());
-                    lbls
+                    labels: selector_labels(CERAMIC_APP).map(|mut lbls| {
+                        lbls.append(&mut managed_labels().unwrap());
+                        bundle.datadog.inject_labels(
+                            &mut lbls,
+                            ns.to_owned(),
+                            "ceramic".to_owned(),
+                        );
+                        lbls
+                    }),
+                    ..Default::default()
                 }),
-                ..Default::default()
-            }),
-            spec: Some(PodSpec {
-                containers: vec![
-                    Container {
+                spec: Some(PodSpec {
+                    containers: vec![
+                        Container {
+                            command: Some(vec![
+                                "/js-ceramic/packages/cli/bin/ceramic.js".to_owned(),
+                                "daemon".to_owned(),
+                                "--config".to_owned(),
+                                "/config/daemon-config.json".to_owned(),
+                            ]),
+                            env: Some(ceramic_env),
+                            image: Some(bundle.config.image.clone()),
+                            image_pull_policy: Some(bundle.config.image_pull_policy.clone()),
+                            name: "ceramic".to_owned(),
+                            ports: Some(vec![
+                                ContainerPort {
+                                    container_port: CERAMIC_SERVICE_API_PORT,
+                                    name: Some("api".to_owned()),
+                                    ..Default::default()
+                                },
+                                ContainerPort {
+                                    container_port: 9464,
+                                    name: Some("metrics".to_owned()),
+                                    protocol: Some("TCP".to_owned()),
+                                    ..Default::default()
+                                },
+                            ]),
+                            readiness_probe: Some(Probe {
+                                http_get: Some(HTTPGetAction {
+                                    path: Some("/api/v0/node/healthcheck".to_owned()),
+                                    port: IntOrString::String("api".to_owned()),
+                                    ..Default::default()
+                                }),
+                                initial_delay_seconds: Some(60),
+                                period_seconds: Some(15),
+                                timeout_seconds: Some(30),
+                                ..Default::default()
+                            }),
+                            liveness_probe: Some(Probe {
+                                http_get: Some(HTTPGetAction {
+                                    path: Some("/api/v0/node/healthcheck".to_owned()),
+                                    port: IntOrString::String("api".to_owned()),
+                                    ..Default::default()
+                                }),
+                                initial_delay_seconds: Some(60),
+                                period_seconds: Some(15),
+                                timeout_seconds: Some(30),
+                                ..Default::default()
+                            }),
+
+                            resources: Some(ResourceRequirements {
+                                limits: Some(bundle.config.resource_limits.clone().into()),
+                                requests: Some(bundle.config.resource_limits.clone().into()),
+                                ..Default::default()
+                            }),
+                            volume_mounts: Some(vec![
+                                VolumeMount {
+                                    mount_path: "/config".to_owned(),
+                                    name: "config-volume".to_owned(),
+                                    ..Default::default()
+                                },
+                                VolumeMount {
+                                    mount_path: "/ceramic-data".to_owned(),
+                                    name: "ceramic-data".to_owned(),
+                                    ..Default::default()
+                                },
+                            ]),
+                            ..Default::default()
+                        },
+                        bundle
+                            .config
+                            .ipfs
+                            .container(&bundle.info, bundle.net_config),
+                    ],
+                    init_containers: Some(vec![Container {
                         command: Some(vec![
-                            "/js-ceramic/packages/cli/bin/ceramic.js".to_owned(),
-                            "daemon".to_owned(),
-                            "--config".to_owned(),
-                            "/config/daemon-config.json".to_owned(),
+                            "/bin/bash".to_owned(),
+                            "-c".to_owned(),
+                            "/ceramic-init/ceramic-init.sh".to_owned(),
                         ]),
-                        env: Some(ceramic_env),
-                        image: Some(bundle.config.image.clone()),
-                        image_pull_policy: Some(bundle.config.image_pull_policy.clone()),
-                        name: "ceramic".to_owned(),
-                        ports: Some(vec![
-                            ContainerPort {
-                                container_port: CERAMIC_SERVICE_API_PORT,
-                                name: Some("api".to_owned()),
-                                ..Default::default()
-                            },
-                            ContainerPort {
-                                container_port: 9464,
-                                name: Some("metrics".to_owned()),
-                                protocol: Some("TCP".to_owned()),
-                                ..Default::default()
-                            },
-                        ]),
-                        readiness_probe: Some(Probe {
-                            http_get: Some(HTTPGetAction {
-                                path: Some("/api/v0/node/healthcheck".to_owned()),
-                                port: IntOrString::String("api".to_owned()),
-                                ..Default::default()
-                            }),
-                            initial_delay_seconds: Some(60),
-                            period_seconds: Some(15),
-                            timeout_seconds: Some(30),
-                            ..Default::default()
-                        }),
-                        liveness_probe: Some(Probe {
-                            http_get: Some(HTTPGetAction {
-                                path: Some("/api/v0/node/healthcheck".to_owned()),
-                                port: IntOrString::String("api".to_owned()),
-                                ..Default::default()
-                            }),
-                            initial_delay_seconds: Some(60),
-                            period_seconds: Some(15),
-                            timeout_seconds: Some(30),
-                            ..Default::default()
-                        }),
-
+                        env: Some(init_env),
+                        image: Some(bundle.config.image.to_owned()),
+                        image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
+                        name: "init-ceramic-config".to_owned(),
                         resources: Some(ResourceRequirements {
                             limits: Some(bundle.config.resource_limits.clone().into()),
                             requests: Some(bundle.config.resource_limits.clone().into()),
@@ -505,51 +546,17 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                                 ..Default::default()
                             },
                             VolumeMount {
-                                mount_path: "/ceramic-data".to_owned(),
-                                name: "ceramic-data".to_owned(),
+                                mount_path: "/ceramic-init".to_owned(),
+                                name: "ceramic-init".to_owned(),
                                 ..Default::default()
                             },
                         ]),
                         ..Default::default()
-                    },
-                    bundle
-                        .config
-                        .ipfs
-                        .container(&bundle.info, bundle.net_config),
-                ],
-                init_containers: Some(vec![Container {
-                    command: Some(vec![
-                        "/bin/bash".to_owned(),
-                        "-c".to_owned(),
-                        "/ceramic-init/ceramic-init.sh".to_owned(),
-                    ]),
-                    env: Some(init_env),
-                    image: Some(bundle.config.image.to_owned()),
-                    image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
-                    name: "init-ceramic-config".to_owned(),
-                    resources: Some(ResourceRequirements {
-                        limits: Some(bundle.config.resource_limits.clone().into()),
-                        requests: Some(bundle.config.resource_limits.clone().into()),
-                        ..Default::default()
-                    }),
-                    volume_mounts: Some(vec![
-                        VolumeMount {
-                            mount_path: "/config".to_owned(),
-                            name: "config-volume".to_owned(),
-                            ..Default::default()
-                        },
-                        VolumeMount {
-                            mount_path: "/ceramic-init".to_owned(),
-                            name: "ceramic-init".to_owned(),
-                            ..Default::default()
-                        },
-                    ]),
+                    }]),
+                    volumes: Some(volumes),
                     ..Default::default()
-                }]),
-                volumes: Some(volumes),
-                ..Default::default()
+                }),
             }),
-        },
         update_strategy: Some(StatefulSetUpdateStrategy {
             rolling_update: Some(RollingUpdateStatefulSetStrategy {
                 max_unavailable: Some(IntOrString::String("50%".to_owned())),

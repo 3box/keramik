@@ -148,6 +148,7 @@ impl CeramicConfig {
         if NETWORK_DEV_MODE_RESOURCES.load(std::sync::atomic::Ordering::Relaxed) {
             Self {
                 resource_limits: ResourceLimitsConfig::dev_default(),
+                postgres_resource_limits: ResourceLimitsConfig::dev_default(),
                 ..Default::default()
             }
         } else {

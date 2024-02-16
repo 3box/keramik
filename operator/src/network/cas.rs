@@ -16,21 +16,22 @@ use k8s_openapi::{
 };
 use kube::core::ObjectMeta;
 
-use crate::network::{
-    ceramic::NetworkConfig,
-    controller::{
-        CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP, CAS_POSTGRES_SERVICE_NAME,
-        CAS_SERVICE_NAME, GANACHE_APP, GANACHE_SERVICE_NAME, LOCALSTACK_APP,
-        LOCALSTACK_SERVICE_NAME, NETWORK_DEV_MODE_RESOURCES,
-    },
-    datadog::DataDogConfig,
-    ipfs::{IpfsConfig, IPFS_DATA_PV_CLAIM},
-    resource_limits::ResourceLimitsConfig,
-    CasSpec,
-};
 use crate::{
     labels::{managed_labels, selector_labels},
-    network::{ipfs::IpfsInfo, node_affinity::NodeAffinityConfig},
+    network::{
+        ceramic::NetworkConfig,
+        controller::{
+            CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP,
+            CAS_POSTGRES_SECRET_NAME, CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME, GANACHE_APP,
+            GANACHE_SERVICE_NAME, LOCALSTACK_APP, LOCALSTACK_SERVICE_NAME,
+            NETWORK_DEV_MODE_RESOURCES,
+        },
+        datadog::DataDogConfig,
+        ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
+        node_affinity::NodeAffinityConfig,
+        resource_limits::ResourceLimitsConfig,
+        CasSpec,
+    },
 };
 
 const CAS_IPFS_INFO_SUFFIX: &str = "cas";
@@ -158,7 +159,7 @@ pub fn cas_stateful_set_spec(
             value_from: Some(EnvVarSource {
                 secret_key_ref: Some(SecretKeySelector {
                     key: "username".to_owned(),
-                    name: Some("postgres-auth".to_owned()),
+                    name: Some(CAS_POSTGRES_SECRET_NAME.to_string()),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -170,7 +171,7 @@ pub fn cas_stateful_set_spec(
             value_from: Some(EnvVarSource {
                 secret_key_ref: Some(SecretKeySelector {
                     key: "password".to_owned(),
-                    name: Some("postgres-auth".to_owned()),
+                    name: Some(CAS_POSTGRES_SECRET_NAME.to_string()),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -737,7 +738,7 @@ pub fn postgres_stateful_set_spec(
                             value_from: Some(EnvVarSource {
                                 secret_key_ref: Some(SecretKeySelector {
                                     key: "password".to_owned(),
-                                    name: Some("postgres-auth".to_owned()),
+                                    name: Some(CAS_POSTGRES_SECRET_NAME.to_string()),
                                     ..Default::default()
                                 }),
                                 ..Default::default()
@@ -749,7 +750,7 @@ pub fn postgres_stateful_set_spec(
                             value_from: Some(EnvVarSource {
                                 secret_key_ref: Some(SecretKeySelector {
                                     key: "username".to_owned(),
-                                    name: Some("postgres-auth".to_owned()),
+                                    name: Some(CAS_POSTGRES_SECRET_NAME.to_string()),
                                     ..Default::default()
                                 }),
                                 ..Default::default()

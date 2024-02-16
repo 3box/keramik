@@ -86,7 +86,7 @@ Request {
                     "valueFrom": {
                       "secretKeyRef": {
                         "key": "username",
-                        "name": "postgres-auth"
+                        "name": "ceramic-postgres-auth"
                       }
                     }
                   },
@@ -95,7 +95,7 @@ Request {
                     "valueFrom": {
                       "secretKeyRef": {
                         "key": "password",
-                        "name": "postgres-auth"
+                        "name": "ceramic-postgres-auth"
                       }
                     }
                   },
@@ -170,7 +170,7 @@ Request {
                     "valueFrom": {
                       "secretKeyRef": {
                         "key": "password",
-                        "name": "postgres-auth"
+                        "name": "ceramic-postgres-auth"
                       }
                     }
                   },
@@ -179,7 +179,7 @@ Request {
                     "valueFrom": {
                       "secretKeyRef": {
                         "key": "username",
-                        "name": "postgres-auth"
+                        "name": "ceramic-postgres-auth"
                       }
                     }
                   }
@@ -354,7 +354,7 @@ Request {
                     "valueFrom": {
                       "secretKeyRef": {
                         "key": "username",
-                        "name": "postgres-auth"
+                        "name": "ceramic-postgres-auth"
                       }
                     }
                   },
@@ -363,7 +363,7 @@ Request {
                     "valueFrom": {
                       "secretKeyRef": {
                         "key": "password",
-                        "name": "postgres-auth"
+                        "name": "ceramic-postgres-auth"
                       }
                     }
                   },

@@ -71,6 +71,7 @@ pub const PEERS_CONFIG_MAP_NAME: &str = "keramik-peers";
 
 pub const CERAMIC_SERVICE_IPFS_PORT: i32 = 5001;
 pub const CERAMIC_SERVICE_API_PORT: i32 = 7007;
+pub const CERAMIC_POSTGRES_SECRET_NAME: &str = "ceramic-postgres-auth";
 
 pub const INIT_CONFIG_MAP_NAME: &str = "ceramic-init";
 pub const ADMIN_SECRET_NAME: &str = "ceramic-admin";
@@ -393,6 +394,11 @@ async fn reconcile_(
         }
     }
 
+    // Setup ceramic postgres secret, all ceramic stateful sets use the same secret so we only need
+    // to set it up once.
+    if is_ceramic_postgres_secret_missing(cx.clone(), &ns).await? {
+        create_ceramic_postgres_secret(cx.clone(), &ns, network.clone()).await?;
+    }
     for bundle in &ceramics {
         apply_ceramic(cx.clone(), &ns, network.clone(), bundle).await?;
     }
@@ -659,6 +665,29 @@ async fn create_admin_secret(
         BTreeMap::from_iter(vec![("private-key".to_owned(), string_data)]),
     )
     .await?;
+    Ok(())
+}
+
+async fn is_ceramic_postgres_secret_missing(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+) -> Result<bool, kube::error::Error> {
+    is_secret_missing(cx, ns, CERAMIC_POSTGRES_SECRET_NAME).await
+}
+async fn create_ceramic_postgres_secret(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    network: Arc<Network>,
+) -> Result<(), kube::error::Error> {
+    // Create postgres_secret
+    let string_data = BTreeMap::from_iter(vec![
+        ("username".to_owned(), "ceramic".to_owned()),
+        (
+            "password".to_owned(),
+            generate_random_secret(cx.clone(), 20),
+        ),
+    ]);
+    create_secret(cx, ns, network, CERAMIC_POSTGRES_SECRET_NAME, string_data).await?;
     Ok(())
 }
 
@@ -3079,7 +3108,7 @@ mod tests {
         let mock_rpc_client = MockIpfsRpcClientTest::new();
         let mut stub = Stub::default().with_network(network.clone());
         // Tell the stub to skip all CAS-related configuration
-        stub.postgres_auth_secret.2 = false;
+        stub.cas_postgres_auth_secret.2 = false;
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
@@ -3116,7 +3145,7 @@ mod tests {
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
             @@ -98,10 +98,6 @@
-                                     "name": "postgres-auth"
+                                     "name": "ceramic-postgres-auth"
                                    }
                                  }
             -                  },
@@ -3155,7 +3184,7 @@ mod tests {
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
             @@ -366,10 +362,6 @@
-                                     "name": "postgres-auth"
+                                     "name": "ceramic-postgres-auth"
                                    }
                                  }
             -                  },

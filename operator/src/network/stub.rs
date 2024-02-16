@@ -56,7 +56,8 @@ pub struct Stub {
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
     pub monitoring: Vec<ExpectFile>,
-    pub postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
+    pub cas_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
+    pub ceramic_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret),
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
     pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
     pub ceramic_admin_secret: Option<(ExpectPatch<ExpectFile>, Option<Secret>)>,
@@ -94,7 +95,7 @@ impl Default for Stub {
             namespace: expect_file!["./testdata/default_stubs/namespace"].into(),
             status: expect_file!["./testdata/default_stubs/status"].into(),
             monitoring: vec![],
-            postgres_auth_secret: (
+            cas_postgres_auth_secret: (
                 expect_file!["./testdata/default_stubs/postgres_auth_secret"].into(),
                 k8s_openapi::api::core::v1::Secret {
                     metadata: kube::core::ObjectMeta {
@@ -105,6 +106,17 @@ impl Default for Stub {
                     ..Default::default()
                 },
                 true,
+            ),
+            ceramic_postgres_auth_secret: (
+                expect_file!["./testdata/default_stubs/ceramic_postgres_auth_secret"].into(),
+                k8s_openapi::api::core::v1::Secret {
+                    metadata: kube::core::ObjectMeta {
+                        name: Some("ceramic-postgres-auth".to_owned()),
+                        labels: managed_labels(),
+                        ..kube::core::ObjectMeta::default()
+                    },
+                    ..Default::default()
+                },
             ),
             ceramic_admin_secret_missing: (
                 expect_file!["./testdata/default_stubs/ceramic_admin_secret"].into(),
@@ -212,11 +224,11 @@ impl Stub {
                 .expect("opentelemetry should do work");
         }
         // Run/skip all CAS-related configuration
-        if self.postgres_auth_secret.2 {
+        if self.cas_postgres_auth_secret.2 {
             fakeserver
                 .handle_request_response(
-                    self.postgres_auth_secret.0,
-                    Some(&self.postgres_auth_secret.1),
+                    self.cas_postgres_auth_secret.0,
+                    Some(&self.cas_postgres_auth_secret.1),
                 )
                 .await
                 .expect("postgres-auth secret should exist");
@@ -304,6 +316,13 @@ impl Stub {
                 .await
                 .expect("ceramic should delete");
         }
+        fakeserver
+            .handle_request_response(
+                self.ceramic_postgres_auth_secret.0,
+                Some(&self.ceramic_postgres_auth_secret.1),
+            )
+            .await
+            .expect("ceramic-postgres-auth secret should exist");
         for c in self.ceramics {
             for cm in c.configmaps {
                 fakeserver

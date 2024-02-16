@@ -21,8 +21,9 @@ use crate::{
     labels::{managed_labels, selector_labels},
     network::{
         controller::{
-            CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_SERVICE_API_PORT, CERAMIC_SERVICE_IPFS_PORT,
-            GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME, NETWORK_DEV_MODE_RESOURCES,
+            CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_POSTGRES_SECRET_NAME, CERAMIC_SERVICE_API_PORT,
+            CERAMIC_SERVICE_IPFS_PORT, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
+            NETWORK_DEV_MODE_RESOURCES,
         },
         datadog::DataDogConfig,
         ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
@@ -358,7 +359,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             value_from: Some(EnvVarSource {
                 secret_key_ref: Some(SecretKeySelector {
                     key: "username".to_owned(),
-                    name: Some("postgres-auth".to_owned()),
+                    name: Some(CERAMIC_POSTGRES_SECRET_NAME.to_string()),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -370,7 +371,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             value_from: Some(EnvVarSource {
                 secret_key_ref: Some(SecretKeySelector {
                     key: "password".to_owned(),
-                    name: Some("postgres-auth".to_owned()),
+                    name: Some(CERAMIC_POSTGRES_SECRET_NAME.to_string()),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -582,7 +583,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                                     value_from: Some(EnvVarSource {
                                         secret_key_ref: Some(SecretKeySelector {
                                             key: "password".to_owned(),
-                                            name: Some("postgres-auth".to_owned()),
+                                            name: Some(CERAMIC_POSTGRES_SECRET_NAME.to_string()),
                                             ..Default::default()
                                         }),
                                         ..Default::default()
@@ -594,7 +595,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                                     value_from: Some(EnvVarSource {
                                         secret_key_ref: Some(SecretKeySelector {
                                             key: "username".to_owned(),
-                                            name: Some("postgres-auth".to_owned()),
+                                            name: Some(CERAMIC_POSTGRES_SECRET_NAME.to_string()),
                                             ..Default::default()
                                         }),
                                         ..Default::default()

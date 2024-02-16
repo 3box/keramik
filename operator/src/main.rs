@@ -11,12 +11,8 @@ struct Cli {
     #[command(subcommand)]
     command: Command,
 
-    #[arg(
-        long,
-        env = "OPERATOR_OTLP_ENDPOINT",
-        default_value = "http://localhost:4317"
-    )]
-    otlp_endpoint: String,
+    #[arg(long, env = "OPERATOR_OTLP_ENDPOINT")]
+    otlp_endpoint: Option<String>,
 
     #[arg(long, env = "OPERATOR_PROM_BIND", default_value = "0.0.0.0:9464")]
     prom_bind: String,
@@ -34,7 +30,9 @@ async fn main() -> Result<()> {
     tracing_log::LogTracer::init()?;
 
     let args = Cli::parse();
-    telemetry::init_tracing(args.otlp_endpoint.clone()).await?;
+    if let Some(otlp_endpoint) = &args.otlp_endpoint {
+        telemetry::init_tracing(otlp_endpoint.clone()).await?;
+    }
     let (metrics_controller, metrics_server_shutdown, metrics_server_join) =
         telemetry::init_metrics_prom(&args.prom_bind.parse()?).await?;
 

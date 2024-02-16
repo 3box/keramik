@@ -6,8 +6,9 @@ use k8s_openapi::{
         core::v1::{
             ConfigMapVolumeSource, Container, ContainerPort, EmptyDirVolumeSource, EnvVar,
             EnvVarSource, HTTPGetAction, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-            PersistentVolumeClaimVolumeSource, PodSpec, PodTemplateSpec, Probe,
-            ResourceRequirements, SecretKeySelector, ServicePort, ServiceSpec, Volume, VolumeMount,
+            PersistentVolumeClaimVolumeSource, PodSecurityContext, PodSpec, PodTemplateSpec, Probe,
+            ResourceRequirements, SecretKeySelector, SecurityContext, ServicePort, ServiceSpec,
+            Volume, VolumeMount,
         },
     },
     apimachinery::pkg::{
@@ -89,7 +90,7 @@ r#"{
         "local-directory": "${CERAMIC_STATE_STORE_PATH}"
     },
     "indexing": {
-        "db": "sqlite://${CERAMIC_SQLITE_PATH}",
+        "db": "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@localhost/${POSTGRES_DB}",
         "allow-queries-before-historical-sync": true,
         "disable-composedb": false,
         "enable-historical-sync": false
@@ -137,6 +138,7 @@ pub struct CeramicConfig {
     pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
+    pub postgres_resource_limits: ResourceLimitsConfig,
     pub env: Option<BTreeMap<String, String>>,
 }
 
@@ -256,6 +258,11 @@ impl Default for CeramicConfig {
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            postgres_resource_limits: ResourceLimitsConfig {
+                cpu: Some(Quantity("250m".to_owned())),
+                memory: Some(Quantity("1Gi".to_owned())),
+                storage: Quantity("1Gi".to_owned()),
+            },
             env: None,
         }
     }
@@ -289,6 +296,10 @@ impl From<CeramicSpec> for CeramicConfig {
             resource_limits: ResourceLimitsConfig::from_spec(
                 value.resource_limits,
                 default.resource_limits,
+            ),
+            postgres_resource_limits: ResourceLimitsConfig::from_spec(
+                value.postgres_resource_limits,
+                default.postgres_resource_limits,
             ),
             env: value.env,
         }
@@ -335,6 +346,35 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
         EnvVar {
             name: "CERAMIC_LOG_LEVEL".to_owned(),
             value: Some("2".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "POSTGRES_DB".to_owned(),
+            value: Some("ceramic".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "POSTGRES_USER".to_owned(),
+            value_from: Some(EnvVarSource {
+                secret_key_ref: Some(SecretKeySelector {
+                    key: "username".to_owned(),
+                    name: Some("postgres-auth".to_owned()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "POSTGRES_PASSWORD".to_owned(),
+            value_from: Some(EnvVarSource {
+                secret_key_ref: Some(SecretKeySelector {
+                    key: "password".to_owned(),
+                    name: Some("postgres-auth".to_owned()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
             ..Default::default()
         },
     ];
@@ -410,6 +450,14 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             name: IPFS_DATA_PV_CLAIM.to_owned(),
             persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
                 claim_name: IPFS_DATA_PV_CLAIM.to_owned(),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        Volume {
+            name: "postgres-data".to_owned(),
+            persistent_volume_claim: Some(PersistentVolumeClaimVolumeSource {
+                claim_name: "postgres-data".to_owned(),
                 ..Default::default()
             }),
             ..Default::default()
@@ -519,6 +567,66 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                             ]),
                             ..Default::default()
                         },
+                        Container {
+                            image: Some("postgres:15-alpine".to_owned()),
+                            image_pull_policy: Some("IfNotPresent".to_owned()),
+                            name: "postgres".to_owned(),
+                            env: Some(vec![
+                                EnvVar {
+                                    name: "POSTGRES_DB".to_owned(),
+                                    value: Some("ceramic".to_owned()),
+                                    ..Default::default()
+                                },
+                                EnvVar {
+                                    name: "POSTGRES_PASSWORD".to_owned(),
+                                    value_from: Some(EnvVarSource {
+                                        secret_key_ref: Some(SecretKeySelector {
+                                            key: "password".to_owned(),
+                                            name: Some("postgres-auth".to_owned()),
+                                            ..Default::default()
+                                        }),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                },
+                                EnvVar {
+                                    name: "POSTGRES_USER".to_owned(),
+                                    value_from: Some(EnvVarSource {
+                                        secret_key_ref: Some(SecretKeySelector {
+                                            key: "username".to_owned(),
+                                            name: Some("postgres-auth".to_owned()),
+                                            ..Default::default()
+                                        }),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                },
+                            ]),
+                            ports: Some(vec![ContainerPort {
+                                container_port: 5432,
+                                name: Some("postgres".to_owned()),
+                                ..Default::default()
+                            }]),
+                            resources: Some(ResourceRequirements {
+                                limits: Some(bundle.config.postgres_resource_limits.clone().into()),
+                                requests: Some(
+                                    bundle.config.postgres_resource_limits.clone().into(),
+                                ),
+                                ..Default::default()
+                            }),
+                            volume_mounts: Some(vec![VolumeMount {
+                                mount_path: "/var/lib/postgresql".to_owned(),
+                                name: "postgres-data".to_owned(),
+                                sub_path: Some("ceramic_data".to_owned()),
+                                ..Default::default()
+                            }]),
+                            security_context: Some(SecurityContext {
+                                run_as_group: Some(70),
+                                run_as_user: Some(70),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        },
                         bundle
                             .config
                             .ipfs
@@ -554,6 +662,10 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                         ..Default::default()
                     }]),
                     volumes: Some(volumes),
+                    security_context: Some(PodSecurityContext {
+                        fs_group: Some(70),
+                        ..Default::default()
+                    }),
                     ..Default::default()
                 }),
             }),
@@ -598,6 +710,24 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                         ..Default::default()
                     }),
                     storage_class_name: bundle.config.ipfs.storage_class_name(),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            PersistentVolumeClaim {
+                metadata: ObjectMeta {
+                    name: Some("postgres-data".to_owned()),
+                    ..Default::default()
+                },
+                spec: Some(PersistentVolumeClaimSpec {
+                    access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
+                    resources: Some(ResourceRequirements {
+                        requests: Some(BTreeMap::from_iter(vec![(
+                            "storage".to_owned(),
+                            Quantity("10Gi".to_owned()),
+                        )])),
+                        ..Default::default()
+                    }),
                     ..Default::default()
                 }),
                 ..Default::default()

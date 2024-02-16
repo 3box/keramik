@@ -78,6 +78,28 @@ Request {
                     "value": "2"
                   },
                   {
+                    "name": "POSTGRES_DB",
+                    "value": "ceramic"
+                  },
+                  {
+                    "name": "POSTGRES_USER",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POSTGRES_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
                     "name": "CERAMIC_NETWORK_TOPIC",
                     "value": "/ceramic/local-0"
                   }
@@ -134,6 +156,64 @@ Request {
                   {
                     "mountPath": "/ceramic-data",
                     "name": "ceramic-data"
+                  }
+                ]
+              },
+              {
+                "env": [
+                  {
+                    "name": "POSTGRES_DB",
+                    "value": "ceramic"
+                  },
+                  {
+                    "name": "POSTGRES_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POSTGRES_USER",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  }
+                ],
+                "image": "postgres:15-alpine",
+                "imagePullPolicy": "IfNotPresent",
+                "name": "postgres",
+                "ports": [
+                  {
+                    "containerPort": 5432,
+                    "name": "postgres"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                },
+                "securityContext": {
+                  "runAsGroup": 70,
+                  "runAsUser": 70
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/var/lib/postgresql",
+                    "name": "postgres-data",
+                    "subPath": "ceramic_data"
                   }
                 ]
               },
@@ -233,6 +313,28 @@ Request {
                     "value": "2"
                   },
                   {
+                    "name": "POSTGRES_DB",
+                    "value": "ceramic"
+                  },
+                  {
+                    "name": "POSTGRES_USER",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
+                    "name": "POSTGRES_PASSWORD",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "password",
+                        "name": "postgres-auth"
+                      }
+                    }
+                  },
+                  {
                     "name": "CERAMIC_NETWORK_TOPIC",
                     "value": "/ceramic/local-0"
                   }
@@ -264,6 +366,9 @@ Request {
                 ]
               }
             ],
+            "securityContext": {
+              "fsGroup": 70
+            },
             "volumes": [
               {
                 "emptyDir": {},
@@ -286,6 +391,12 @@ Request {
                 "name": "ipfs-data",
                 "persistentVolumeClaim": {
                   "claimName": "ipfs-data"
+                }
+              },
+              {
+                "name": "postgres-data",
+                "persistentVolumeClaim": {
+                  "claimName": "postgres-data"
                 }
               },
               {
@@ -326,6 +437,23 @@ Request {
             "kind": "PersistentVolumeClaim",
             "metadata": {
               "name": "ipfs-data"
+            },
+            "spec": {
+              "accessModes": [
+                "ReadWriteOnce"
+              ],
+              "resources": {
+                "requests": {
+                  "storage": "10Gi"
+                }
+              }
+            }
+          },
+          {
+            "apiVersion": "v1",
+            "kind": "PersistentVolumeClaim",
+            "metadata": {
+              "name": "postgres-data"
             },
             "spec": {
               "accessModes": [

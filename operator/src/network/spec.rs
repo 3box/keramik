@@ -154,6 +154,8 @@ pub struct CeramicSpec {
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for ceramic nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Resource limits for postgres container in ceramic nodes, applies to both requests and limits.
+    pub postgres_resource_limits: Option<ResourceLimitsSpec>,
     /// Extra env values to pass to the image.
     /// CAUTION: Any env vars specified in this set will override any predefined values.
     pub env: Option<BTreeMap<String, String>>,

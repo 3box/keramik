@@ -89,14 +89,18 @@ impl CeramicModelInstanceTestUser {
         params: CeramicScenarioParameters,
     ) -> anyhow::Result<EnvBasedConfig> {
         let redis_cli = get_redis_client().await?;
-        let creds = Credentials::from_env().await.unwrap();
+        let creds = Credentials::admin_from_env().await?;
         let admin_cli = CeramicHttpClient::new(creds.signer);
 
-        let user_cli = if params.did_type == crate::scenario::ceramic::DidType::UserDidKey {
-            let creds = Credentials::new_generate_did_key().await?;
-            CeramicHttpClient::new(creds.signer)
-        } else {
-            admin_cli.clone()
+        let user_cli = match params.did_type {
+            super::DidType::Shared => {
+                let creds = Credentials::from_env().await?;
+                CeramicHttpClient::new(creds.signer)
+            }
+            super::DidType::UserDidKey => {
+                let creds = Credentials::new_generate_did_key().await?;
+                CeramicHttpClient::new(creds.signer)
+            }
         };
 
         Ok(EnvBasedConfig {

@@ -2801,6 +2801,7 @@ dependencies = [
  "ceramic-http-client",
  "clap",
  "did-method-key",
+ "ed25519-dalek",
  "goose",
  "hex",
  "iroh-car",

@@ -70,10 +70,7 @@ pub async fn scenario(params: CeramicScenarioParameters) -> Result<Scenario, Goo
 
 #[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
 async fn setup(user: &mut GooseUser, config: EnvBasedConfig) -> TransactionResult {
-    CeramicModelInstanceTestUser::setup_scenario(user, config)
-        .await
-        .unwrap();
-
+    CeramicModelInstanceTestUser::setup_mid_scenario(user, config.clone()).await?;
     let data = CeramicModelInstanceTestUser::user_data(user).to_owned();
     // we copy the data here just to make it simpler to work with in the tests
     // the CeramicModelInstanceTestUser probably has too much logic built in already.. we don't _always_ need

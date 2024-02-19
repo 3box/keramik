@@ -1,6 +1,7 @@
 use crate::scenario::ceramic::model_instance::{loop_until_key_value_set, set_key_to_stream_id};
 use crate::scenario::{
-    get_redis_client, is_first_goose_user, is_goose_leader, reset_first_goose_user,
+    get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
+    reset_goose_lead_user,
 };
 use ceramic_core::{Cid, EventId};
 use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
@@ -40,7 +41,7 @@ async fn init_scenario(with_data: bool) -> Result<Transaction, GooseError> {
 }
 
 async fn log_results(_user: &mut GooseUser) -> TransactionResult {
-    if is_first_goose_user() {
+    if is_goose_lead_user() {
         let cnt = NEW_EVENT_CNT.load(std::sync::atomic::Ordering::Relaxed);
         let bytes = TOTAL_BYTES_GENERATED.load(std::sync::atomic::Ordering::Relaxed);
         info!(
@@ -81,7 +82,7 @@ pub async fn event_key_sync_scenario() -> Result<Scenario, GooseError> {
 }
 
 async fn reset_first_user(_user: &mut GooseUser) -> TransactionResult {
-    reset_first_goose_user();
+    reset_goose_lead_user();
     Ok(())
 }
 
@@ -94,8 +95,8 @@ async fn setup(
     with_data: bool,
 ) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
-    let first = is_first_goose_user();
-    let model_id = if is_goose_leader() && first {
+    let first = is_goose_global_leader(is_goose_lead_user());
+    let model_id = if first {
         info!("creating model for event ID sync test");
         // We only need a model ID we do not need it to be a real model.
         let model_id = StreamId {
@@ -132,7 +133,7 @@ async fn setup(
 /// Generate a random event that the nodes are interested in. Only one node should create but all
 /// users do it so that we can generate a lot of events.
 async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
-    if !is_goose_leader() {
+    if !is_goose_lead_worker() {
         // No work is performed while awaiting on the sleep future to complete (from tokio::time::sleep docs)
         // it's not high resolution but we don't need it to be since we're already waiting half a second
         tokio::time::sleep(Duration::from_millis(500)).await;

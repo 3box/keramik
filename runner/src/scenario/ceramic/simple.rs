@@ -1,34 +1,26 @@
 use std::sync::Arc;
 
-use goose::prelude::*;
-use tracing::instrument;
-
 use crate::scenario::ceramic::{
     model_instance::CeramicModelInstanceTestUser,
     models::{self, RandomModelInstance},
 };
+use goose::prelude::*;
 
-use super::{
-    model_instance::{EnvBasedConfig, ModelInstanceRequests},
-    CeramicScenarioParameters,
-};
-
-#[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
-pub(crate) async fn setup(user: &mut GooseUser, config: EnvBasedConfig) -> TransactionResult {
-    CeramicModelInstanceTestUser::setup_scenario(user, config)
-        .await
-        .unwrap();
-    Ok(())
-}
+use super::{model_instance::ModelInstanceRequests, CeramicScenarioParameters};
 
 // unique_dids: if true, each user will create a new DID otherwise will share one admin DID
 pub async fn scenario(params: CeramicScenarioParameters) -> Result<Scenario, GooseError> {
     let config = CeramicModelInstanceTestUser::prep_scenario(params)
         .await
         .unwrap();
-    let test_start = Transaction::new(Arc::new(move |user| Box::pin(setup(user, config.clone()))))
-        .set_name("setup")
-        .set_on_start();
+    let test_start = Transaction::new(Arc::new(move |user| {
+        Box::pin(CeramicModelInstanceTestUser::setup_mid_scenario(
+            user,
+            config.clone(),
+        ))
+    }))
+    .set_name("setup")
+    .set_on_start();
 
     let update_small_model = transaction!(update_small_model).set_name("update_small_model");
     let get_small_model = transaction!(get_small_model).set_name("get_small_model");

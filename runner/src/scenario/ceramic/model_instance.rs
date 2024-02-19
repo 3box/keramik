@@ -7,7 +7,7 @@ use ceramic_http_client::{
 };
 use goose::{metrics::GooseRequestMetric, prelude::*};
 use redis::AsyncCommands;
-use tracing::warn;
+use tracing::{debug, info, warn};
 
 use crate::{
     goose_try,
@@ -16,7 +16,7 @@ use crate::{
             models::{self, RandomModelInstance},
             CeramicClient, Credentials,
         },
-        get_redis_client, is_goose_leader,
+        get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
     },
 };
 
@@ -54,6 +54,11 @@ pub(crate) async fn loop_until_key_value_set(
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct CountResponse {
+    pub count: i32,
+}
+
 #[derive(Clone, Debug)]
 pub struct EnvBasedConfig {
     /// The DID that can be used to create models and access the admin API
@@ -66,9 +71,21 @@ pub struct EnvBasedConfig {
     params: CeramicScenarioParameters,
 }
 
+#[derive(Clone, Debug)]
+pub struct GooseUserInfo {
+    pub global_leader: bool,
+    /// True if this user is the lead user on the worker
+    pub lead_user: bool,
+    /// True if this is the lead worker process
+    pub lead_worker: bool,
+}
+
+#[derive(Clone, Debug)]
 pub struct CeramicModelInstanceTestUser {
     /// Config that needs to exist before starting the scenario
     config: EnvBasedConfig,
+    /// True if this user is the global leader
+    pub user_info: GooseUserInfo,
     /// The ID of the small model
     pub small_model_id: StreamId,
     /// The ID of the small model instance documents set up by the test
@@ -84,7 +101,13 @@ impl CeramicModelInstanceTestUser {
         &self.config.user_cli
     }
 
+    pub fn redis_cli(&self) -> &redis::Client {
+        &self.config.redis_cli
+    }
+
     /// Call this before starting the scenario to verify everything is configured appropriately
+    /// It could be in the `setup_scenario` function, but it's "nice" to crash the worker rather than
+    /// only error in the setup function, which is harder to notice right away.
     pub async fn prep_scenario(
         params: CeramicScenarioParameters,
     ) -> anyhow::Result<EnvBasedConfig> {
@@ -110,35 +133,77 @@ impl CeramicModelInstanceTestUser {
             params,
         })
     }
-    /// Builds the CeramicLoadTestUser and stores it as user session data
-    pub async fn setup_scenario(
+
+    pub async fn setup_mid_scenario(
         user: &mut GooseUser,
         config: EnvBasedConfig,
-    ) -> anyhow::Result<()> {
+    ) -> TransactionResult {
+        Self::setup_scenario(user, config)
+            .await
+            .map_err(|e| {
+                tracing::error!("failed to setup scenario: {}", e);
+                e
+            })
+            .unwrap();
+        Ok(())
+    }
+    /// Builds the CeramicLoadTestUser and stores it as user session data
+    async fn setup_scenario(user: &mut GooseUser, config: EnvBasedConfig) -> anyhow::Result<()> {
+        let lead_user = is_goose_lead_user(); // we cache this as the implementation is not idempotent
+        let global_leader = is_goose_global_leader(lead_user);
+        debug!(params=?config.params, "setting up scenario");
         let (small_model_id, large_model_id) = match config.params.model_reuse {
             super::ReuseType::PerUser => {
-                Self::generate_list_models(user, &config.admin_cli).await?
+                Self::generate_list_models(user, &config.admin_cli, &config.redis_cli, true, None)
+                    .await?
             }
             super::ReuseType::Shared => {
-                let mut conn = config.redis_cli.get_async_connection().await.unwrap();
-                if is_goose_leader() {
-                    let (small, large) =
-                        Self::generate_list_models(user, &config.admin_cli).await?;
-                    ModelInstanceRequests::index_model(user, &config.admin_cli, &small, "small")
-                        .await?;
-                    ModelInstanceRequests::index_model(user, &config.admin_cli, &large, "large")
-                        .await?;
-                    let _ = set_key_to_stream_id(&mut conn, SMALL_MODEL_ID_KEY, &small).await;
-                    let _ = set_key_to_stream_id(&mut conn, LARGE_MODEL_ID_KEY, &large).await;
-
-                    (small, large)
-                } else {
-                    let small = loop_until_key_value_set(&mut conn, SMALL_MODEL_ID_KEY).await;
-                    let large = loop_until_key_value_set(&mut conn, LARGE_MODEL_ID_KEY).await;
-                    (small, large)
-                }
+                let (small, large) = Self::generate_list_models(
+                    user,
+                    &config.admin_cli,
+                    &config.redis_cli,
+                    global_leader,
+                    None,
+                )
+                .await?;
+                // js ceramic subscribes to the meta model, so we'll get all models created synced to us. we just need to make sure they sync before starting
+                Self::ensure_model_exists(user, &config.user_cli, &small).await?;
+                Self::ensure_model_exists(user, &config.user_cli, &large).await?;
+                (small, large)
+            }
+            crate::scenario::ceramic::ReuseType::PerNode => {
+                // we need to adjust the redis key when we want to avoid overwriting the same key from different nodes. usually we want to share (empty),
+                // but in this case we want to only share for a single worker (all users)
+                Self::generate_list_models(
+                    user,
+                    &config.admin_cli,
+                    &config.redis_cli,
+                    lead_user,
+                    Some(goose::get_worker_id().to_string()),
+                )
+                .await?
             }
         };
+
+        if lead_user {
+            ModelInstanceRequests::index_model(
+                user,
+                &config.admin_cli,
+                &small_model_id,
+                "index_small",
+            )
+            .await?;
+            ModelInstanceRequests::index_model(
+                user,
+                &config.admin_cli,
+                &large_model_id,
+                "index_large",
+            )
+            .await?;
+
+            Self::subscribe_to_model(user, &small_model_id).await?;
+            Self::subscribe_to_model(user, &large_model_id).await?;
+        }
 
         let (small_model_instance_ids, large_model_instance_ids) = match config
             .params
@@ -148,9 +213,25 @@ impl CeramicModelInstanceTestUser {
                 Self::generate_mids(
                     user,
                     &config.user_cli,
+                    &config.redis_cli,
                     &small_model_id,
                     &large_model_id,
                     config.params.number_of_documents,
+                    true,
+                    None,
+                )
+                .await?
+            }
+            super::ReuseType::PerNode => {
+                Self::generate_mids(
+                    user,
+                    &config.user_cli,
+                    &config.redis_cli,
+                    &small_model_id,
+                    &large_model_id,
+                    config.params.number_of_documents,
+                    lead_user,
+                    Some(goose::get_worker_id().to_string()),
                 )
                 .await?
             }
@@ -158,32 +239,27 @@ impl CeramicModelInstanceTestUser {
                 if config.params.number_of_documents != 1 {
                     warn!("Shared model instance reuse only supports 1 document per model currently. Only using the first document for each model.");
                 }
-                let mut conn = config.redis_cli.get_async_connection().await.unwrap();
-                if is_goose_leader() {
-                    let (small, large) = Self::generate_mids(
-                        user,
-                        &config.user_cli,
-                        &small_model_id,
-                        &large_model_id,
-                        config.params.number_of_documents,
-                    )
-                    .await?;
-                    let small_mid = small.first().unwrap();
-                    let large_mid = large.first().unwrap();
-                    let _ = set_key_to_stream_id(&mut conn, SMALL_MID_ID_KEY, small_mid).await;
-                    let _ = set_key_to_stream_id(&mut conn, LARGE_MID_ID_KEY, large_mid).await;
-
-                    (small, large)
-                } else {
-                    let small = loop_until_key_value_set(&mut conn, SMALL_MID_ID_KEY).await;
-                    let large = loop_until_key_value_set(&mut conn, LARGE_MID_ID_KEY).await;
-                    (vec![small], vec![large])
-                }
+                Self::generate_mids(
+                    user,
+                    &config.user_cli,
+                    &config.redis_cli,
+                    &small_model_id,
+                    &large_model_id,
+                    config.params.number_of_documents,
+                    global_leader,
+                    None,
+                )
+                .await?
             }
         };
 
         let resp = Self {
             config,
+            user_info: GooseUserInfo {
+                lead_user,
+                global_leader,
+                lead_worker: is_goose_lead_worker(),
+            },
             small_model_id,
             small_model_instance_ids,
             large_model_id,
@@ -191,6 +267,7 @@ impl CeramicModelInstanceTestUser {
         };
 
         user.set_session_data(Arc::new(resp));
+        info!("scenario setup complete");
         Ok(())
     }
 
@@ -213,67 +290,178 @@ impl CeramicModelInstanceTestUser {
     async fn generate_list_models(
         user: &mut GooseUser,
         admin_cli: &CeramicClient,
+        redis_cli: &redis::Client,
+        should_create: bool,
+        redis_postfix: Option<String>,
     ) -> Result<(StreamId, StreamId), TransactionError> {
-        let small_model = ModelDefinition::new::<models::SmallModel>(
-            "load_test_small_model",
-            ModelAccountRelation::List,
-        )
-        .unwrap();
-        let small_model_id =
-            ModelInstanceRequests::setup_model(user, admin_cli, small_model, "small").await?;
+        let mut conn = redis_cli.get_async_connection().await.unwrap();
+        let (small_key, large_key) = if let Some(pf) = redis_postfix {
+            (
+                format!("{}_{}", SMALL_MODEL_ID_KEY, pf),
+                format!("{}_{}", LARGE_MODEL_ID_KEY, pf),
+            )
+        } else {
+            (
+                SMALL_MODEL_ID_KEY.to_string(),
+                LARGE_MODEL_ID_KEY.to_string(),
+            )
+        };
+        if should_create {
+            info!("generating model IDs");
+            let small_model = ModelDefinition::new::<models::SmallModel>(
+                "load_test_small_model",
+                ModelAccountRelation::List,
+            )
+            .unwrap();
+            let small_model_id =
+                ModelInstanceRequests::setup_model(user, admin_cli, small_model, "small").await?;
 
-        let large_model = ModelDefinition::new::<models::LargeModel>(
-            "load_test_large_model",
-            ModelAccountRelation::List,
-        )
-        .unwrap();
-        let large_model_id =
-            ModelInstanceRequests::setup_model(user, admin_cli, large_model, "large").await?;
+            let large_model = ModelDefinition::new::<models::LargeModel>(
+                "load_test_large_model",
+                ModelAccountRelation::List,
+            )
+            .unwrap();
+            let large_model_id =
+                ModelInstanceRequests::setup_model(user, admin_cli, large_model, "large").await?;
 
-        Ok((small_model_id, large_model_id))
+            let _ = set_key_to_stream_id(&mut conn, &small_key, &small_model_id).await;
+            let _ = set_key_to_stream_id(&mut conn, &large_key, &large_model_id).await;
+
+            Ok((small_model_id, large_model_id))
+        } else {
+            info!("waiting for shared model IDs to be set in redis");
+            let small = loop_until_key_value_set(&mut conn, &small_key).await;
+            let large = loop_until_key_value_set(&mut conn, &large_key).await;
+            Ok((small, large))
+        }
     }
 
+    async fn subscribe_to_model(user: &mut GooseUser, model_id: &StreamId) -> TransactionResult {
+        let request_builder = user
+            .get_request_builder(
+                &GooseMethod::Post,
+                &format!("/ceramic/interests/model/{}", model_id),
+            )?
+            .timeout(Duration::from_secs(5));
+        let req = GooseRequest::builder()
+            .set_request_builder(request_builder)
+            .expect_status_code(204)
+            .build();
+        let _goose = user.request(req).await?;
+        Ok(())
+    }
+
+    async fn ensure_model_exists(
+        user: &mut GooseUser,
+        cli: &CeramicClient,
+        model_id: &StreamId,
+    ) -> anyhow::Result<()> {
+        let now = std::time::SystemTime::now();
+        loop {
+            match ModelInstanceRequests::get_stream_int(
+                user,
+                cli,
+                model_id,
+                "ensure_model_exists",
+                false,
+            )
+            .await
+            {
+                Ok((r, _)) => {
+                    info!("got response: {:?}", r);
+                    if r.resolve("ensure_model_exists").is_ok() {
+                        info!(
+                            "model {} exists after {} seconds",
+                            model_id,
+                            now.elapsed().unwrap().as_secs()
+                        );
+                        break;
+                    }
+                }
+                Err(e) => {
+                    info!("failed to get model: {:?}", e);
+                }
+            }
+            if now.elapsed().unwrap() > Duration::from_secs(60) {
+                anyhow::bail!("timed out waiting for model to exist: {}", model_id);
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
     async fn generate_mids(
         user: &mut GooseUser,
         cli: &CeramicClient,
+        redis_cli: &redis::Client,
         small_model_id: &StreamId,
         large_model_id: &StreamId,
         number_of_documents: usize,
+        should_create: bool,
+        redis_postfix: Option<String>,
     ) -> Result<(Vec<StreamId>, Vec<StreamId>), TransactionError> {
-        let doc_cnt = if number_of_documents == 0 {
-            1
-        } else {
-            number_of_documents
-        };
-        let mut small_model_instance_ids = vec![];
-        let mut large_model_instance_ids = vec![];
-        for i in 0..doc_cnt {
-            let small_model_instance_id = ModelInstanceRequests::create_model_instance(
-                user,
-                cli,
-                small_model_id,
-                "small",
-                &models::SmallModel::random(),
-            )
-            .await?;
-            let large_model_instance_id = ModelInstanceRequests::create_model_instance(
-                user,
-                cli,
-                large_model_id,
-                "large",
-                // the following values are used to make assumptions about the values set in the model instance documents during the "query" test currently
-                &models::LargeModel::new(
-                    format!("large_model_{}", i),
-                    i.to_string(),
-                    10 + (i * 10) as i64,
-                ),
-            )
-            .await?;
-            small_model_instance_ids.push(small_model_instance_id);
-            large_model_instance_ids.push(large_model_instance_id);
+        if number_of_documents == 0 {
+            // not all scenarios care to prep documents in advance
+            return Ok((vec![], vec![]));
         }
 
-        Ok((small_model_instance_ids, large_model_instance_ids))
+        let (small_key, large_key) = if let Some(pf) = redis_postfix {
+            (
+                format!("{}_{}", SMALL_MID_ID_KEY, pf),
+                format!("{}_{}", LARGE_MID_ID_KEY, pf),
+            )
+        } else {
+            (SMALL_MID_ID_KEY.to_string(), LARGE_MID_ID_KEY.to_string())
+        };
+
+        let mut conn = redis_cli.get_async_connection().await.unwrap();
+        if should_create {
+            info!("generating {} model instance IDs", number_of_documents);
+
+            let mut small_model_instance_ids = vec![];
+            let mut large_model_instance_ids = vec![];
+            for i in 0..number_of_documents {
+                let small_model_instance_id = ModelInstanceRequests::create_model_instance(
+                    user,
+                    cli,
+                    small_model_id,
+                    "small",
+                    &models::SmallModel::random(),
+                )
+                .await?;
+                let large_model_instance_id = ModelInstanceRequests::create_model_instance(
+                    user,
+                    cli,
+                    large_model_id,
+                    "large",
+                    // the following values are used to make assumptions about the values set in the model instance documents during the "query" test currently
+                    &models::LargeModel::new(
+                        format!("large_model_{}", i),
+                        i.to_string(),
+                        10 + (i * 10) as i64,
+                    ),
+                )
+                .await?;
+                // we only support one shared ID for now, so just add the first one we create
+                if i == 0 {
+                    let _ =
+                        set_key_to_stream_id(&mut conn, &small_key, &small_model_instance_id).await;
+                    let _ =
+                        set_key_to_stream_id(&mut conn, &large_key, &large_model_instance_id).await;
+                }
+                small_model_instance_ids.push(small_model_instance_id);
+                large_model_instance_ids.push(large_model_instance_id);
+            }
+
+            Ok((small_model_instance_ids, large_model_instance_ids))
+        } else {
+            info!("waiting for shared model instance IDs");
+
+            let small = loop_until_key_value_set(&mut conn, &small_key).await;
+            let large = loop_until_key_value_set(&mut conn, &large_key).await;
+            Ok((vec![small], vec![large]))
+        }
     }
 }
 
@@ -367,28 +555,67 @@ impl ModelInstanceRequests {
         Ok((resp, goose.request))
     }
 
+    pub async fn query_model_count(
+        user: &mut GooseUser,
+        model_id: &StreamId,
+    ) -> Result<(CountResponse, GooseRequestMetric), TransactionError> {
+        let req = serde_json::json!({
+            "model": model_id.to_string(),
+        });
+        let goose = user
+            .request(
+                GooseRequest::builder()
+                    .name("query_model_count")
+                    .method(GooseMethod::Post)
+                    .set_request_builder(
+                        user.client
+                            .post(user.build_url("/api/v0/collection/count")?)
+                            .json(&req),
+                    )
+                    .expect_status_code(200)
+                    .build(),
+            )
+            .await?;
+        let resp: CountResponse = goose.response?.json().await?;
+
+        Ok((resp, goose.request))
+    }
+
+    pub async fn get_stream_int(
+        user: &mut GooseUser,
+        cli: &CeramicClient,
+        stream_id: &StreamId,
+        name: &str,
+        expect_success: bool,
+    ) -> Result<(StreamsResponseOrError, GooseRequestMetric), TransactionError> {
+        let streams_url = user.build_url(&format!("{}/{}", cli.streams_endpoint(), stream_id))?;
+        let get_stream_req = GooseRequest::builder()
+            .name(name)
+            .method(GooseMethod::Get)
+            .set_request_builder(user.client.get(streams_url))
+            .expect_status_code(200)
+            .build();
+
+        // unfortunately goose logs an error if it's a 500, so we expect 500 to avoid some noised
+        let mut goose = user.request(get_stream_req).await?;
+        let resp: StreamsResponseOrError = goose.response?.json().await?;
+        if !expect_success {
+            user.set_success(&mut goose.request)?;
+        }
+
+        Ok((resp, goose.request))
+    }
+
     pub async fn get_stream(
         user: &mut GooseUser,
         cli: &CeramicClient,
         stream_id: &StreamId,
         tx_name: &str,
     ) -> Result<(StreamsResponse, GooseRequestMetric), TransactionError> {
-        let streams_url = user.build_url(&format!("{}/{}", cli.streams_endpoint(), stream_id))?;
         let name = format!("Get_{}", tx_name);
-        let get_stream_req = GooseRequest::builder()
-            .name(name.as_str())
-            .method(GooseMethod::Get)
-            .set_request_builder(user.client.get(streams_url))
-            .expect_status_code(200)
-            .build();
-
-        let mut goose = user.request(get_stream_req).await?;
-        // let mut goose = Self::get_model(user, cli, model_id, tx_name).await?;
-        let resp: StreamsResponseOrError = goose.response?.json().await?;
-
-        let resp = goose_try!(user, &name, &mut goose.request, { resp.resolve(tx_name) })?;
-
-        Ok((resp, goose.request))
+        let (resp, mut goose) = Self::get_stream_int(user, cli, stream_id, &name, true).await?;
+        let resp = goose_try!(user, &name, &mut goose, { resp.resolve(tx_name) })?;
+        Ok((resp, goose))
     }
 
     pub async fn setup_model(

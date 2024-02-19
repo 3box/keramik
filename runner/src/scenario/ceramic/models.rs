@@ -1,5 +1,8 @@
 use ceramic_http_client::GetRootSchema;
-use rand::prelude::*;
+use rand::{
+    distributions::{Alphanumeric, DistString},
+    prelude::*,
+};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
@@ -50,6 +53,20 @@ impl LargeModel {
             name,
             description,
             tpe,
+        }
+    }
+
+    pub fn random_1kb() -> Self {
+        let mut rng = thread_rng();
+
+        Self {
+            creator: "keramik".to_string(),
+            name: format!(
+                "keramik-large-model-{}",
+                Alphanumeric.sample_string(&mut rand::thread_rng(), 40)
+            ),
+            description: Alphanumeric.sample_string(&mut rand::thread_rng(), 200),
+            tpe: rng.gen_range(0..100),
         }
     }
 }

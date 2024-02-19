@@ -1,22 +1,100 @@
 use std::sync::Arc;
 
 use goose::prelude::*;
+use redis::AsyncCommands;
+use tracing::info;
 
-use crate::scenario::ceramic::{models, simple::setup, RandomModelInstance};
+use crate::scenario::{
+    ceramic::{models, RandomModelInstance},
+    get_redis_client,
+};
 
 use super::{
     model_instance::{CeramicModelInstanceTestUser, ModelInstanceRequests},
     CeramicScenarioParameters,
 };
 
-pub async fn scenario(params: CeramicScenarioParameters) -> Result<Scenario, GooseError> {
+/// returns (worker_id, count)
+pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(usize, i32)> {
+    let redis_cli = get_redis_client().await.unwrap();
+    let mut conn = redis_cli.get_async_connection().await.unwrap();
+    let mut res = vec![];
+    // the worker IDs is 1 indexed, so we need to add 1 to the range
+    for i in 1..worker_cnt + 1 {
+        let before = conn
+            .get::<_, Option<String>>(new_cnt_key(true, i, nonce))
+            .await
+            .unwrap();
+        let after = conn
+            .get::<_, Option<String>>(new_cnt_key(false, i, nonce))
+            .await
+            .unwrap();
+        let before = before.and_then(|s| s.parse::<i32>().ok());
+        let after = after.and_then(|s| s.parse::<i32>().ok());
+        match (before, after) {
+            (Some(before), Some(after)) => {
+                res.push((i, after - before));
+            }
+            _ => {
+                tracing::warn!("missing entry for worker {}", i);
+            }
+        }
+    }
+    res
+}
+
+fn new_cnt_key(before: bool, worker_id: usize, nonce: u64) -> String {
+    let modifier = if before { "start" } else { "end" };
+    format!("new_mid_count_{}_{}_{}", worker_id, modifier, nonce)
+}
+
+async fn store_metrics(user: &mut GooseUser, on_start: bool, nonce: u64) -> TransactionResult {
+    let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
+    if user_data.user_info.lead_user {
+        info!("lead user, storing metrics");
+        let cnt =
+            match ModelInstanceRequests::query_model_count(user, &user_data.large_model_id).await {
+                Ok((cnt, _)) => cnt.count,
+                Err(e) => {
+                    tracing::error!("failed to get model count: {}", e);
+                    if on_start {
+                        0
+                    } else {
+                        return Err(e);
+                    }
+                }
+            };
+        info!(data=?cnt, stream_id=%user_data.large_model_id, "got model count");
+
+        let mut conn = user_data.redis_cli().get_async_connection().await.unwrap();
+        let _: () = conn
+            .set(
+                new_cnt_key(on_start, goose::get_worker_id(), nonce),
+                cnt.to_string(),
+            )
+            .await
+            .unwrap();
+    } else {
+        info!("not lead user, skipping metrics");
+    }
+    Ok(())
+}
+
+pub async fn small_large_scenario(
+    params: CeramicScenarioParameters,
+) -> Result<Scenario, GooseError> {
     let config = CeramicModelInstanceTestUser::prep_scenario(params)
         .await
         .unwrap();
 
-    let test_start = Transaction::new(Arc::new(move |user| Box::pin(setup(user, config.clone()))))
-        .set_name("setup")
-        .set_on_start();
+    let test_start = Transaction::new(Arc::new(move |user| {
+        Box::pin(CeramicModelInstanceTestUser::setup_mid_scenario(
+            user,
+            config.clone(),
+        ))
+    }))
+    .set_name("setup")
+    .set_on_start();
 
     let instantiate_small_model =
         transaction!(instantiate_small_model).set_name("instantiate_small_model");
@@ -27,6 +105,46 @@ pub async fn scenario(params: CeramicScenarioParameters) -> Result<Scenario, Goo
         .register_transaction(test_start)
         .register_transaction(instantiate_small_model)
         .register_transaction(instantiate_large_model))
+}
+
+// the nonce is used to ensure that the metrics stored in redis for the run are unique
+pub async fn benchmark_scenario(
+    params: CeramicScenarioParameters,
+    nonce: u64,
+) -> Result<Scenario, GooseError> {
+    let config = CeramicModelInstanceTestUser::prep_scenario(params)
+        .await
+        .unwrap();
+
+    let test_start = Transaction::new(Arc::new(move |user| {
+        Box::pin(CeramicModelInstanceTestUser::setup_mid_scenario(
+            user,
+            config.clone(),
+        ))
+    }))
+    .set_name("setup")
+    .set_on_start();
+
+    let before_metrics = Transaction::new(Arc::new(move |user| {
+        Box::pin(store_metrics(user, true, nonce))
+    }))
+    .set_name("before_metrics")
+    .set_on_start();
+
+    let after_metrics = Transaction::new(Arc::new(move |user| {
+        Box::pin(store_metrics(user, false, nonce))
+    }))
+    .set_name("after_metrics")
+    .set_on_stop();
+
+    let instantiate_large_model =
+        transaction!(instantiate_large_model_1kb).set_name("instantiate_1k_mid");
+
+    Ok(scenario!("CeramicNewStreamsBenchmark")
+        .register_transaction(test_start)
+        .register_transaction(before_metrics)
+        .register_transaction(instantiate_large_model)
+        .register_transaction(after_metrics))
 }
 
 async fn instantiate_small_model(user: &mut GooseUser) -> TransactionResult {
@@ -52,5 +170,26 @@ async fn instantiate_large_model(user: &mut GooseUser) -> TransactionResult {
         &models::LargeModel::random(),
     )
     .await?;
+
+    Ok(())
+}
+
+async fn instantiate_large_model_1kb(user: &mut GooseUser) -> TransactionResult {
+    let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
+    if user_data.user_info.lead_worker {
+        ModelInstanceRequests::create_model_instance(
+            user,
+            user_data.user_cli(),
+            &user_data.large_model_id,
+            "instantiate_large_model_instance",
+            &models::LargeModel::random_1kb(),
+        )
+        .await?;
+    } else {
+        tracing::debug!(
+            "Not lead worker. Just sleeping instead of creating large model instance document"
+        );
+        tokio::time::sleep(tokio::time::Duration::from_millis(100)).await; // this doesn't block cpu
+    }
     Ok(())
 }

@@ -12,6 +12,7 @@ use ceramic_http_client::ceramic_event::{DidDocument, JwkSigner};
 use ceramic_http_client::CeramicHttpClient;
 
 use models::RandomModelInstance;
+use serde::{Deserialize, Serialize};
 
 use crate::simulate::Scenario;
 
@@ -89,7 +90,8 @@ impl Credentials {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum DidType {
     /// One DID for all users
     Shared,
@@ -99,17 +101,19 @@ pub enum DidType {
     //UserCacao,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
 pub enum ReuseType {
     /// Create a new model or model instance document for each user
     PerUser,
-    // Create a new model for each node (worker)
-    // PerNode,
+    /// Create a new model for each node (worker)
+    PerNode,
     /// Reuse the same model or model instance document for all users
     Shared,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
+#[serde(rename_all = "camelCase")]
 pub struct CeramicScenarioParameters {
     pub did_type: DidType,
     /// Whether models should be shared or independent
@@ -121,6 +125,8 @@ pub struct CeramicScenarioParameters {
 
 impl From<Scenario> for CeramicScenarioParameters {
     fn from(value: Scenario) -> Self {
+        // did_type: DidType::UserDidKey and model_instance_reuse: ReuseType::Shared is an invalid combination
+        // as we'll try to update documents owned by another controller and just log lots of errors
         match value {
             Scenario::CeramicSimple => Self {
                 did_type: DidType::Shared,
@@ -128,15 +134,15 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
             },
-            Scenario::CeramicUserSimple => Self {
+            Scenario::CeramicModelReuse => Self {
                 did_type: DidType::UserDidKey,
-                model_reuse: ReuseType::PerUser,
+                model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
             },
             Scenario::CeramicWriteOnly => Self {
                 did_type: DidType::UserDidKey,
-                model_reuse: ReuseType::PerUser,
+                model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
             },
@@ -144,19 +150,19 @@ impl From<Scenario> for CeramicScenarioParameters {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::PerUser,
                 model_instance_reuse: ReuseType::PerUser,
-                number_of_documents: 1,
+                number_of_documents: 0,
+            },
+            Scenario::CeramicNewStreamsBenchmark => Self {
+                did_type: DidType::UserDidKey,
+                model_reuse: ReuseType::Shared,
+                model_instance_reuse: ReuseType::PerUser,
+                number_of_documents: 0,
             },
             Scenario::CeramicQuery => Self {
                 did_type: DidType::Shared,
                 model_reuse: ReuseType::PerUser,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 3,
-            },
-            Scenario::CeramicModelReuse => Self {
-                did_type: DidType::UserDidKey,
-                model_reuse: ReuseType::Shared,
-                model_instance_reuse: ReuseType::Shared,
-                number_of_documents: 1,
             },
             Scenario::IpfsRpc | Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 panic!("Not supported for non ceramic scenarios")

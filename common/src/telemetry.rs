@@ -15,7 +15,7 @@ use opentelemetry_sdk::{
         reader::{DefaultAggregationSelector, DefaultTemporalitySelector},
         MeterProvider,
     },
-    runtime, trace, Resource,
+    runtime, Resource,
 };
 use prometheus::{Encoder, TextEncoder};
 use tokio::{sync::oneshot, task::JoinHandle};
@@ -25,55 +25,69 @@ use tracing_subscriber::{filter::LevelFilter, prelude::*, EnvFilter, Registry};
 static PROM_REGISTRY: OnceLock<prometheus::Registry> = OnceLock::new();
 
 /// Initialize tracing
-pub async fn init_tracing(otlp_endpoint: String) -> Result<()> {
-    let tracer = opentelemetry_otlp::new_pipeline()
-        .tracing()
-        .with_exporter(
-            opentelemetry_otlp::new_exporter()
-                .tonic()
-                .with_endpoint(otlp_endpoint.clone()),
-        )
-        .with_trace_config(trace::config().with_resource(Resource::new(vec![
-                opentelemetry::KeyValue::new(
-                    "hostname",
-                    gethostname::gethostname()
-                        .into_string()
-                        .expect("hostname should be valid utf-8"),
-                ),
-                opentelemetry::KeyValue::new("service.name", "keramik"),
-            ])))
-        .install_batch(runtime::Tokio)?;
-
-    // Setup filters
-    // Default to INFO if no env is specified
+pub async fn init_tracing(otlp_endpoint: Option<String>) -> Result<()> {
+    //// Setup log filter
+    //// Default to INFO if no env is specified
     let log_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env()?;
-    let otlp_filter = EnvFilter::builder()
-        .with_default_directive(LevelFilter::INFO.into())
-        .from_env()?;
 
-    // Setup tracing layers
-    let telemetry = tracing_opentelemetry::layer()
-        .with_tracer(tracer)
-        .with_filter(otlp_filter);
-    let logger = tracing_subscriber::fmt::layer()
-        .with_ansi(true)
-        .compact()
-        .with_filter(log_filter);
+    // If we have an otlp_endpoint setup export of traces
+    if let Some(otlp_endpoint) = otlp_endpoint {
+        let tracer = opentelemetry_otlp::new_pipeline()
+            .tracing()
+            .with_exporter(
+                opentelemetry_otlp::new_exporter()
+                    .tonic()
+                    .with_endpoint(otlp_endpoint.clone()),
+            )
+            .with_trace_config(
+                opentelemetry_sdk::trace::config().with_resource(Resource::new(vec![
+                    opentelemetry::KeyValue::new(
+                        "hostname",
+                        gethostname::gethostname()
+                            .into_string()
+                            .expect("hostname should be valid utf-8"),
+                    ),
+                    opentelemetry::KeyValue::new("service.name", "keramik"),
+                ])),
+            )
+            .install_batch(runtime::Tokio)?;
 
-    let collector = Registry::default().with(telemetry).with(logger);
+        // Setup otlp export filter
+        // Default to INFO if no env is specified
+        let otlp_filter = EnvFilter::builder()
+            .with_default_directive(LevelFilter::INFO.into())
+            .from_env()?;
 
-    #[cfg(feature = "tokio-console")]
-    let collector = {
-        let console_filter = EnvFilter::builder().parse("tokio=trace,runtime=trace")?;
-        let console_layer = console_subscriber::spawn().with_filter(console_filter);
-        collector.with(console_layer)
-    };
+        // Setup tracing layers
+        let telemetry = tracing_opentelemetry::layer()
+            .with_tracer(tracer)
+            .with_filter(otlp_filter);
+        // Setup logging to stdout
+        let logger = tracing_subscriber::fmt::layer()
+            .with_ansi(true)
+            .pretty()
+            .with_filter(log_filter);
 
-    // Initialize tracing
-    tracing::subscriber::set_global_default(collector)?;
+        let collector = Registry::default().with(telemetry).with(logger);
 
+        #[cfg(feature = "tokio-console")]
+        let collector = {
+            let console_filter = EnvFilter::builder().parse("tokio=trace,runtime=trace")?;
+            let console_layer = console_subscriber::spawn().with_filter(console_filter);
+            collector.with(console_layer)
+        };
+
+        tracing::subscriber::set_global_default(collector)?;
+    } else {
+        // Setup basic log only tracing
+        let logger = tracing_subscriber::fmt::layer()
+            .with_ansi(true)
+            .pretty()
+            .with_filter(log_filter);
+        tracing_subscriber::registry().with(logger).init()
+    }
     Ok(())
 }
 

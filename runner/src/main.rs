@@ -65,11 +65,10 @@ pub enum CommandResult {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_log::LogTracer::init()?;
-
     let args = Cli::parse();
-    telemetry::init_tracing(args.otlp_endpoint.clone()).await?;
+    telemetry::init_tracing(Some(args.otlp_endpoint.clone())).await?;
     let metrics_controller = telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?;
+    info!("starting runner");
 
     let meter = global::meter("keramik");
     let runs = meter

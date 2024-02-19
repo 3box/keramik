@@ -127,9 +127,6 @@ spec:
           containerPort: 9464
           protocol: TCP
         env:
-        # We are pointing to tempo or grafana tracing agent's otlp grpc receiver port
-        - name: OPERATOR_OTLP_ENDPOINT
-          value: "https://otel:4317"
         - name: RUST_LOG
           value: "info"
         #readinessProbe:

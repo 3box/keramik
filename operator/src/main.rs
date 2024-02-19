@@ -4,6 +4,7 @@ use anyhow::Result;
 use clap::{command, Parser, Subcommand};
 use keramik_common::telemetry;
 use opentelemetry::global::{shutdown_meter_provider, shutdown_tracer_provider};
+use tracing::info;
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -27,14 +28,11 @@ pub enum Command {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    tracing_log::LogTracer::init()?;
-
     let args = Cli::parse();
-    if let Some(otlp_endpoint) = &args.otlp_endpoint {
-        telemetry::init_tracing(otlp_endpoint.clone()).await?;
-    }
+    telemetry::init_tracing(args.otlp_endpoint).await?;
     let (metrics_controller, metrics_server_shutdown, metrics_server_join) =
         telemetry::init_metrics_prom(&args.prom_bind.parse()?).await?;
+    info!("starting operator");
 
     match args.command {
         Command::Daemon => {

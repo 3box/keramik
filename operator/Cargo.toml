@@ -33,7 +33,6 @@ controller = [
     "dep:thiserror",
     "dep:tokio",
     "dep:tracing",
-    "dep:tracing-log",
     # Enable keramik-common/telemetry feature if the controller is enabled.
     "keramik-common/telemetry",
     "kube/client",
@@ -69,7 +68,6 @@ serde_yaml = { version = "0.9.21", optional = true }
 thiserror = { version = "1", optional = true }
 tokio = { workspace = true, optional = true }
 tracing = { workspace = true, optional = true }
-tracing-log = { workspace = true, optional = true }
 
 [dev-dependencies]
 expect-patch.workspace = true

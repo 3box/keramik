@@ -444,11 +444,8 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
-            | Scenario::CeramicModelReuse => (CommandResult::Success, None),
-            Scenario::CeramicNewStreamsBenchmark => {
-                // TODO:
-                (CommandResult::Success, None)
-            }
+            | Scenario::CeramicModelReuse
+            | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;
                 let metric_name = EVENT_SYNC_METRIC_NAME;

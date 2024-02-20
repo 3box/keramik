@@ -555,6 +555,7 @@ impl ModelInstanceRequests {
         Ok((resp, goose.request))
     }
 
+    #[allow(dead_code)]
     pub async fn query_model_count(
         user: &mut GooseUser,
         model_id: &StreamId,

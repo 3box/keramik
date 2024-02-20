@@ -5,7 +5,7 @@ use redis::AsyncCommands;
 use tracing::info;
 
 use crate::scenario::{
-    ceramic::{models, RandomModelInstance},
+    ceramic::{model_instance::CountResponse, models, RandomModelInstance},
     get_redis_client,
 };
 
@@ -13,6 +13,8 @@ use super::{
     model_instance::{CeramicModelInstanceTestUser, ModelInstanceRequests},
     CeramicScenarioParameters,
 };
+
+static REQWEST_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
 
 /// returns (worker_id, count)
 pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(usize, i32)> {
@@ -49,21 +51,33 @@ fn new_cnt_key(before: bool, worker_id: usize, nonce: u64) -> String {
 }
 
 async fn store_metrics(user: &mut GooseUser, on_start: bool, nonce: u64) -> TransactionResult {
+    // there is a goose bug where the manager closes the flume channel used to throttle requests, and then our on stop
+    // requests all fail to execute. So instead of using the user to make the request, we use a reqwest client
+    // if the throttle value is not set, it doesn't apply, but it's easier to just use the reqwest client in all cases
     let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
     if user_data.user_info.lead_user {
-        info!("lead user, storing metrics");
-        let cnt =
-            match ModelInstanceRequests::query_model_count(user, &user_data.large_model_id).await {
-                Ok((cnt, _)) => cnt.count,
-                Err(e) => {
-                    tracing::error!("failed to get model count: {}", e);
-                    if on_start {
-                        0
-                    } else {
-                        return Err(e);
-                    }
+        let url = user.build_url("/api/v0/collection/count")?;
+        let client = REQWEST_CLIENT.get_or_init(reqwest::Client::new);
+        let resp = client
+            .post(&url)
+            .json(&serde_json::json!({
+                "model": &user_data.large_model_id.to_string(),
+            }))
+            .send()
+            .await?
+            .json::<CountResponse>()
+            .await;
+        let cnt = match resp {
+            Ok(cnt) => cnt.count,
+            Err(e) => {
+                tracing::error!("failed to get model count: {}", e);
+                if on_start {
+                    0
+                } else {
+                    panic!("failed to get model count: {}", e);
                 }
-            };
+            }
+        };
         info!(data=?cnt, stream_id=%user_data.large_model_id, "got model count");
 
         let mut conn = user_data.redis_cli().get_async_connection().await.unwrap();
@@ -74,9 +88,8 @@ async fn store_metrics(user: &mut GooseUser, on_start: bool, nonce: u64) -> Tran
             )
             .await
             .unwrap();
-    } else {
-        info!("not lead user, skipping metrics");
     }
+
     Ok(())
 }
 

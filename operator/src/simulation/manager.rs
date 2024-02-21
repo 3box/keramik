@@ -3,8 +3,8 @@ use std::collections::BTreeMap;
 use k8s_openapi::api::{
     batch::v1::JobSpec,
     core::v1::{
-        ConfigMapVolumeSource, Container, EnvVar, PodSpec, PodTemplateSpec, ServicePort,
-        ServiceSpec, Volume, VolumeMount,
+        ConfigMapVolumeSource, Container, EnvVar, EnvVarSource, PodSpec, PodTemplateSpec,
+        SecretKeySelector, ServicePort, ServiceSpec, Volume, VolumeMount,
     },
 };
 use kube::core::ObjectMeta;
@@ -101,6 +101,18 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
             value: Some(
                 "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a".to_owned(),
             ),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "CERAMIC_ADMIN_PRIVATE_KEY".to_owned(),
+            value_from: Some(EnvVarSource {
+                secret_key_ref: Some(SecretKeySelector {
+                    key: "private-key".to_owned(),
+                    name: Some("ceramic-admin".to_owned()),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
             ..Default::default()
         },
     ];

@@ -74,6 +74,15 @@ Request {
                   {
                     "name": "DID_PRIVATE_KEY",
                     "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+                  },
+                  {
+                    "name": "CERAMIC_ADMIN_PRIVATE_KEY",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "private-key",
+                        "name": "ceramic-admin"
+                      }
+                    }
                   }
                 ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",

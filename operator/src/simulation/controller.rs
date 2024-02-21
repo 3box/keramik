@@ -603,8 +603,8 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_MANAGER",
-            @@ -80,8 +80,8 @@
-                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            @@ -89,8 +89,8 @@
+                                 }
                                }
                              ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
@@ -627,8 +627,8 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -76,8 +76,8 @@
-                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            @@ -85,8 +85,8 @@
+                                 }
                                }
                              ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
@@ -651,8 +651,8 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -76,8 +76,8 @@
-                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            @@ -85,8 +85,8 @@
+                                 }
                                }
                              ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
@@ -683,10 +683,10 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -78,6 +78,10 @@
-                               {
-                                 "name": "DID_PRIVATE_KEY",
-                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            @@ -87,6 +87,10 @@
+                                     "name": "ceramic-admin"
+                                   }
+                                 }
             +                  },
             +                  {
             +                    "name": "SIMULATE_THROTTLE_REQUESTS",
@@ -698,10 +698,10 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -74,6 +74,10 @@
-                               {
-                                 "name": "DID_PRIVATE_KEY",
-                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            @@ -83,6 +83,10 @@
+                                     "name": "ceramic-admin"
+                                   }
+                                 }
             +                  },
             +                  {
             +                    "name": "SIMULATE_THROTTLE_REQUESTS",
@@ -713,10 +713,10 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -74,6 +74,10 @@
-                               {
-                                 "name": "DID_PRIVATE_KEY",
-                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            @@ -83,6 +83,10 @@
+                                     "name": "ceramic-admin"
+                                   }
+                                 }
             +                  },
             +                  {
             +                    "name": "SIMULATE_THROTTLE_REQUESTS",
@@ -746,10 +746,10 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -78,6 +78,10 @@
-                               {
-                                 "name": "DID_PRIVATE_KEY",
-                                 "value": "86dce513cf0a37d4acd6d2c2e00fe4b95e0e655ca51e1a890808f5fa6f4fe65a"
+            @@ -87,6 +87,10 @@
+                                     "name": "ceramic-admin"
+                                   }
+                                 }
             +                  },
             +                  {
             +                    "name": "SIMULATE_TARGET_REQUESTS",

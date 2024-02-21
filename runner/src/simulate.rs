@@ -17,13 +17,16 @@ use reqwest::Url;
 use tracing::{error, info, warn};
 
 use crate::{
-    scenario::{ceramic, ipfs_block_fetch},
+    scenario::{
+        ceramic::{self, new_streams},
+        ipfs_block_fetch, recon_sync,
+    },
     utils::parse_peers_info,
     CommandResult,
 };
 
 // FIXME: is it worth attaching metrics to the peer info?
-const IPFS_SERVICE_METRICS_PORT: u32 = 9465;
+const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_insert_count_total";
 
 /// Options to Simulate command
@@ -92,16 +95,24 @@ pub struct Topology {
 pub enum Scenario {
     /// Queries the Id of the IPFS peers.
     IpfsRpc,
-    /// Simple Ceramic Scenario
+    /// Simple Ceramic Scenario that creates two models and MIDs and then and gets the streams
+    /// and then replaces the existing model instance document with a new one. It uses one DID for all users,
+    /// and creates a new model instance document for each user.
     CeramicSimple,
-    /// WriteOnly Ceramic Scenario
-    CeramicWriteOnly,
-    /// New Streams Ceramic Scenario
-    CeramicNewStreams,
-    /// Simple Query Scenario
-    CeramicQuery,
-    /// Scenario to reuse the same model id and query instances across workers
+    /// Same requests as the CeramicSimple scenario but changes the DID and MID ownership. Every user has their own
+    /// DID and creates a Model Instance Document, that they then replace throughout the scenario.
     CeramicModelReuse,
+    /// WriteOnly Ceramic Scenario that creates two models and replaces the model instance documents.
+    CeramicWriteOnly,
+    /// New Streams Ceramic Scenario. Only creates new model instance documents rather than updating anything.
+    CeramicNewStreams,
+    /// Scenario that creates new model instance documents that are about 1kb in size and verifies that they sync
+    /// to the other nodes. This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    /// but covering using js-ceramic rather than talking directly to the ipfs API.
+    CeramicNewStreamsBenchmark,
+    /// Simple Query Scenario. Creates multiple MIDs for a model and then queries the model instance documents,
+    /// updates the document, and then queries again to verify the update was persisted.
+    CeramicQuery,
     /// Nodes subscribe to same model. One node generates new events, recon syncs event keys and data to peers.
     ReconEventSync,
     /// Nodes subscribe to same model. One node generates new events, recon syncs event keys to peers.
@@ -118,6 +129,7 @@ impl Scenario {
             Scenario::CeramicSimple => "ceramic_simple",
             Scenario::CeramicWriteOnly => "ceramic_write_only",
             Scenario::CeramicNewStreams => "ceramic_new_streams",
+            Scenario::CeramicNewStreamsBenchmark => "ceramic_new_streams_benchmark",
             Scenario::CeramicQuery => "ceramic_query",
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
             Scenario::ReconEventSync => "recon_event_sync",
@@ -133,6 +145,7 @@ impl Scenario {
             Self::CeramicSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
+            | Self::CeramicNewStreamsBenchmark
             | Self::CeramicQuery
             | Self::CeramicModelReuse => Ok(peer
                 .ceramic_addr()
@@ -251,13 +264,21 @@ impl ScenarioState {
     async fn build_goose_scenario(&mut self) -> Result<goose::prelude::Scenario> {
         let scenario = match self.scenario {
             Scenario::IpfsRpc => ipfs_block_fetch::scenario(self.topo)?,
-            Scenario::CeramicSimple => ceramic::simple::scenario().await?,
-            Scenario::CeramicWriteOnly => ceramic::write_only::scenario().await?,
-            Scenario::CeramicNewStreams => ceramic::new_streams::scenario().await?,
-            Scenario::CeramicQuery => ceramic::query::scenario().await?,
-            Scenario::CeramicModelReuse => ceramic::model_reuse::scenario().await?,
-            Scenario::ReconEventSync => ceramic::recon_sync::event_sync_scenario().await?,
-            Scenario::ReconEventKeySync => ceramic::recon_sync::event_key_sync_scenario().await?,
+            Scenario::CeramicSimple => ceramic::simple::scenario(self.scenario.into()).await?,
+            Scenario::CeramicModelReuse => ceramic::simple::scenario(self.scenario.into()).await?,
+            Scenario::CeramicWriteOnly => {
+                ceramic::write_only::scenario(self.scenario.into()).await?
+            }
+            Scenario::CeramicNewStreams => {
+                ceramic::new_streams::small_large_scenario(self.scenario.into()).await?
+            }
+            Scenario::CeramicNewStreamsBenchmark => {
+                ceramic::new_streams::benchmark_scenario(self.scenario.into(), self.topo.nonce)
+                    .await?
+            }
+            Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
+            Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
+            Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -275,7 +296,7 @@ impl ScenarioState {
     async fn get_peers_counter_metric(
         &self,
         metric_name: &str,
-        metrics_port: u32,
+        metrics_path: &str, // may include the port and path
     ) -> Result<Vec<Option<u64>>> {
         // This is naive and specific to our requirement of getting a prometheus counter.
         let mut results = Vec::with_capacity(self.peers.len());
@@ -286,7 +307,7 @@ impl ScenarioState {
             if let Some(addr) = peer.ceramic_addr() {
                 let addr = addr.parse::<reqwest::Url>()?;
                 if let Some(host) = addr.host_str() {
-                    let url = format!("http://{}:{}", host, metrics_port);
+                    let url = format!("http://{}:{}", host, metrics_path);
                     let metric = self
                         .metrics_collector
                         .collect_counter(url.parse()?, metric_name)
@@ -311,6 +332,10 @@ impl ScenarioState {
                 | Scenario::CeramicNewStreams
                 | Scenario::CeramicQuery
                 | Scenario::CeramicModelReuse => Ok(()),
+                Scenario::CeramicNewStreamsBenchmark => {
+                    // we collect things in the scenario and use redit to propagate the metrics to the manager
+                    Ok(())
+                }
                 Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                     let peers = self
                         .get_peers_counter_metric(EVENT_SYNC_METRIC_NAME, IPFS_SERVICE_METRICS_PORT)
@@ -346,13 +371,44 @@ impl ScenarioState {
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
             | Scenario::CeramicModelReuse => (CommandResult::Success, None),
+            Scenario::CeramicNewStreamsBenchmark => {
+                let res =
+                    new_streams::benchmark_scenario_metrics(self.peers.len(), self.topo.nonce)
+                        .await;
+                if res.is_empty() {
+                    return (
+                        CommandResult::Failure(anyhow!("No metrics collected")),
+                        None,
+                    );
+                }
+                let target = self.target_request_rate.unwrap_or(300);
+                let mut errors = vec![];
+                for (worker_id, count) in res {
+                    let rps = count as f64 / metrics.duration as f64;
+                    if rps < target as f64 {
+                        let msg = format!(
+                            "Worker {} did not meet the target request rate: {} < {} (total requests: {} over {})",
+                            worker_id, rps, target, count, metrics.duration
+                        );
+                        warn!(msg);
+                        errors.push(msg);
+                    } else {
+                        info!("worker {} met threshold! {} > {}", worker_id, rps, target);
+                    }
+                }
+                if errors.is_empty() {
+                    (CommandResult::Success, None)
+                } else {
+                    (CommandResult::Failure(anyhow!(errors.join("\n"))), None)
+                }
+            }
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 // It'd be easy to make work for other scenarios if they defined a rate and metric. However, the scenario we're
                 // interested in is asymmetrical in what the workers do, and we're trying to look at what happens to other nodes,
                 // which is not how most scenarios work. It also uses the IPFS metrics endpoint. We could parameterize or use a
                 // trait, but we don't yet have a use case, and might need to use transactions, or multiple requests, or something
                 // entirely different. Anyway, to avoid generalizing the exception we keep it simple.
-                let req_name = ceramic::recon_sync::CREATE_EVENT_REQ_NAME;
+                let req_name = recon_sync::CREATE_EVENT_REQ_NAME;
 
                 let metric = match metrics
                     .requests
@@ -364,7 +420,7 @@ impl ScenarioState {
                     Err(e) => return (e, None),
                 };
 
-                self.validate_scenario_success_int(
+                self.validate_recon_scenario_success_int(
                     metrics.duration as u64,
                     metric.success_count as u64,
                 )
@@ -373,8 +429,8 @@ impl ScenarioState {
         }
     }
 
-    /// Removed from `validate_scenario_success` to make testing easier as it's hard to
-    async fn validate_scenario_success_int(
+    /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
+    async fn validate_recon_scenario_success_int(
         &self,
         run_time_seconds: u64,
         request_cnt: u64,
@@ -388,7 +444,8 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
-            | Scenario::CeramicModelReuse => (CommandResult::Success, None),
+            | Scenario::CeramicModelReuse
+            | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;
                 let metric_name = EVENT_SYNC_METRIC_NAME;
@@ -921,7 +978,7 @@ mod test {
 
         state.collect_before_metrics().await.unwrap();
         state
-            .validate_scenario_success_int(run_time, run_time * request_cnt)
+            .validate_recon_scenario_success_int(run_time, run_time * request_cnt)
             .await
             .0
     }

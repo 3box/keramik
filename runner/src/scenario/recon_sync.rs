@@ -1,5 +1,8 @@
-use crate::scenario::ceramic::model_reuse::{get_model_id, set_model_id};
-use crate::scenario::get_redis_client;
+use crate::scenario::ceramic::model_instance::{loop_until_key_value_set, set_key_to_stream_id};
+use crate::scenario::{
+    get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
+    reset_goose_lead_user,
+};
 use ceramic_core::{Cid, EventId};
 use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
 use goose::prelude::*;
@@ -7,7 +10,7 @@ use libipld::cid;
 use multihash::{Code, MultihashDigest};
 use rand::rngs::ThreadRng;
 use rand::Rng;
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::AtomicU64;
 use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument};
 
@@ -17,21 +20,11 @@ pub(crate) const CREATE_EVENT_TX_NAME: &str = "create_new_event";
 // it's a lot simpler to access request metrics (a map) than tx metrics (a vec<vec>)
 pub(crate) const CREATE_EVENT_REQ_NAME: &str = "POST create_new_event";
 
-static FIRST_USER: AtomicBool = AtomicBool::new(true);
 static NEW_EVENT_CNT: AtomicU64 = AtomicU64::new(0);
 static TOTAL_BYTES_GENERATED: AtomicU64 = AtomicU64::new(0);
 
-fn should_request_events() -> bool {
-    goose::get_worker_id() == 1
-}
-
-/// we only want one user to create and subscribe to the model
-fn is_first_user() -> bool {
-    FIRST_USER.swap(false, std::sync::atomic::Ordering::SeqCst)
-}
-
 #[derive(Clone)]
-struct ReconLoadTestUserData {
+struct ReconCeramicModelInstanceTestUser {
     model_id: StreamId,
     with_data: bool,
 }
@@ -48,7 +41,7 @@ async fn init_scenario(with_data: bool) -> Result<Transaction, GooseError> {
 }
 
 async fn log_results(_user: &mut GooseUser) -> TransactionResult {
-    if is_first_user() {
+    if is_goose_lead_user() {
         let cnt = NEW_EVENT_CNT.load(std::sync::atomic::Ordering::Relaxed);
         let bytes = TOTAL_BYTES_GENERATED.load(std::sync::atomic::Ordering::Relaxed);
         info!(
@@ -78,10 +71,19 @@ pub async fn event_key_sync_scenario() -> Result<Scenario, GooseError> {
     let test_start = init_scenario(false).await?;
 
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
+    let reset_single_user = transaction!(reset_first_user)
+        .set_name("reset_first_user")
+        .set_on_start();
 
     Ok(scenario!("ReconKeySync")
         .register_transaction(test_start)
+        .register_transaction(reset_single_user)
         .register_transaction(create_new_event))
+}
+
+async fn reset_first_user(_user: &mut GooseUser) -> TransactionResult {
+    reset_goose_lead_user();
+    Ok(())
 }
 
 /// One user on one node creates a model.
@@ -93,24 +95,24 @@ async fn setup(
     with_data: bool,
 ) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
-    let first = is_first_user();
-    let model_id = if should_request_events() && first {
+    let first = is_goose_global_leader(is_goose_lead_user());
+    let model_id = if first {
         info!("creating model for event ID sync test");
         // We only need a model ID we do not need it to be a real model.
         let model_id = StreamId {
             r#type: StreamIdType::Model,
             cid: random_cid(),
         };
-        set_model_id(&mut conn, &model_id, MODEL_ID_KEY).await;
+        set_key_to_stream_id(&mut conn, MODEL_ID_KEY, &model_id).await;
         model_id
     } else {
-        get_model_id(&mut conn, MODEL_ID_KEY).await
+        loop_until_key_value_set(&mut conn, MODEL_ID_KEY).await
     };
 
     tracing::debug!(%model_id, "syncing model");
 
     let path = format!("/ceramic/interests/model/{}", model_id);
-    let user_data = ReconLoadTestUserData {
+    let user_data = ReconCeramicModelInstanceTestUser {
         model_id,
         with_data,
     };
@@ -125,23 +127,19 @@ async fn setup(
         .build();
 
     let _goose = user.request(req).await?;
-    if first {
-        // reset it so we can use it again during shutdown
-        FIRST_USER.store(true, std::sync::atomic::Ordering::SeqCst);
-    }
     Ok(())
 }
 
 /// Generate a random event that the nodes are interested in. Only one node should create but all
 /// users do it so that we can generate a lot of events.
 async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
-    if !should_request_events() {
+    if !is_goose_lead_worker() {
         // No work is performed while awaiting on the sleep future to complete (from tokio::time::sleep docs)
         // it's not high resolution but we don't need it to be since we're already waiting half a second
         tokio::time::sleep(Duration::from_millis(500)).await;
         Ok(())
     } else {
-        let user_data: &ReconLoadTestUserData = user
+        let user_data: &ReconCeramicModelInstanceTestUser = user
             .get_session_data()
             .expect("we are missing sync_event_id user data");
 

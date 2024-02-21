@@ -4,14 +4,17 @@ metadata:
   name: small
 spec:
   replicas: 2
-  bootstrap:
-    image: runner:dev
-    imagePullPolicy: IfNotPresent
+  monitoring: 
+    namespaced: true
+  devMode: true
+  # bootstrap: 
+  #   image: keramik/runner:dev
+  #   imagePullPolicy: IfNotPresent
   cas:
     ipfs:
       go: {} 
   ceramic:
     - ipfs:
-        rust: {} 
+        rust: { env: { CERAMIC_ONE_RECON: "true" } }
       env:
         CERAMIC_PUBSUB_QPS_LIMIT: "1000"

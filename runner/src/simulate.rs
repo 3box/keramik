@@ -357,6 +357,7 @@ impl ScenarioState {
 
     /// For now, most scenarios are successful if they complete without error and only EventIdSync has a criteria.
     /// Not a result to ensure we always proceed with cleanup, even if we fail to validate the scenario.
+    /// Should return the Minimum RPS of all peers as the f64
     pub async fn validate_scenario_success(
         &self,
         metrics: &GooseMetrics,
@@ -383,8 +384,12 @@ impl ScenarioState {
                 }
                 let target = self.target_request_rate.unwrap_or(300);
                 let mut errors = vec![];
+                let mut min = f64::INFINITY;
                 for (worker_id, count) in res {
                     let rps = count as f64 / metrics.duration as f64;
+                    if rps < min {
+                        min = rps;
+                    }
                     if rps < target as f64 {
                         let msg = format!(
                             "Worker {} did not meet the target request rate: {} < {} (total requests: {} over {})",
@@ -396,10 +401,15 @@ impl ScenarioState {
                         info!("worker {} met threshold! {} > {}", worker_id, rps, target);
                     }
                 }
-                if errors.is_empty() {
-                    (CommandResult::Success, None)
+                let min = if min == f64::INFINITY {
+                    None
                 } else {
-                    (CommandResult::Failure(anyhow!(errors.join("\n"))), None)
+                    Some(min)
+                };
+                if errors.is_empty() {
+                    (CommandResult::Success, min)
+                } else {
+                    (CommandResult::Failure(anyhow!(errors.join("\n"))), min)
                 }
             }
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
@@ -430,6 +440,7 @@ impl ScenarioState {
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
+    /// Should return the Minimum RPS of all peers as the f64
     async fn validate_recon_scenario_success_int(
         &self,
         run_time_seconds: u64,

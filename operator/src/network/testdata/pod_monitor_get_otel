@@ -1,0 +1,6 @@
+Request {
+    method: "GET",
+    uri: "/apis/monitoring.coreos.com/v1/namespaces/keramik-test/podmonitors/otel",
+    headers: {},
+    body: ,
+}

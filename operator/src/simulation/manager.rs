@@ -131,7 +131,7 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
         })
     }
     JobSpec {
-        backoff_limit: Some(4),
+        backoff_limit: Some(1),
         template: PodTemplateSpec {
             metadata: Some(ObjectMeta {
                 labels: Some(BTreeMap::from_iter(vec![(

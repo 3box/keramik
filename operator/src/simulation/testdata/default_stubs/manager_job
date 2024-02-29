@@ -16,7 +16,7 @@ Request {
         "ownerReferences": []
       },
       "spec": {
-        "backoffLimit": 4,
+        "backoffLimit": 1,
         "template": {
           "metadata": {
             "labels": {

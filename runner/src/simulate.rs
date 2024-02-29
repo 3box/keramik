@@ -205,6 +205,36 @@ impl MetricsCollection for PromMetricCollector {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PeerRps(Vec<f64>);
+
+impl PeerRps {
+    pub fn new(rps: Vec<f64>) -> Self {
+        let mut rps = rps
+            .into_iter()
+            .filter(|v| v.is_normal())
+            .collect::<Vec<_>>();
+        rps.sort_by(|a, b| a.partial_cmp(b).unwrap());
+
+        Self(rps)
+    }
+
+    fn min(&self) -> f64 {
+        self.0.first().cloned().unwrap_or(0.0)
+    }
+
+    fn max(&self) -> f64 {
+        self.0.last().cloned().unwrap_or(0.0)
+    }
+
+    fn avg(&self) -> f64 {
+        if self.0.is_empty() {
+            0.0
+        } else {
+            self.0.iter().sum::<f64>() / self.0.len() as f64
+        }
+    }
+}
 /// This struct holds information about the state of the simulation that
 /// allows us to determine whether or not we met our success criteria.
 #[derive(Debug)]
@@ -361,7 +391,7 @@ impl ScenarioState {
     pub async fn validate_scenario_success(
         &self,
         metrics: &GooseMetrics,
-    ) -> (CommandResult, Option<f64>) {
+    ) -> (CommandResult, Option<PeerRps>) {
         if !self.manager {
             return (CommandResult::Success, None);
         }
@@ -384,12 +414,10 @@ impl ScenarioState {
                 }
                 let target = self.target_request_rate.unwrap_or(300);
                 let mut errors = vec![];
-                let mut min = f64::INFINITY;
+                let mut rps_list = vec![];
                 for (worker_id, count) in res {
                     let rps = count as f64 / metrics.duration as f64;
-                    if rps < min {
-                        min = rps;
-                    }
+                    rps_list.push(rps);
                     if rps < target as f64 {
                         let msg = format!(
                             "Worker {} did not meet the target request rate: {} < {} (total requests: {} over {})",
@@ -401,10 +429,10 @@ impl ScenarioState {
                         info!("worker {} met threshold! {} > {}", worker_id, rps, target);
                     }
                 }
-                let min = if min == f64::INFINITY {
+                let min = if rps_list.is_empty() {
                     None
                 } else {
-                    Some(min)
+                    Some(PeerRps::new(rps_list))
                 };
                 if errors.is_empty() {
                     (CommandResult::Success, min)
@@ -445,7 +473,7 @@ impl ScenarioState {
         &self,
         run_time_seconds: u64,
         request_cnt: u64,
-    ) -> (CommandResult, Option<f64>) {
+    ) -> (CommandResult, Option<PeerRps>) {
         if !self.manager {
             return (CommandResult::Success, None);
         }
@@ -507,7 +535,12 @@ impl ScenarioState {
                     Err(err) => return (CommandResult::Failure(err), None),
                 };
 
-                let min_peer_rps = peer_metrics.iter().fold(f64::INFINITY, |a, &b| a.min(b.2));
+                let peer_rps = peer_metrics.iter().map(|r| r.2).collect::<Vec<f64>>();
+                let peer_rps = if peer_rps.is_empty() {
+                    None
+                } else {
+                    Some(PeerRps::new(peer_rps))
+                };
 
                 let mut errors = peer_metrics.into_iter().enumerate().flat_map(|(idx,(req_cnt, before, rps))|
                     if rps < threshold {
@@ -541,13 +574,10 @@ impl ScenarioState {
                         ?threshold,
                         "SUCCESS! All peers met the threshold"
                     );
-                    (CommandResult::Success, Some(min_peer_rps))
+                    (CommandResult::Success, peer_rps)
                 } else {
                     warn!(?errors, "FAILURE! Not all peers met the threshold");
-                    (
-                        CommandResult::Failure(anyhow!(errors.join("\n"))),
-                        Some(min_peer_rps),
-                    )
+                    (CommandResult::Failure(anyhow!(errors.join("\n"))), peer_rps)
                 }
             }
         }
@@ -612,8 +642,8 @@ pub async fn simulate(opts: Opts) -> Result<CommandResult> {
         }
     };
 
-    let (success, min_peer_rps) = state.validate_scenario_success(&goose_metrics).await;
-    metrics.record(goose_metrics, min_peer_rps);
+    let (success, peer_rps) = state.validate_scenario_success(&goose_metrics).await;
+    metrics.record(goose_metrics, peer_rps);
 
     Ok(success)
 }
@@ -623,7 +653,7 @@ struct Metrics {
 }
 struct MetricsInner {
     goose_metrics: Option<GooseMetrics>,
-    min_peer_rps: Option<f64>,
+    peer_rps: Option<PeerRps>,
 
     attrs: Vec<KeyValue>,
 
@@ -641,7 +671,9 @@ struct MetricsInner {
     requests_status_codes_total: ObservableGauge<u64>,
     requests_duration_percentiles: ObservableGauge<f64>,
 
+    simulation_avg_peer_requests_per_second: ObservableGauge<f64>,
     simulation_min_peer_requests_per_second: ObservableGauge<f64>,
+    simulation_max_peer_requests_per_second: ObservableGauge<f64>,
 }
 
 impl Metrics {
@@ -710,6 +742,18 @@ impl Metrics {
             )
             .init();
 
+        let simulation_max_peer_requests_per_second = meter
+            .f64_observable_gauge("simulation_max_peer_requests_per_second")
+            .with_description(
+                "Maximum by peer of the average request per second during a simulation run",
+            )
+            .init();
+
+        let simulation_avg_peer_requests_per_second = meter
+            .f64_observable_gauge("simulation_avg_peer_requests_per_second")
+            .with_description("Average by peer request per second during a simulation run")
+            .init();
+
         let instruments = [
             duration.as_any(),
             maximum_users.as_any(),
@@ -721,11 +765,13 @@ impl Metrics {
             requests_total.as_any(),
             requests_status_codes_total.as_any(),
             requests_duration_percentiles.as_any(),
+            simulation_avg_peer_requests_per_second.as_any(),
             simulation_min_peer_requests_per_second.as_any(),
+            simulation_max_peer_requests_per_second.as_any(),
         ];
         let inner = Arc::new(Mutex::new(MetricsInner {
             goose_metrics: None,
-            min_peer_rps: None,
+            peer_rps: None,
             attrs,
             duration,
             maximum_users,
@@ -737,7 +783,9 @@ impl Metrics {
             requests_total,
             requests_status_codes_total,
             requests_duration_percentiles,
+            simulation_avg_peer_requests_per_second,
             simulation_min_peer_requests_per_second,
+            simulation_max_peer_requests_per_second,
         }));
         let m = inner.clone();
         meter.register_callback(&instruments, move |observer| {
@@ -748,22 +796,34 @@ impl Metrics {
         })?;
         Ok(Self { inner })
     }
-    fn record(&mut self, metrics: GooseMetrics, min_peer_rps: Option<f64>) {
+    fn record(&mut self, metrics: GooseMetrics, peer_rps: Option<PeerRps>) {
         let mut gm = self
             .inner
             .lock()
             .expect("should be able to acquire metrics lock for mutation");
         gm.goose_metrics = Some(metrics);
-        gm.min_peer_rps = min_peer_rps;
+        gm.peer_rps = peer_rps;
     }
 }
 
 impl MetricsInner {
     fn observe(&mut self, observer: &dyn Observer) {
-        if let Some(min_peer_rps) = self.min_peer_rps {
+        if let Some(peer_rps) = &self.peer_rps {
             observer.observe_f64(
                 &self.simulation_min_peer_requests_per_second,
-                min_peer_rps,
+                peer_rps.min(),
+                &self.attrs,
+            );
+
+            observer.observe_f64(
+                &self.simulation_max_peer_requests_per_second,
+                peer_rps.max(),
+                &self.attrs,
+            );
+
+            observer.observe_f64(
+                &self.simulation_avg_peer_requests_per_second,
+                peer_rps.avg(),
                 &self.attrs,
             );
         }

@@ -489,7 +489,6 @@ impl ScenarioState {
                 let mut errors = vec![];
                 let mut rps_list = vec![];
                 for (name, count) in res {
-                    // the workers are paired to a specific ceramic peer, so we make it look like it lines up nicely here
                     let metric = PeerRequestInfo::new(
                         name.clone(),
                         count as u64,
@@ -595,9 +594,6 @@ impl ScenarioState {
                     Ok(v) => v,
                     Err(e) => return (e, None),
                 };
-
-                info!(?peer_req_cnts, "got peer request counts");
-                info!(?before_metrics, "got before request counts");
 
                 // For now, assume writer and all peers must meet the threshold rate
                 let peer_metrics = match generate_final_request_info(

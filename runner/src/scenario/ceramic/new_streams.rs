@@ -16,6 +16,10 @@ use super::{
 
 static REQWEST_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
 
+fn default_pod_name(i: usize) -> String {
+    format!("worker_{}", i)
+}
+
 /// returns (worker_id, count)
 pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(String, i32)> {
     let redis_cli = get_redis_client().await.unwrap();
@@ -35,7 +39,7 @@ pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(S
             .get::<_, Option<String>>(peer_name_key(i, nonce))
             .await
             .unwrap()
-            .unwrap_or_else(|| format!("worker_{}", i));
+            .unwrap_or_else(|| default_pod_name(i));
         let before = before.and_then(|s| s.parse::<i32>().ok());
         let after = after.and_then(|s| s.parse::<i32>().ok());
         match (before, after) {
@@ -91,10 +95,10 @@ async fn store_metrics(user: &mut GooseUser, on_start: bool, nonce: u64) -> Tran
 
         let peer_name = if let Some(url) = user.base_url.as_ref() {
             crate::simulate::parse_base_url_to_pod(url)
-                .unwrap_or_else(|_| format!("worker_{}", goose::get_worker_id()))
+                .unwrap_or_else(|_| default_pod_name(goose::get_worker_id()))
         } else {
             tracing::warn!("failed to get base_url");
-            format!("worker_{}", goose::get_worker_id())
+            default_pod_name(goose::get_worker_id())
         };
 
         let mut conn = user_data.redis_cli().get_async_connection().await.unwrap();

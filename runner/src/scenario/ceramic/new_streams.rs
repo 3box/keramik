@@ -17,7 +17,7 @@ use super::{
 static REQWEST_CLIENT: std::sync::OnceLock<reqwest::Client> = std::sync::OnceLock::new();
 
 /// returns (worker_id, count)
-pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(usize, i32)> {
+pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(String, i32)> {
     let redis_cli = get_redis_client().await.unwrap();
     let mut conn = redis_cli.get_async_connection().await.unwrap();
     let mut res = vec![];
@@ -31,11 +31,16 @@ pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(u
             .get::<_, Option<String>>(new_cnt_key(false, i, nonce))
             .await
             .unwrap();
+        let name = conn
+            .get::<_, Option<String>>(peer_name_key(i, nonce))
+            .await
+            .unwrap()
+            .unwrap_or_else(|| format!("worker_{}", i));
         let before = before.and_then(|s| s.parse::<i32>().ok());
         let after = after.and_then(|s| s.parse::<i32>().ok());
         match (before, after) {
             (Some(before), Some(after)) => {
-                res.push((i, after - before));
+                res.push((name, after - before));
             }
             _ => {
                 tracing::warn!("missing entry for worker {}", i);
@@ -48,6 +53,10 @@ pub async fn benchmark_scenario_metrics(worker_cnt: usize, nonce: u64) -> Vec<(u
 fn new_cnt_key(before: bool, worker_id: usize, nonce: u64) -> String {
     let modifier = if before { "start" } else { "end" };
     format!("new_mid_count_{}_{}_{}", worker_id, modifier, nonce)
+}
+
+fn peer_name_key(worker_id: usize, nonce: u64) -> String {
+    format!("peer_name_{}_{}", worker_id, nonce)
 }
 
 async fn store_metrics(user: &mut GooseUser, on_start: bool, nonce: u64) -> TransactionResult {
@@ -80,12 +89,25 @@ async fn store_metrics(user: &mut GooseUser, on_start: bool, nonce: u64) -> Tran
         };
         info!(data=?cnt, stream_id=%user_data.large_model_id, "got model count");
 
+        let peer_name = if let Some(url) = user.base_url.as_ref() {
+            crate::simulate::parse_base_url_to_pod(url)
+                .unwrap_or_else(|_| format!("worker_{}", goose::get_worker_id()))
+        } else {
+            tracing::warn!("failed to get base_url");
+            format!("worker_{}", goose::get_worker_id())
+        };
+
         let mut conn = user_data.redis_cli().get_async_connection().await.unwrap();
         let _: () = conn
             .set(
                 new_cnt_key(on_start, goose::get_worker_id(), nonce),
                 cnt.to_string(),
             )
+            .await
+            .unwrap();
+
+        let _: () = conn
+            .set(peer_name_key(goose::get_worker_id(), nonce), peer_name)
             .await
             .unwrap();
     }

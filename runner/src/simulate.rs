@@ -206,33 +206,108 @@ impl MetricsCollection for PromMetricCollector {
 }
 
 #[derive(Debug, Clone)]
-struct PeerRps(Vec<f64>);
+struct PeerRequestInfo {
+    pub name: String,
+    pub count: u64,
+    pub runtime: Option<u64>,
+}
+
+impl PeerRequestInfo {
+    pub fn new(name: String, count: u64, runtime: Option<u64>) -> Self {
+        Self {
+            name,
+            count,
+            runtime,
+        }
+    }
+
+    pub fn rps(&self) -> f64 {
+        match self.runtime {
+            Some(0) => {
+                warn!("Runtime of 0 seconds is invalid for RPS calculation");
+                0.0
+            }
+            Some(runtime) => self.count as f64 / runtime as f64,
+            None => {
+                warn!("Runtime is missing for RPS calculation");
+                0.0
+            }
+        }
+    }
+}
+
+pub(crate) fn parse_base_url_to_pod(url: &reqwest::Url) -> Result<String> {
+    // addr looks like http://ceramic-0-0.ceramic-0.keramik-small.svc.cluster.local:7007
+    // parse it to get the pod name (ceramic-0-0)
+    let host = url
+        .host_str()
+        .ok_or_else(|| anyhow!("failed to parse host from url: {}", url))?;
+    let parts: Vec<&str> = host.split('.').collect();
+    let name = parts
+        .first()
+        .ok_or_else(|| anyhow!("failed to parse pod name from host: {}", host))?;
+    Ok(name.to_string())
+}
+
+fn generate_final_request_info(
+    before: &[PeerRequestInfo],
+    after: &[PeerRequestInfo],
+    run_time_seconds: u64,
+) -> Result<Vec<PeerRequestInfo>> {
+    let mut before = before.to_vec();
+    before.sort_by(|a, b| a.name.cmp(&b.name));
+    let mut after = after.to_vec();
+    after.sort_by(|a, b| a.name.cmp(&b.name));
+
+    if before.len() != after.len() {
+        warn!(?before, ?after, "Mismatched peer metrics",);
+        bail!(
+            "Mismatched peer metrics: before: {}, after: {}",
+            before.len(),
+            after.len()
+        );
+    }
+
+    before
+        .into_iter()
+        .zip(after.iter())
+        .map(|(before, current)| {
+            if before.name == current.name {
+                Ok(PeerRequestInfo::new(
+                    before.name.to_owned(),
+                    current.count - before.count,
+                    Some(run_time_seconds),
+                ))
+            } else {
+                Err(anyhow!(
+                    "Mismatched peer metrics: before: {}, after: {}",
+                    before.name,
+                    current.name
+                ))
+            }
+        })
+        .collect::<anyhow::Result<Vec<PeerRequestInfo>>>()
+}
+
+#[derive(Debug, Clone)]
+struct PeerRps(Vec<PeerRequestInfo>);
 
 impl PeerRps {
-    pub fn new(rps: Vec<f64>) -> Self {
-        let mut rps = rps
-            .into_iter()
-            .filter(|v| v.is_normal())
-            .collect::<Vec<_>>();
-        rps.sort_by(|a, b| a.partial_cmp(b).unwrap());
-
+    pub fn new(rps: Vec<PeerRequestInfo>) -> Self {
         Self(rps)
     }
 
     fn min(&self) -> f64 {
-        self.0.first().cloned().unwrap_or(0.0)
-    }
-
-    fn max(&self) -> f64 {
-        self.0.last().cloned().unwrap_or(0.0)
-    }
-
-    fn avg(&self) -> f64 {
-        if self.0.is_empty() {
-            0.0
-        } else {
-            self.0.iter().sum::<f64>() / self.0.len() as f64
-        }
+        let x = self.0.iter().min_by(|a, b| {
+            let a_rps = a.rps();
+            let b_rps = b.rps();
+            if a_rps.is_normal() && b_rps.is_normal() {
+                a_rps.partial_cmp(&b_rps).unwrap()
+            } else {
+                std::cmp::Ordering::Greater
+            }
+        });
+        x.map_or(0.0, |p| p.rps())
     }
 }
 /// This struct holds information about the state of the simulation that
@@ -245,7 +320,7 @@ struct ScenarioState {
     pub scenario: Scenario,
     pub target_request_rate: Option<usize>,
     metrics_collector: MetricsCollector,
-    before_metrics: Option<Vec<u64>>,
+    before_metrics: Option<Vec<PeerRequestInfo>>,
     run_time: String,
     throttle_requests: Option<usize>,
 }
@@ -327,7 +402,7 @@ impl ScenarioState {
         &self,
         metric_name: &str,
         metrics_path: &str, // may include the port and path
-    ) -> Result<Vec<Option<u64>>> {
+    ) -> Result<Vec<PeerRequestInfo>> {
         // This is naive and specific to our requirement of getting a prometheus counter.
         let mut results = Vec::with_capacity(self.peers.len());
         for peer in self.peers.iter() {
@@ -342,9 +417,14 @@ impl ScenarioState {
                         .metrics_collector
                         .collect_counter(url.parse()?, metric_name)
                         .await?;
-                    results.push(metric);
+                    if let Some(m) = metric {
+                        results.push(PeerRequestInfo::new(parse_base_url_to_pod(&addr)?, m, None));
+                    } else {
+                        bail!("Failed to collect metric from peer: {}", addr);
+                    }
                 } else {
                     warn!("Failed to parse ceramic addr for host: {}", addr);
+                    bail!("Failed to collect metric from for host: {}", addr);
                 }
             }
         }
@@ -370,15 +450,8 @@ impl ScenarioState {
                     let peers = self
                         .get_peers_counter_metric(EVENT_SYNC_METRIC_NAME, IPFS_SERVICE_METRICS_PORT)
                         .await?;
-                    let res: Vec<u64> = peers.iter().filter_map(|v| *v).collect();
-                    if res.len() != peers.len() {
-                        bail!(
-                            "Failed to collect metrics for all peers before scenario {:?}: {:?}",
-                            self.scenario,
-                            peers
-                        )
-                    }
-                    self.before_metrics = Some(res);
+
+                    self.before_metrics = Some(peers);
                     Ok(())
                 }
             }
@@ -415,18 +488,24 @@ impl ScenarioState {
                 let target = self.target_request_rate.unwrap_or(300);
                 let mut errors = vec![];
                 let mut rps_list = vec![];
-                for (worker_id, count) in res {
-                    let rps = count as f64 / metrics.duration as f64;
-                    rps_list.push(rps);
+                for (name, count) in res {
+                    // the workers are paired to a specific ceramic peer, so we make it look like it lines up nicely here
+                    let metric = PeerRequestInfo::new(
+                        name.clone(),
+                        count as u64,
+                        Some(metrics.duration as u64),
+                    );
+                    let rps = metric.rps();
+                    rps_list.push(metric);
                     if rps < target as f64 {
                         let msg = format!(
                             "Worker {} did not meet the target request rate: {} < {} (total requests: {} over {})",
-                            worker_id, rps, target, count, metrics.duration
+                            name, rps, target, count, metrics.duration
                         );
                         warn!(msg);
                         errors.push(msg);
                     } else {
-                        info!("worker {} met threshold! {} > {}", worker_id, rps, target);
+                        info!("worker {} met threshold! {} > {}", name, rps, target);
                     }
                 }
                 let min = if rps_list.is_empty() {
@@ -517,45 +596,41 @@ impl ScenarioState {
                     Err(e) => return (e, None),
                 };
 
+                info!(?peer_req_cnts, "got peer request counts");
+                info!(?before_metrics, "got before request counts");
+
                 // For now, assume writer and all peers must meet the threshold rate
-                let peer_metrics = match peer_req_cnts
-                    .into_iter()
-                    .zip(before_metrics.iter())
-                    .enumerate()
-                    .map(|(idx, (current, before))| {
-                        if let Some(c) = current {
-                            Ok((c, *before, (c - *before) as f64 / run_time_seconds as f64))
-                        } else {
-                            Err(anyhow!("Peer {} missing metric data", idx))
-                        }
-                    })
-                    .collect::<Result<Vec<(u64, u64, f64)>, anyhow::Error>>()
-                {
-                    Ok(rps) => rps,
-                    Err(err) => return (CommandResult::Failure(err), None),
+                let peer_metrics = match generate_final_request_info(
+                    before_metrics,
+                    &peer_req_cnts,
+                    run_time_seconds,
+                ) {
+                    Ok(v) => v,
+                    Err(e) => return (CommandResult::Failure(e), None),
                 };
 
-                let peer_rps = peer_metrics.iter().map(|r| r.2).collect::<Vec<f64>>();
-                let peer_rps = if peer_rps.is_empty() {
-                    None
-                } else {
-                    Some(PeerRps::new(peer_rps))
-                };
-
-                let mut errors = peer_metrics.into_iter().enumerate().flat_map(|(idx,(req_cnt, before, rps))|
+                let mut errors = peer_metrics.iter().flat_map(|p| {
+                    let rps = p.rps();
                     if rps < threshold {
-                        warn!(current_req_cnt=%req_cnt, %before, %run_time_seconds, %threshold, %rps, "rps less than threshold");
+                        warn!(current_req_cnt=%p.count, run_time_seconds=?p.runtime, %threshold, %rps, "rps less than threshold");
                         Some(
                             format!(
                                 "Peer {} RPS less than threshold: {} < {}",
-                                idx, rps, threshold
+                                p.name, rps, threshold
                             ),
                         )
                     } else {
-                        info!(current_req_cnt=%req_cnt, %before, %run_time_seconds, %threshold, %rps, "success! peer {} over the threshold", idx);
+                        info!(current_req_cnt=%p.count, before=%p.count, run_time_seconds=?p.runtime, %threshold, %rps, "success! peer {} over the threshold", p.name);
                         None
                     }
+                }
                 ).collect::<Vec<String>>();
+
+                let peer_rps = if peer_metrics.is_empty() {
+                    None
+                } else {
+                    Some(PeerRps::new(peer_metrics))
+                };
 
                 if create_rps < threshold {
                     warn!(
@@ -671,9 +746,8 @@ struct MetricsInner {
     requests_status_codes_total: ObservableGauge<u64>,
     requests_duration_percentiles: ObservableGauge<f64>,
 
-    simulation_avg_peer_requests_per_second: ObservableGauge<f64>,
     simulation_min_peer_requests_per_second: ObservableGauge<f64>,
-    simulation_max_peer_requests_per_second: ObservableGauge<f64>,
+    simulation_peer_requests_per_second: ObservableGauge<f64>,
 }
 
 impl Metrics {
@@ -742,16 +816,9 @@ impl Metrics {
             )
             .init();
 
-        let simulation_max_peer_requests_per_second = meter
-            .f64_observable_gauge("simulation_max_peer_requests_per_second")
-            .with_description(
-                "Maximum by peer of the average request per second during a simulation run",
-            )
-            .init();
-
-        let simulation_avg_peer_requests_per_second = meter
-            .f64_observable_gauge("simulation_avg_peer_requests_per_second")
-            .with_description("Average by peer request per second during a simulation run")
+        let simulation_peer_requests_per_second = meter
+            .f64_observable_gauge("simulation_peer_requests_per_second")
+            .with_description("Peer average request per second during a simulation run")
             .init();
 
         let instruments = [
@@ -765,9 +832,8 @@ impl Metrics {
             requests_total.as_any(),
             requests_status_codes_total.as_any(),
             requests_duration_percentiles.as_any(),
-            simulation_avg_peer_requests_per_second.as_any(),
+            simulation_peer_requests_per_second.as_any(),
             simulation_min_peer_requests_per_second.as_any(),
-            simulation_max_peer_requests_per_second.as_any(),
         ];
         let inner = Arc::new(Mutex::new(MetricsInner {
             goose_metrics: None,
@@ -783,9 +849,8 @@ impl Metrics {
             requests_total,
             requests_status_codes_total,
             requests_duration_percentiles,
-            simulation_avg_peer_requests_per_second,
+            simulation_peer_requests_per_second,
             simulation_min_peer_requests_per_second,
-            simulation_max_peer_requests_per_second,
         }));
         let m = inner.clone();
         meter.register_callback(&instruments, move |observer| {
@@ -809,21 +874,18 @@ impl Metrics {
 impl MetricsInner {
     fn observe(&mut self, observer: &dyn Observer) {
         if let Some(peer_rps) = &self.peer_rps {
+            for info in &peer_rps.0 {
+                let mut attrs = self.attrs.clone();
+                attrs.push(KeyValue::new("peer", info.name.to_owned()));
+                observer.observe_f64(
+                    &self.simulation_peer_requests_per_second,
+                    info.rps(),
+                    &attrs,
+                );
+            }
             observer.observe_f64(
                 &self.simulation_min_peer_requests_per_second,
                 peer_rps.min(),
-                &self.attrs,
-            );
-
-            observer.observe_f64(
-                &self.simulation_max_peer_requests_per_second,
-                peer_rps.max(),
-                &self.attrs,
-            );
-
-            observer.observe_f64(
-                &self.simulation_avg_peer_requests_per_second,
-                peer_rps.avg(),
                 &self.attrs,
             );
         }

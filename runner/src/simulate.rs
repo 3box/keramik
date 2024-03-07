@@ -206,13 +206,13 @@ impl MetricsCollection for PromMetricCollector {
 }
 
 #[derive(Debug, Clone)]
-struct PeerRequestInfo {
+struct PeerRequestMetricInfo {
     pub name: String,
     pub count: u64,
     pub runtime: Option<u64>,
 }
 
-impl PeerRequestInfo {
+impl PeerRequestMetricInfo {
     pub fn new(name: String, count: u64, runtime: Option<u64>) -> Self {
         Self {
             name,
@@ -249,11 +249,11 @@ pub(crate) fn parse_base_url_to_pod(url: &reqwest::Url) -> Result<String> {
     Ok(name.to_string())
 }
 
-fn generate_final_request_info(
-    before: &[PeerRequestInfo],
-    after: &[PeerRequestInfo],
+fn final_peer_req_metric_info(
+    before: &[PeerRequestMetricInfo],
+    after: &[PeerRequestMetricInfo],
     run_time_seconds: u64,
-) -> Result<Vec<PeerRequestInfo>> {
+) -> Result<Vec<PeerRequestMetricInfo>> {
     let mut before = before.to_vec();
     before.sort_by(|a, b| a.name.cmp(&b.name));
     let mut after = after.to_vec();
@@ -273,7 +273,7 @@ fn generate_final_request_info(
         .zip(after.iter())
         .map(|(before, current)| {
             if before.name == current.name {
-                Ok(PeerRequestInfo::new(
+                Ok(PeerRequestMetricInfo::new(
                     before.name.to_owned(),
                     current.count - before.count,
                     Some(run_time_seconds),
@@ -286,14 +286,14 @@ fn generate_final_request_info(
                 ))
             }
         })
-        .collect::<anyhow::Result<Vec<PeerRequestInfo>>>()
+        .collect::<anyhow::Result<Vec<PeerRequestMetricInfo>>>()
 }
 
 #[derive(Debug, Clone)]
-struct PeerRps(Vec<PeerRequestInfo>);
+struct PeerRps(Vec<PeerRequestMetricInfo>);
 
 impl PeerRps {
-    pub fn new(rps: Vec<PeerRequestInfo>) -> Self {
+    pub fn new(rps: Vec<PeerRequestMetricInfo>) -> Self {
         Self(rps)
     }
 
@@ -320,7 +320,7 @@ struct ScenarioState {
     pub scenario: Scenario,
     pub target_request_rate: Option<usize>,
     metrics_collector: MetricsCollector,
-    before_metrics: Option<Vec<PeerRequestInfo>>,
+    before_metrics: Option<Vec<PeerRequestMetricInfo>>,
     run_time: String,
     throttle_requests: Option<usize>,
 }
@@ -402,7 +402,7 @@ impl ScenarioState {
         &self,
         metric_name: &str,
         metrics_path: &str, // may include the port and path
-    ) -> Result<Vec<PeerRequestInfo>> {
+    ) -> Result<Vec<PeerRequestMetricInfo>> {
         // This is naive and specific to our requirement of getting a prometheus counter.
         let mut results = Vec::with_capacity(self.peers.len());
         for peer in self.peers.iter() {
@@ -418,7 +418,11 @@ impl ScenarioState {
                         .collect_counter(url.parse()?, metric_name)
                         .await?;
                     if let Some(m) = metric {
-                        results.push(PeerRequestInfo::new(parse_base_url_to_pod(&addr)?, m, None));
+                        results.push(PeerRequestMetricInfo::new(
+                            parse_base_url_to_pod(&addr)?,
+                            m,
+                            None,
+                        ));
                     } else {
                         bail!("Failed to collect metric from peer: {}", addr);
                     }
@@ -489,7 +493,7 @@ impl ScenarioState {
                 let mut errors = vec![];
                 let mut rps_list = vec![];
                 for (name, count) in res {
-                    let metric = PeerRequestInfo::new(
+                    let metric = PeerRequestMetricInfo::new(
                         name.clone(),
                         count as u64,
                         Some(metrics.duration as u64),
@@ -596,7 +600,7 @@ impl ScenarioState {
                 };
 
                 // For now, assume writer and all peers must meet the threshold rate
-                let peer_metrics = match generate_final_request_info(
+                let peer_metrics = match final_peer_req_metric_info(
                     before_metrics,
                     &peer_req_cnts,
                     run_time_seconds,

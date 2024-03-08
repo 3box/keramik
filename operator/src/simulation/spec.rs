@@ -17,6 +17,16 @@ use serde::{Deserialize, Serialize};
 pub struct SimulationSpec {
     /// Simulation runner scenario
     pub scenario: String,
+    /// Name of the network to use.
+    /// One of:
+    ///   - mainnet:      Production network
+    ///   - testnet-clay: Test network
+    ///   - dev-unstable: Developement network
+    ///   - local:        Local network, always uses 0 for the local id
+    ///   - in-memory:    Singleton network in memory
+    ///
+    ///   Defaults to local
+    pub network: Option<String>,
     /// Number of users
     pub users: u32,
     /// Time in minutes to run the simulation

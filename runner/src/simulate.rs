@@ -5,6 +5,7 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
+use ceramic_core::Network;
 use clap::{Args, ValueEnum};
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
 use keramik_common::peer_info::Peer;
@@ -39,6 +40,10 @@ pub struct Opts {
     /// Simulation scenario to run.
     #[arg(long, value_enum, env = "SIMULATE_SCENARIO")]
     scenario: Scenario,
+
+    /// Network for the simulation
+    #[arg(long, env = "SIMULATE_NETWORK", default_value_t = NetworkOpt::Local)]
+    network: NetworkOpt,
 
     /// Id of the peer to target.
     #[arg(long, env = "SIMULATE_MANAGER")]
@@ -81,6 +86,38 @@ pub struct Opts {
     /// left to the scenario (requests per second, total requests, rps/node etc).
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
+}
+
+#[derive(Clone, Debug, Copy, ValueEnum)]
+pub enum NetworkOpt {
+    /// Production network
+    Mainnet,
+    /// Test network
+    TestnetClay,
+    /// Developement network
+    DevUnstable,
+    /// Local network, always uses 0 for the local id
+    Local,
+    /// Singleton network in memory
+    InMemory,
+}
+
+impl std::fmt::Display for NetworkOpt {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", Network::from(self.clone()).name())
+    }
+}
+
+impl From<NetworkOpt> for Network {
+    fn from(value: NetworkOpt) -> Self {
+        match value {
+            NetworkOpt::Mainnet => Network::Mainnet,
+            NetworkOpt::TestnetClay => Network::TestnetClay,
+            NetworkOpt::DevUnstable => Network::DevUnstable,
+            NetworkOpt::Local => Network::Local(0),
+            NetworkOpt::InMemory => Network::InMemory,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -314,6 +351,7 @@ impl PeerRps {
 /// allows us to determine whether or not we met our success criteria.
 #[derive(Debug)]
 struct ScenarioState {
+    network: Network,
     pub topo: Topology,
     pub peers: Vec<Peer>,
     pub manager: bool,
@@ -353,7 +391,9 @@ impl ScenarioState {
             nonce: opts.nonce,
             users: peers.len() * opts.users,
         };
+        let network = opts.network.into();
         Ok(Self {
+            network,
             topo,
             peers,
             metrics_collector,
@@ -382,8 +422,12 @@ impl ScenarioState {
                     .await?
             }
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
-            Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
-            Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
+            Scenario::ReconEventSync => {
+                recon_sync::event_sync_scenario(self.network.clone()).await?
+            }
+            Scenario::ReconEventKeySync => {
+                recon_sync::event_key_sync_scenario(self.network.clone()).await?
+            }
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -1063,6 +1107,7 @@ mod test {
         Opts {
             name: "sim-test".to_string(),
             scenario,
+            network: NetworkOpt::Local,
             manager,
             target_peer: 0,
             peers: "/fake/path.json".into(),

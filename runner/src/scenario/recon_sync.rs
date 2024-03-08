@@ -3,7 +3,7 @@ use crate::scenario::{
     get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
     reset_goose_lead_user,
 };
-use ceramic_core::{Cid, EventId};
+use ceramic_core::{Cid, EventId, Network};
 use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
 use goose::prelude::*;
 use libipld::cid;
@@ -25,15 +25,16 @@ static TOTAL_BYTES_GENERATED: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Clone)]
 struct ReconCeramicModelInstanceTestUser {
+    network: Network,
     model_id: StreamId,
     with_data: bool,
 }
 
-async fn init_scenario(with_data: bool) -> Result<Transaction, GooseError> {
+async fn init_scenario(network: Network, with_data: bool) -> Result<Transaction, GooseError> {
     let redis_cli = get_redis_client().await?;
 
     let test_start = Transaction::new(Arc::new(move |user| {
-        Box::pin(setup(user, redis_cli.clone(), with_data))
+        Box::pin(setup(user, redis_cli.clone(), network.clone(), with_data))
     }))
     .set_name("setup")
     .set_on_start();
@@ -54,8 +55,8 @@ async fn log_results(_user: &mut GooseUser) -> TransactionResult {
     Ok(())
 }
 
-pub async fn event_sync_scenario() -> Result<Scenario, GooseError> {
-    let test_start = init_scenario(true).await?;
+pub async fn event_sync_scenario(network: Network) -> Result<Scenario, GooseError> {
+    let test_start = init_scenario(network, true).await?;
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
     let stop = transaction!(log_results)
         .set_name("log_results")
@@ -67,8 +68,8 @@ pub async fn event_sync_scenario() -> Result<Scenario, GooseError> {
 }
 
 // accept option as goose manager builds the scenario as well, but doesn't need any peers and won't run it so it will always be Some in execution
-pub async fn event_key_sync_scenario() -> Result<Scenario, GooseError> {
-    let test_start = init_scenario(false).await?;
+pub async fn event_key_sync_scenario(network: Network) -> Result<Scenario, GooseError> {
+    let test_start = init_scenario(network, false).await?;
 
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
     let reset_single_user = transaction!(reset_first_user)
@@ -92,6 +93,7 @@ async fn reset_first_user(_user: &mut GooseUser) -> TransactionResult {
 async fn setup(
     user: &mut GooseUser,
     redis_cli: redis::Client,
+    network: Network,
     with_data: bool,
 ) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
@@ -113,6 +115,7 @@ async fn setup(
 
     let path = format!("/ceramic/interests/model/{}", model_id);
     let user_data = ReconCeramicModelInstanceTestUser {
+        network: network.clone(),
         model_id,
         with_data,
     };
@@ -144,7 +147,10 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
             .expect("we are missing sync_event_id user data");
 
         // eventId needs to be a multibase encoded string for the API to accept it
-        let event_id = format!("F{}", random_event_id(&user_data.model_id.to_string()));
+        let event_id = format!(
+            "F{}",
+            random_event_id(&user_data.network, &user_data.model_id.to_string())
+        );
         let event_key_body = if user_data.with_data {
             let payload = random_car_1kb_body().await;
             serde_json::json!({"id": event_id, "data": payload})
@@ -182,10 +188,10 @@ const SORT_KEY: &str = "model";
 // hard code test controller in case we want to find/prune later
 const TEST_CONTROLLER: &str = "did:key:z6MkoFUppcKEVYTS8oVidrja94UoJTatNhnhxJRKF7NYPScS";
 
-fn random_event_id(sort_value: &str) -> ceramic_core::EventId {
+fn random_event_id(network: &Network, sort_value: &str) -> ceramic_core::EventId {
     let cid = random_cid();
     EventId::new(
-        &ceramic_core::Network::Local(0),
+        network,
         SORT_KEY,
         sort_value,
         TEST_CONTROLLER,

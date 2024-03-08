@@ -23,6 +23,7 @@ metadata:
   namespace: keramik-<unique-name>-small
 spec:
   scenario: ceramic-simple
+  network: local
   devMode: true # optional to remove container resource limits and requirements for local benchmarking
   users: 10
   runTime: 4

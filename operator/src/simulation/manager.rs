@@ -30,6 +30,7 @@ pub fn service_spec() -> ServiceSpec {
 // ManagerConfig defines which properties of the JobSpec can be customized.
 pub struct ManagerConfig {
     pub name: String,
+    pub network: String,
     pub scenario: String,
     pub users: u32,
     pub run_time: u32,
@@ -54,6 +55,11 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
         EnvVar {
             name: "SIMULATE_NAME".to_owned(),
             value: Some(config.name.to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "SIMULATE_NETWORK".to_owned(),
+            value: Some(config.network.to_owned()),
             ..Default::default()
         },
         EnvVar {

@@ -48,6 +48,10 @@ Request {
                     "value": "1"
                   },
                   {
+                    "name": "SIMULATE_NETWORK",
+                    "value": "local"
+                  },
+                  {
                     "name": "SIMULATE_NAME",
                     "value": "sim-test"
                   },

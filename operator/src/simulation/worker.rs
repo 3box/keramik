@@ -15,6 +15,7 @@ use crate::{network::PEERS_CONFIG_MAP_NAME, simulation::job::JobImageConfig};
 // WorkerConfig defines which properties of the JobSpec can be customized.
 pub struct WorkerConfig {
     pub name: String,
+    pub network: String,
     pub scenario: String,
     pub target_peer: u32,
     pub nonce: u32,
@@ -42,6 +43,11 @@ pub fn worker_job_spec(config: WorkerConfig) -> JobSpec {
         EnvVar {
             name: "RUST_BACKTRACE".to_owned(),
             value: Some("1".to_owned()),
+            ..Default::default()
+        },
+        EnvVar {
+            name: "SIMULATE_NETWORK".to_owned(),
+            value: Some(config.network.to_owned()),
             ..Default::default()
         },
         EnvVar {

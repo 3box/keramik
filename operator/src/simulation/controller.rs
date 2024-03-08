@@ -173,8 +173,10 @@ async fn reconcile_(
 
     let job_image_config = JobImageConfig::from(spec);
 
+    let network = spec.network.clone().unwrap_or_else(|| "local".to_string());
     let manager_config = ManagerConfig {
         name: status.name.clone(),
+        network: network.clone(),
         scenario: spec.scenario.to_owned(),
         users: spec.users.to_owned(),
         run_time: spec.run_time.to_owned(),
@@ -199,6 +201,7 @@ async fn reconcile_(
             &status,
             simulation.clone(),
             job_image_config.clone(),
+            network,
         )
         .await?;
     }
@@ -317,6 +320,7 @@ async fn apply_n_workers(
     status: &SimulationStatus,
     simulation: Arc<Simulation>,
     job_image_config: JobImageConfig,
+    network: String,
 ) -> Result<(), kube::error::Error> {
     let spec = simulation.spec();
     let orefs = simulation
@@ -327,6 +331,7 @@ async fn apply_n_workers(
     for i in 0..peers {
         let config = WorkerConfig {
             name: status.name.clone(),
+            network: network.clone(),
             scenario: spec.scenario.to_owned(),
             target_peer: i,
             nonce: status.nonce,
@@ -428,7 +433,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -45,7 +45,7 @@
+            @@ -49,7 +49,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -441,7 +446,7 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -53,7 +53,7 @@
+            @@ -57,7 +57,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -454,7 +459,7 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -53,7 +53,7 @@
+            @@ -57,7 +57,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -484,7 +489,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -65,7 +65,7 @@
+            @@ -69,7 +69,7 @@
                                },
                                {
                                  "name": "SIMULATE_USERS",
@@ -514,7 +519,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -69,7 +69,7 @@
+            @@ -73,7 +73,7 @@
                                },
                                {
                                  "name": "SIMULATE_RUN_TIME",
@@ -594,7 +599,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -45,7 +45,7 @@
+            @@ -49,7 +49,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -603,7 +608,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_MANAGER",
-            @@ -89,8 +89,8 @@
+            @@ -93,8 +93,8 @@
                                  }
                                }
                              ],
@@ -618,7 +623,7 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -53,7 +53,7 @@
+            @@ -57,7 +57,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -627,7 +632,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -85,8 +85,8 @@
+            @@ -89,8 +89,8 @@
                                  }
                                }
                              ],
@@ -642,7 +647,7 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -53,7 +53,7 @@
+            @@ -57,7 +57,7 @@
                                },
                                {
                                  "name": "SIMULATE_SCENARIO",
@@ -651,7 +656,7 @@ mod tests {
                                },
                                {
                                  "name": "SIMULATE_TARGET_PEER",
-            @@ -85,8 +85,8 @@
+            @@ -89,8 +89,8 @@
                                  }
                                }
                              ],
@@ -683,7 +688,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -87,6 +87,10 @@
+            @@ -91,6 +91,10 @@
                                      "name": "ceramic-admin"
                                    }
                                  }
@@ -698,7 +703,7 @@ mod tests {
         stub.worker_jobs[0].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -83,6 +83,10 @@
+            @@ -87,6 +87,10 @@
                                      "name": "ceramic-admin"
                                    }
                                  }
@@ -713,7 +718,7 @@ mod tests {
         stub.worker_jobs[1].patch(expect![[r#"
             --- original
             +++ modified
-            @@ -83,6 +83,10 @@
+            @@ -87,6 +87,10 @@
                                      "name": "ceramic-admin"
                                    }
                                  }
@@ -746,7 +751,7 @@ mod tests {
         stub.manager_job.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -87,6 +87,10 @@
+            @@ -91,6 +91,10 @@
                                      "name": "ceramic-admin"
                                    }
                                  }

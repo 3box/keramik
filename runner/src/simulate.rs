@@ -104,7 +104,7 @@ pub enum NetworkOpt {
 
 impl std::fmt::Display for NetworkOpt {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", Network::from(self.clone()).name())
+        write!(f, "{}", Network::from(*self).name())
     }
 }
 

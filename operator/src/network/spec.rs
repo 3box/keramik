@@ -146,6 +146,8 @@ pub struct CeramicSpec {
     pub weight: Option<i32>,
     /// Name of a config map with a ceramic-init.sh script that runs as an initialization step.
     pub init_config_map: Option<String>,
+    /// Name of the image to initialize the ceramic container.
+    pub init_image_name: Option<String>,
     /// Image of the ceramic container.
     pub image: Option<String>,
     /// Pull policy for the ceramic container image.

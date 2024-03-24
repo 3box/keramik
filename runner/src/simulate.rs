@@ -120,6 +120,10 @@ pub enum Scenario {
     /// being used. Previously, it only supported keys but newer versions support keys and data.
     /// This scenario is for the keys only version and will fail on new verisons.
     ReconEventKeySync,
+    // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
+    // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    // but covering using js-ceramic rather than talking directly to the ipfs API.
+    CeramicAnchoringBenchmark,
 }
 
 impl Scenario {
@@ -134,6 +138,7 @@ impl Scenario {
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
             Scenario::ReconEventSync => "recon_event_sync",
             Scenario::ReconEventKeySync => "recon_event_key_sync",
+            Scenario::CeramicAnchoringBenchmark => "ceramic_anchoring_benchmark",
         }
     }
 
@@ -145,6 +150,7 @@ impl Scenario {
             Self::CeramicSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
+            | Self::CeramicAnchoringBenchmark
             | Self::CeramicNewStreamsBenchmark
             | Self::CeramicQuery
             | Self::CeramicModelReuse => Ok(peer
@@ -384,6 +390,7 @@ impl ScenarioState {
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
+            Scenario::CeramicAnchoringBenchmark => ceramic::new_streams::high_load_scenario().await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -447,7 +454,7 @@ impl ScenarioState {
                 | Scenario::CeramicQuery
                 | Scenario::CeramicModelReuse => Ok(()),
                 Scenario::CeramicNewStreamsBenchmark => {
-                    // we collect things in the scenario and use redit to propagate the metrics to the manager
+                    // we collect things in the scenario and use redis to propagate the metrics to the manager
                     Ok(())
                 }
                 Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
@@ -456,6 +463,10 @@ impl ScenarioState {
                         .await?;
 
                     self.before_metrics = Some(peers);
+                    Ok(())
+                }
+                Scenario::CeramicAnchoringBenchmark => {
+                    // we will collect metrics in the scenario and use redis to propogate the metrics to the manager
                     Ok(())
                 }
             }
@@ -546,7 +557,15 @@ impl ScenarioState {
                 )
                 .await
             }
+            Scenario::CeramicAnchoringBenchmark => {
+                self.validate_anchoring_banchmark_scenario_success().await
+            }
         }
+    }
+
+    async fn validate_anchoring_banchmark_scenario_success(&self) -> (CommandResult, Option<PeerRps>) {
+        // TODO : Placeholder logic. Replace with actual validation logic.
+        (CommandResult::Success, None)
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
@@ -566,6 +585,7 @@ impl ScenarioState {
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
             | Scenario::CeramicModelReuse
+            | Scenario:: CeramicAnchoringBenchmark
             | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;

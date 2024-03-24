@@ -232,3 +232,12 @@ async fn instantiate_large_model_1kb(user: &mut GooseUser) -> TransactionResult 
     }
     Ok(())
 }
+
+pub async fn high_load_scenario() -> Result<Scenario, GooseError> {
+    let create_model_instances = transaction!(instantiate_small_model)
+        .set_name("create_model_instances")
+        .set_weight(300)?; // Set the weight to target 300 transactions per second
+
+    Ok(scenario!("HighLoadModelInstanceCreation")
+        .register_transaction(create_model_instances))
+}

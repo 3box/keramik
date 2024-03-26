@@ -172,6 +172,8 @@ type MetricsCollector = Box<dyn MetricsCollection + Send + Sync>;
 trait MetricsCollection: std::fmt::Debug {
     /// Collects a counter metric from the given host. None if metric not found.
     async fn collect_counter(&self, addr: Url, metric_name: &str) -> Result<Option<u64>>;
+    // async fn get_cas_request_success_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64>;
+    // async fn get_cas_request_failed_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64>;
     fn boxed(&self) -> MetricsCollector;
 }
 
@@ -209,6 +211,26 @@ impl MetricsCollection for PromMetricCollector {
     fn boxed(&self) -> MetricsCollector {
         Box::new(self.clone())
     }
+    // async fn get_cas_request_success_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64> {
+    //     let metric_name = "js_ceramic_cas_request_success_total";
+    //     let metrics_path = "metrics"; // Assuming the path to the metrics endpoint
+    //     let addr = format!("http://{}:9464/{}", ceramic_node_addr, metrics_path);
+    //     let addr = reqwest::Url::parse(&addr)?;
+
+    //     metrics_collector.collect_counter(addr, metric_name).await?
+    //         .ok_or_else(|| anyhow!("Failed to fetch js_ceramic_cas_request_success_total metric"))
+    // }
+
+    // async fn get_cas_request_failed_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64> {
+    //     // Implementation...
+    //     let metric_name = "js_ceramic_cas_request_failed_total";
+    //     let metrics_path = "metrics"; // Assuming the path to the metrics endpoint
+    //     let addr = format!("http://{}:9464/{}", ceramic_node_addr, metrics_path);
+    //     let addr = reqwest::Url::parse(&addr)?;
+
+    //     metrics_collector.collect_counter(addr, metric_name).await?
+    //         .ok_or_else(|| anyhow!("Failed to fetch js_ceramic_cas_request_failed_total metric"))
+    //     }
 }
 
 #[derive(Debug, Clone)]
@@ -390,7 +412,7 @@ impl ScenarioState {
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
-            Scenario::CeramicAnchoringBenchmark => ceramic::new_streams::high_load_scenario().await?,
+            Scenario::CeramicAnchoringBenchmark => ceramic::new_streams::high_load_scenario(self.scenario.into(), self.topo.nonce).await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -403,6 +425,38 @@ impl ScenarioState {
                 .ok_or_else(|| anyhow!("target peer too large, not enough peers"))?,
         )
     }
+
+    async fn get_anchor_success_rate(&self) -> Result<f64, anyhow::Error> {
+        let metric_name = "js_ceramic_cas_request_success_total";
+        let metrics_path = "metrics"; 
+        let ceramic_addr = self.peers.iter().filter_map(|peer| peer.ceramic_addr()).next().unwrap();        
+        let addr = format!("http://{}:9464/{}", ceramic_addr, metrics_path);
+        let addr = reqwest::Url::parse(&addr)?;
+        tracing::info!("Fetching failed metric from endpoint: {}", addr);
+
+
+        match self.metrics_collector.collect_counter(addr, metric_name).await? {
+            Some(count) => {
+                tracing::info!("Fetched failed metric from endpoint: {}", count);
+                Ok(count as f64)
+            }
+            None => Err(anyhow!("Failed to fetch js_ceramic_cas_request_success_total metric")),
+        }
+    }
+
+    // async fn get_anchor_failed_rate(&self) -> Result<f64, anyhow::Error> {
+    //     let metric_name = "js_ceramic_cas_request_failed_total";
+    //     let metrics_path = "metrics"; 
+    //     let ceramic_addr = self.peers.iter().filter_map(|peer| peer.ceramic_addr()).next().unwrap();        
+    //     let addr = format!("http://{}:9464/{}", ceramic_addr, metrics_path);
+    //     let addr = reqwest::Url::parse(&addr)?;
+
+    //     match self.metrics_collector.collect_counter(addr, metric_name).await? {
+    //         Some(count) => Ok(count as f64),
+
+    //         None => Err(anyhow!("Failed to fetch js_ceramic_cas_request_success_total metric")),
+    //     }
+    // }
 
     /// Returns the counter value (or None) for each peer in order of the peers list
     async fn get_peers_counter_metric(
@@ -564,8 +618,26 @@ impl ScenarioState {
     }
 
     async fn validate_anchoring_banchmark_scenario_success(&self) -> (CommandResult, Option<PeerRps>) {
-        // TODO : Placeholder logic. Replace with actual validation logic.
-        (CommandResult::Success, None)
+            // TODO : Placeholder logic. Replace with actual validation logic.
+            // Retrieve the cas_request_success and cas_request_failed counters from the ceramic node
+            match self.get_anchor_success_rate().await {
+                Ok(cas_request_success) => {
+                    tracing::info!("Got the anchoring success rate as {}", cas_request_success);
+                    // Assuming cas_request_success is a success rate and you have a threshold for it
+                    let success = cas_request_success >= 0.95; // Example: 95% success rate
+        
+                    if success {
+                        (CommandResult::Success, None)
+                    } else {
+                        (CommandResult::Failure(anyhow!("Anchoring success rate is below the desired threshold")), None)
+                    }
+                },
+                Err(e) => {
+                    tracing::error!("Failed to get anchoring success rate: {}", e);
+                    (CommandResult::Failure(e), None)
+                }
+            }
+        
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult

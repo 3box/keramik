@@ -28,6 +28,9 @@ use crate::{
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_insert_count_total";
+const PROM_METRICS_PATH: &str = "9464/metrics";
+const CERAMIC_CAS_SUCCESS_METRIC_NAME: &str = "js_ceramic_cas_request_completed_total";
+const CERAMIC_CAS_FAILED_METRIC_NAME: &str = "js_ceramic_cas_request_failed_total";
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -172,8 +175,6 @@ type MetricsCollector = Box<dyn MetricsCollection + Send + Sync>;
 trait MetricsCollection: std::fmt::Debug {
     /// Collects a counter metric from the given host. None if metric not found.
     async fn collect_counter(&self, addr: Url, metric_name: &str) -> Result<Option<u64>>;
-    // async fn get_cas_request_success_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64>;
-    // async fn get_cas_request_failed_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64>;
     fn boxed(&self) -> MetricsCollector;
 }
 
@@ -211,26 +212,6 @@ impl MetricsCollection for PromMetricCollector {
     fn boxed(&self) -> MetricsCollector {
         Box::new(self.clone())
     }
-    // async fn get_cas_request_success_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64> {
-    //     let metric_name = "js_ceramic_cas_request_success_total";
-    //     let metrics_path = "metrics"; // Assuming the path to the metrics endpoint
-    //     let addr = format!("http://{}:9464/{}", ceramic_node_addr, metrics_path);
-    //     let addr = reqwest::Url::parse(&addr)?;
-
-    //     metrics_collector.collect_counter(addr, metric_name).await?
-    //         .ok_or_else(|| anyhow!("Failed to fetch js_ceramic_cas_request_success_total metric"))
-    // }
-
-    // async fn get_cas_request_failed_from_ceramic_node(&self, ceramic_node_addr: &str) -> Result<u64> {
-    //     // Implementation...
-    //     let metric_name = "js_ceramic_cas_request_failed_total";
-    //     let metrics_path = "metrics"; // Assuming the path to the metrics endpoint
-    //     let addr = format!("http://{}:9464/{}", ceramic_node_addr, metrics_path);
-    //     let addr = reqwest::Url::parse(&addr)?;
-
-    //     metrics_collector.collect_counter(addr, metric_name).await?
-    //         .ok_or_else(|| anyhow!("Failed to fetch js_ceramic_cas_request_failed_total metric"))
-    //     }
 }
 
 #[derive(Debug, Clone)]
@@ -238,14 +219,21 @@ struct PeerRequestMetricInfo {
     pub name: String,
     pub count: u64,
     pub runtime: Option<u64>,
+    pub metric_type: Option<String>,
 }
 
 impl PeerRequestMetricInfo {
-    pub fn new(name: String, count: u64, runtime: Option<u64>) -> Self {
+    pub fn new(
+        name: String,
+        count: u64,
+        runtime: Option<u64>,
+        metric_type: Option<String>,
+    ) -> Self {
         Self {
             name,
             count,
             runtime,
+            metric_type,
         }
     }
 
@@ -305,6 +293,7 @@ fn final_peer_req_metric_info(
                     before.name.to_owned(),
                     current.count - before.count,
                     Some(run_time_seconds),
+                    None,
                 ))
             } else {
                 Err(anyhow!(
@@ -402,7 +391,7 @@ impl ScenarioState {
             Scenario::CeramicWriteOnly => {
                 ceramic::write_only::scenario(self.scenario.into()).await?
             }
-            Scenario::CeramicNewStreams => {
+            Scenario::CeramicNewStreams | Scenario::CeramicAnchoringBenchmark => {
                 ceramic::new_streams::small_large_scenario(self.scenario.into()).await?
             }
             Scenario::CeramicNewStreamsBenchmark => {
@@ -412,7 +401,6 @@ impl ScenarioState {
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
-            Scenario::CeramicAnchoringBenchmark => ceramic::new_streams::high_load_scenario(self.scenario.into(), self.topo.nonce).await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -426,38 +414,7 @@ impl ScenarioState {
         )
     }
 
-    async fn get_anchor_success_rate(&self) -> Result<f64, anyhow::Error> {
-        let metric_name = "js_ceramic_cas_request_success_total";
-        let metrics_path = "metrics"; 
-        let ceramic_addr = self.peers.iter().filter_map(|peer| peer.ceramic_addr()).next().unwrap();        
-        let addr = format!("http://{}:9464/{}", ceramic_addr, metrics_path);
-        let addr = reqwest::Url::parse(&addr)?;
-        tracing::info!("Fetching failed metric from endpoint: {}", addr);
-
-
-        match self.metrics_collector.collect_counter(addr, metric_name).await? {
-            Some(count) => {
-                tracing::info!("Fetched failed metric from endpoint: {}", count);
-                Ok(count as f64)
-            }
-            None => Err(anyhow!("Failed to fetch js_ceramic_cas_request_success_total metric")),
-        }
-    }
-
-    // async fn get_anchor_failed_rate(&self) -> Result<f64, anyhow::Error> {
-    //     let metric_name = "js_ceramic_cas_request_failed_total";
-    //     let metrics_path = "metrics"; 
-    //     let ceramic_addr = self.peers.iter().filter_map(|peer| peer.ceramic_addr()).next().unwrap();        
-    //     let addr = format!("http://{}:9464/{}", ceramic_addr, metrics_path);
-    //     let addr = reqwest::Url::parse(&addr)?;
-
-    //     match self.metrics_collector.collect_counter(addr, metric_name).await? {
-    //         Some(count) => Ok(count as f64),
-
-    //         None => Err(anyhow!("Failed to fetch js_ceramic_cas_request_success_total metric")),
-    //     }
     // }
-
     /// Returns the counter value (or None) for each peer in order of the peers list
     async fn get_peers_counter_metric(
         &self,
@@ -483,9 +440,15 @@ impl ScenarioState {
                             parse_base_url_to_pod(&addr)?,
                             m,
                             None,
+                            None,
                         ));
                     } else {
-                        bail!("Failed to collect metric from peer: {}", addr);
+                        results.push(PeerRequestMetricInfo::new(
+                            parse_base_url_to_pod(&addr)?,
+                            0, // Use 0 as the count if the metric is not found
+                            None,
+                            None,
+                        ));
                     }
                 } else {
                     warn!("Failed to parse ceramic addr for host: {}", addr);
@@ -494,6 +457,31 @@ impl ScenarioState {
             }
         }
         Ok(results)
+    }
+
+    async fn combine_metrics(
+        &self,
+        metric_names: Vec<String>,
+        metric_types: &[&str],
+        metrics_path: &str,
+    ) -> Result<Vec<PeerRequestMetricInfo>> {
+        let mut combined_metrics = Vec::new();
+
+        for (metric_name, metric_type) in metric_names.into_iter().zip(metric_types.iter()) {
+            let metrics = self
+                .get_peers_counter_metric(&metric_name, metrics_path)
+                .await?;
+
+            let metrics_with_type = metrics
+                .into_iter()
+                .map(|metric| PeerRequestMetricInfo {
+                    metric_type: Some(metric_type.to_string()),
+                    ..metric
+                })
+                .collect::<Vec<_>>();
+            combined_metrics.extend(metrics_with_type);
+        }
+        Ok(combined_metrics)
     }
 
     async fn collect_before_metrics(&mut self) -> Result<()> {
@@ -520,7 +508,17 @@ impl ScenarioState {
                     Ok(())
                 }
                 Scenario::CeramicAnchoringBenchmark => {
-                    // we will collect metrics in the scenario and use redis to propogate the metrics to the manager
+                    let metrics = self
+                        .combine_metrics(
+                            vec![
+                                CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
+                                CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
+                            ],
+                            &vec!["success", "failure"],
+                            PROM_METRICS_PATH,
+                        )
+                        .await?;
+                    self.before_metrics = Some(metrics);
                     Ok(())
                 }
             }
@@ -562,6 +560,7 @@ impl ScenarioState {
                         name.clone(),
                         count as u64,
                         Some(metrics.duration as u64),
+                        None,
                     );
                     let rps = metric.rps();
                     rps_list.push(metric);
@@ -612,32 +611,78 @@ impl ScenarioState {
                 .await
             }
             Scenario::CeramicAnchoringBenchmark => {
-                self.validate_anchoring_banchmark_scenario_success().await
+                match self.validate_anchoring_banchmark_scenario_success().await {
+                    Ok(result) => result,
+                    Err(e) => (CommandResult::Failure(e), None),
+                }
             }
         }
     }
 
-    async fn validate_anchoring_banchmark_scenario_success(&self) -> (CommandResult, Option<PeerRps>) {
-            // TODO : Placeholder logic. Replace with actual validation logic.
-            // Retrieve the cas_request_success and cas_request_failed counters from the ceramic node
-            match self.get_anchor_success_rate().await {
-                Ok(cas_request_success) => {
-                    tracing::info!("Got the anchoring success rate as {}", cas_request_success);
-                    // Assuming cas_request_success is a success rate and you have a threshold for it
-                    let success = cas_request_success >= 0.95; // Example: 95% success rate
-        
-                    if success {
-                        (CommandResult::Success, None)
-                    } else {
-                        (CommandResult::Failure(anyhow!("Anchoring success rate is below the desired threshold")), None)
-                    }
-                },
-                Err(e) => {
-                    tracing::error!("Failed to get anchoring success rate: {}", e);
-                    (CommandResult::Failure(e), None)
-                }
-            }
-        
+    async fn validate_anchoring_banchmark_scenario_success(
+        &self,
+    ) -> Result<(CommandResult, Option<PeerRps>), anyhow::Error> {
+        let after_metrics = self
+            .combine_metrics(
+                vec![
+                    CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
+                    CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
+                ],
+                &["success", "failure"],
+                PROM_METRICS_PATH,
+            )
+            .await?;
+        let before_metrics = self.before_metrics.as_ref().unwrap();
+
+        // Calculate success and failure counts
+        let (success_count, failure_count): (u64, u64) = after_metrics
+            .iter()
+            .zip(before_metrics)
+            .fold((0, 0), |(success_acc, failure_acc), (after, before)| {
+                let success_diff = if after.metric_type == Some("success".to_string()) {
+                    after.count - before.count
+                } else {
+                    0
+                };
+                let failure_diff = if after.metric_type == Some("failure".to_string()) {
+                    after.count - before.count
+                } else {
+                    0
+                };
+                (success_acc + success_diff, failure_acc + failure_diff)
+            });
+
+        // Calculate total runtime seconds
+        let total_runtime_seconds: u64 = after_metrics
+            .iter()
+            .map(|metric| metric.runtime.unwrap_or(0))
+            .sum();
+
+        // Calculate success and failure RPS
+        let success_rps = success_count as f64 / total_runtime_seconds as f64;
+        let failure_rps = failure_count as f64 / total_runtime_seconds as f64;
+
+        // Log success and failure counts
+        info!("Total runtime is: {}", total_runtime_seconds);
+        info!("Success count: {}", success_count);
+        info!("Failure count: {}", failure_count);
+
+        // Log success and failure RPS
+        info!("Success RPS: {:.2}", success_rps);
+        info!("Failure RPS: {:.2}", failure_rps);
+
+        // Determine test outcome based on success RPS
+        if success_rps >= 200.0 {
+            Ok((CommandResult::Success, None))
+        } else {
+            Ok((
+                CommandResult::Failure(anyhow!(
+                    "Success RPS is below the desired threshold: {:.2}",
+                    success_rps
+                )),
+                None,
+            ))
+        }
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
@@ -657,7 +702,7 @@ impl ScenarioState {
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
             | Scenario::CeramicModelReuse
-            | Scenario:: CeramicAnchoringBenchmark
+            | Scenario::CeramicAnchoringBenchmark
             | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;

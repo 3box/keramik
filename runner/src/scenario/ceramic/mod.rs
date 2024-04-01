@@ -166,13 +166,13 @@ impl From<Scenario> for CeramicScenarioParameters {
             },
             Scenario::IpfsRpc | Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 panic!("Not supported for non ceramic scenarios")
-            },
-            Scenario::CeramicAnchoringBenchmark => Self {
-                did_type: DidType::UserDidKey, 
-                model_reuse: ReuseType::Shared, 
-                model_instance_reuse: ReuseType::PerUser, 
-                number_of_documents: 0,
             }
+            Scenario::CeramicAnchoringBenchmark => Self {
+                did_type: DidType::UserDidKey,
+                model_reuse: ReuseType::Shared,
+                model_instance_reuse: ReuseType::PerUser,
+                number_of_documents: 0,
+            },
         }
     }
 }

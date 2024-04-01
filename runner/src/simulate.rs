@@ -414,7 +414,6 @@ impl ScenarioState {
         )
     }
 
-    // }
     /// Returns the counter value (or None) for each peer in order of the peers list
     async fn get_peers_counter_metric(
         &self,
@@ -514,7 +513,7 @@ impl ScenarioState {
                                 CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
                                 CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
                             ],
-                            &vec!["success", "failure"],
+                            &["success", "failure"],
                             PROM_METRICS_PATH,
                         )
                         .await?;

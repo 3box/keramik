@@ -2,8 +2,8 @@ use std::collections::BTreeMap;
 
 use k8s_openapi::{
     api::core::v1::{
-        ConfigMapVolumeSource, Container, ContainerPort, EnvVar, ResourceRequirements, Volume,
-        VolumeMount,
+        ConfigMapVolumeSource, Container, ContainerPort, EnvVar, EnvVarSource,
+        ResourceRequirements, SecretKeySelector, Volume, VolumeMount,
     },
     apimachinery::pkg::api::resource::Quantity,
 };
@@ -16,6 +16,8 @@ use crate::network::{
     ceramic::NetworkConfig, controller::NETWORK_DEV_MODE_RESOURCES,
     resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec, RustIpfsSpec, NETWORK_LOCAL_ID,
 };
+
+use super::controller::CERAMIC_POSTGRES_SECRET_NAME;
 
 /// Unique identifying information about this IPFS spec.
 #[derive(Debug, Clone)]
@@ -185,6 +187,40 @@ impl RustIpfsConfig {
             EnvVar {
                 name: "CERAMIC_ONE_KADEMLIA_PARALLELISM".to_owned(),
                 value: Some("1".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "POSTGRES_DB".to_owned(),
+                value: Some("ceramic".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "POSTGRES_HOST".to_owned(),
+                value: Some("localhost:5432".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "POSTGRES_USER".to_owned(),
+                value_from: Some(EnvVarSource {
+                    secret_key_ref: Some(SecretKeySelector {
+                        key: "username".to_owned(),
+                        name: Some(CERAMIC_POSTGRES_SECRET_NAME.to_string()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "POSTGRES_PASSWORD".to_owned(),
+                value_from: Some(EnvVarSource {
+                    secret_key_ref: Some(SecretKeySelector {
+                        key: "password".to_owned(),
+                        name: Some(CERAMIC_POSTGRES_SECRET_NAME.to_string()),
+                        ..Default::default()
+                    }),
+                    ..Default::default()
+                }),
                 ..Default::default()
             },
         ];

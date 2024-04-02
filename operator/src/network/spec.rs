@@ -159,6 +159,8 @@ pub struct CeramicSpec {
     /// Extra env values to pass to the image.
     /// CAUTION: Any env vars specified in this set will override any predefined values.
     pub env: Option<BTreeMap<String, String>>,
+
+    // TODO : Add init image 
 }
 
 /// Describes how the IPFS node for a peer should behave.

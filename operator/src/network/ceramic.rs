@@ -135,6 +135,7 @@ pub fn service_spec() -> ServiceSpec {
 pub struct CeramicConfig {
     pub weight: i32,
     pub init_config_map: String,
+    // TODO : Add a init image 
     pub image: String,
     pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
@@ -246,7 +247,7 @@ impl From<&CeramicInfo> for IpfsInfo {
         Self::new(value.suffix.to_owned())
     }
 }
-
+// TODO : Code in defaults for ceramic config, figure out if we can only use composedb cli
 impl Default for CeramicConfig {
     fn default() -> Self {
         Self {
@@ -285,7 +286,8 @@ impl From<Option<Vec<CeramicSpec>>> for CeramicConfigs {
         }
     }
 }
-
+// TODO : Add init image here 
+// TODO : Default ceramic : 
 impl From<CeramicSpec> for CeramicConfig {
     fn from(value: CeramicSpec) -> Self {
         let default = Self::network_default();

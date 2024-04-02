@@ -644,7 +644,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                             "/ceramic-init/ceramic-init.sh".to_owned(),
                         ]),
                         env: Some(init_env),
-                        image: Some(bundle.config.image.to_owned()),
+                        image: Some(bundle.config.init_image_name.to_owned()),
                         image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
                         name: "init-ceramic-config".to_owned(),
                         resources: Some(ResourceRequirements {

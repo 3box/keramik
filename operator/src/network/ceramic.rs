@@ -255,7 +255,7 @@ impl Default for CeramicConfig {
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
             image: "ceramicnetwork/composedb:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
-            init_image_name: "ceramicnetwork/composedb-cli:latestt".to_owned(),
+            init_image_name: "ceramicnetwork/composedb-cli:latest".to_owned(),
             ipfs: IpfsConfig::default(),
             resource_limits: ResourceLimitsConfig {
                 cpu: Some(Quantity("250m".to_owned())),

@@ -31,6 +31,7 @@ const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_insert_count_total";
 const PROM_METRICS_PATH: &str = "9464/metrics";
 const CERAMIC_CAS_SUCCESS_METRIC_NAME: &str = "js_ceramic_cas_request_completed_total";
 const CERAMIC_CAS_FAILED_METRIC_NAME: &str = "js_ceramic_cas_request_failed_total";
+const CERAMIC_CAS_REQUESTED_METRIC_NAME: &str = "js_ceramic_cas_request_created_total";
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -507,17 +508,19 @@ impl ScenarioState {
                     Ok(())
                 }
                 Scenario::CeramicAnchoringBenchmark => {
-                    let metrics = self
-                        .combine_metrics(
-                            vec![
-                                CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
-                                CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
-                            ],
-                            &["success", "failure"],
-                            PROM_METRICS_PATH,
-                        )
-                        .await?;
-                    self.before_metrics = Some(metrics);
+                    // let metrics = self
+                    //     .combine_metrics(
+                    //         vec![
+                    //             CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
+                    //             CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
+                    //         ],
+                    //         &["success", "failure"],
+                    //         PROM_METRICS_PATH,
+                    //     )
+                    //     .await?;
+                    self.before_metrics = Some(self
+                    .get_peers_counter_metric(&CERAMIC_CAS_REQUESTED_METRIC_NAME, PROM_METRICS_PATH)
+                    .await?);
                     Ok(())
                 }
             }
@@ -621,63 +624,75 @@ impl ScenarioState {
     async fn validate_anchoring_banchmark_scenario_success(
         &self,
     ) -> Result<(CommandResult, Option<PeerRps>), anyhow::Error> {
-        let after_metrics = self
-            .combine_metrics(
-                vec![
-                    CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
-                    CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
-                ],
-                &["success", "failure"],
-                PROM_METRICS_PATH,
-            )
+
+        let after_ar_metrics = self
+            .get_peers_counter_metric(&CERAMIC_CAS_REQUESTED_METRIC_NAME, PROM_METRICS_PATH)
             .await?;
-        let before_metrics = self.before_metrics.as_ref().unwrap();
+        
+        let run_time_seconds = self.run_time.trim_end_matches('m').parse::<f64>().unwrap_or(0.0) * 60.0;
 
-        // Calculate success and failure counts
-        let (success_count, failure_count): (u64, u64) = after_metrics
-            .iter()
-            .zip(before_metrics)
-            .fold((0, 0), |(success_acc, failure_acc), (after, before)| {
-                let success_diff = if after.metric_type == Some("success".to_string()) {
-                    after.count - before.count
-                } else {
-                    0
-                };
-                let failure_diff = if after.metric_type == Some("failure".to_string()) {
-                    after.count - before.count
-                } else {
-                    0
-                };
-                (success_acc + success_diff, failure_acc + failure_diff)
-            });
+        let total_count_after: u64 = after_ar_metrics.iter().map(|m| m.count).sum();
+        let total_count_before: u64 = self.before_metrics.as_ref().unwrap().iter().map(|m| m.count).sum();
+        let created_rps = (total_count_after - total_count_before) as f64 / run_time_seconds;
 
-        // Calculate total runtime seconds
-        let total_runtime_seconds: u64 = after_metrics
-            .iter()
-            .map(|metric| metric.runtime.unwrap_or(0))
-            .sum();
 
-        // Calculate success and failure RPS
-        let success_rps = success_count as f64 / total_runtime_seconds as f64;
-        let failure_rps = failure_count as f64 / total_runtime_seconds as f64;
+        // let after_metrics = self
+        //     .combine_metrics(
+        //         vec![
+        //             CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
+        //             CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
+        //         ],
+        //         &["success", "failure"],
+        //         PROM_METRICS_PATH,
+        //     )
+        //     .await?;
+        // let before_metrics = self.before_metrics.as_ref().unwrap();
 
-        // Log success and failure counts
-        info!("Total runtime is: {}", total_runtime_seconds);
-        info!("Success count: {}", success_count);
-        info!("Failure count: {}", failure_count);
+        // // Calculate success and failure counts
+        // let (success_count, failure_count): (u64, u64) = after_metrics
+        //     .iter()
+        //     .zip(before_metrics)
+        //     .fold((0, 0), |(success_acc, failure_acc), (after, before)| {
+        //         let success_diff = if after.metric_type == Some("success".to_string()) {
+        //             after.count - before.count
+        //         } else {
+        //             0
+        //         };
+        //         let failure_diff = if after.metric_type == Some("failure".to_string()) {
+        //             after.count - before.count
+        //         } else {
+        //             0
+        //         };
+        //         (success_acc + success_diff, failure_acc + failure_diff)
+        //     });
 
-        // Log success and failure RPS
-        info!("Success RPS: {:.2}", success_rps);
-        info!("Failure RPS: {:.2}", failure_rps);
+        // // Calculate total runtime seconds
+        // let total_runtime_seconds: u64 = after_metrics
+        //     .iter()
+        //     .map(|metric| metric.runtime.unwrap_or(0))
+        //     .sum();
+
+        // // Calculate success and failure RPS
+        // let success_rps = success_count as f64 / total_runtime_seconds as f64;
+        // let failure_rps = failure_count as f64 / total_runtime_seconds as f64;
+
+        // // Log success and failure counts
+        // info!("Total runtime is: {}", total_runtime_seconds);
+        // info!("Success count: {}", success_count);
+        // info!("Failure count: {}", failure_count);
+
+        // // Log success and failure RPS
+        // info!("Success RPS: {:.2}", success_rps);
+        // info!("Failure RPS: {:.2}", failure_rps);
 
         // Determine test outcome based on success RPS
-        if success_rps >= 200.0 {
+        if created_rps >= 200.0 {
             Ok((CommandResult::Success, None))
         } else {
             Ok((
                 CommandResult::Failure(anyhow!(
-                    "Success RPS is below the desired threshold: {:.2}",
-                    success_rps
+                    "Created RPS is below the desired threshold: {:.2}",
+                    created_rps
                 )),
                 None,
             ))

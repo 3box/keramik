@@ -339,7 +339,7 @@ Request {
                     "value": "/ceramic/local-0"
                   }
                 ],
-                "image": "ceramicnetwork/composedb:latest",
+                "image": "ceramicnetwork/composedb-cli:latest",
                 "imagePullPolicy": "Always",
                 "name": "init-ceramic-config",
                 "resources": {

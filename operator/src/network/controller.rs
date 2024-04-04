@@ -3193,7 +3193,7 @@ mod tests {
             -                    "value": "/ceramic/local-0"
                                }
                              ],
-                             "image": "ceramicnetwork/composedb:latest",
+                             "image": "ceramicnetwork/composedb-cli:latest",
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -3230,13 +3230,11 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
-            @@ -372,8 +372,8 @@
-                                 "value": "/ceramic/local-0"
+            @@ -373,7 +373,7 @@
                                }
                              ],
-            -                "image": "ceramicnetwork/composedb:latest",
+                             "image": "ceramicnetwork/composedb-cli:latest",
             -                "imagePullPolicy": "Always",
-            +                "image": "ceramic:foo",
             +                "imagePullPolicy": "IfNotPresent",
                              "name": "init-ceramic-config",
                              "resources": {
@@ -3657,7 +3655,7 @@ mod tests {
             +                    "value": "SOME_ENV_VALUE"
                                }
                              ],
-                             "image": "ceramicnetwork/composedb:latest",
+                             "image": "ceramicnetwork/composedb-cli:latest",
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

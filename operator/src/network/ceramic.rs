@@ -135,6 +135,7 @@ pub fn service_spec() -> ServiceSpec {
 pub struct CeramicConfig {
     pub weight: i32,
     pub init_config_map: String,
+    pub init_image_name: String,
     pub image: String,
     pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
@@ -254,6 +255,7 @@ impl Default for CeramicConfig {
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
             image: "ceramicnetwork/composedb:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
+            init_image_name: "ceramicnetwork/composedb-cli:latest".to_owned(),
             ipfs: IpfsConfig::default(),
             resource_limits: ResourceLimitsConfig {
                 cpu: Some(Quantity("250m".to_owned())),
@@ -292,6 +294,7 @@ impl From<CeramicSpec> for CeramicConfig {
         Self {
             weight: value.weight.unwrap_or(default.weight),
             init_config_map: value.init_config_map.unwrap_or(default.init_config_map),
+            init_image_name: value.init_image_name.unwrap_or(default.init_image_name),
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
             ipfs: value.ipfs.map(Into::into).unwrap_or(default.ipfs),
@@ -641,7 +644,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                             "/ceramic-init/ceramic-init.sh".to_owned(),
                         ]),
                         env: Some(init_env),
-                        image: Some(bundle.config.image.to_owned()),
+                        image: Some(bundle.config.init_image_name.to_owned()),
                         image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
                         name: "init-ceramic-config".to_owned(),
                         resources: Some(ResourceRequirements {

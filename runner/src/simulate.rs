@@ -508,19 +508,13 @@ impl ScenarioState {
                     Ok(())
                 }
                 Scenario::CeramicAnchoringBenchmark => {
-                    // let metrics = self
-                    //     .combine_metrics(
-                    //         vec![
-                    //             CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
-                    //             CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
-                    //         ],
-                    //         &["success", "failure"],
-                    //         PROM_METRICS_PATH,
-                    //     )
-                    //     .await?;
-                    self.before_metrics = Some(self
-                    .get_peers_counter_metric(&CERAMIC_CAS_REQUESTED_METRIC_NAME, PROM_METRICS_PATH)
-                    .await?);
+                    self.before_metrics = Some(
+                        self.get_peers_counter_metric(
+                            &CERAMIC_CAS_REQUESTED_METRIC_NAME,
+                            PROM_METRICS_PATH,
+                        )
+                        .await?,
+                    );
                     Ok(())
                 }
             }
@@ -624,66 +618,84 @@ impl ScenarioState {
     async fn validate_anchoring_banchmark_scenario_success(
         &self,
     ) -> Result<(CommandResult, Option<PeerRps>), anyhow::Error> {
+        // TODO : Create mechanism to sleep for a configurable time mentioned in scenario config
+        // TODO : Validate the CAS RPS after 1 hour after reading requests from the redis store
 
         let after_ar_metrics = self
             .get_peers_counter_metric(&CERAMIC_CAS_REQUESTED_METRIC_NAME, PROM_METRICS_PATH)
             .await?;
-        
-        let run_time_seconds = self.run_time.trim_end_matches('m').parse::<f64>().unwrap_or(0.0) * 60.0;
+
+        let run_time_seconds = self
+            .run_time
+            .trim_end_matches('m')
+            .parse::<f64>()
+            .unwrap_or(0.0)
+            * 60.0;
 
         let total_count_after: u64 = after_ar_metrics.iter().map(|m| m.count).sum();
-        let total_count_before: u64 = self.before_metrics.as_ref().unwrap().iter().map(|m| m.count).sum();
+        let total_count_before: u64 = self
+            .before_metrics
+            .as_ref()
+            .unwrap()
+            .iter()
+            .map(|m| m.count)
+            .sum();
         let created_rps = (total_count_after - total_count_before) as f64 / run_time_seconds;
 
+        // Log success and failure counts
+        info!("Total runtime is: {}", run_time_seconds);
+        info!("Requested count before: {}", total_count_before);
+        info!("Requested count after: {}", total_count_after);
 
-        // let after_metrics = self
-        //     .combine_metrics(
-        //         vec![
-        //             CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
-        //             CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
-        //         ],
-        //         &["success", "failure"],
-        //         PROM_METRICS_PATH,
-        //     )
-        //     .await?;
-        // let before_metrics = self.before_metrics.as_ref().unwrap();
+        // Log success and failure RPS
+        info!("Success creation RPS: {:.2}", created_rps);
 
-        // // Calculate success and failure counts
-        // let (success_count, failure_count): (u64, u64) = after_metrics
-        //     .iter()
-        //     .zip(before_metrics)
-        //     .fold((0, 0), |(success_acc, failure_acc), (after, before)| {
-        //         let success_diff = if after.metric_type == Some("success".to_string()) {
-        //             after.count - before.count
-        //         } else {
-        //             0
-        //         };
-        //         let failure_diff = if after.metric_type == Some("failure".to_string()) {
-        //             after.count - before.count
-        //         } else {
-        //             0
-        //         };
-        //         (success_acc + success_diff, failure_acc + failure_diff)
-        //     });
+        let after_metrics = self
+            .combine_metrics(
+                vec![
+                    CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
+                    CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
+                ],
+                &["success", "failure"],
+                PROM_METRICS_PATH,
+            )
+            .await?;
 
-        // // Calculate total runtime seconds
-        // let total_runtime_seconds: u64 = after_metrics
-        //     .iter()
-        //     .map(|metric| metric.runtime.unwrap_or(0))
-        //     .sum();
+        // Calculate success and failure counts
+        let (success_count, failure_count): (u64, u64) =
+            after_metrics
+                .iter()
+                .fold((0, 0), |(success_acc, failure_acc), metric| {
+                    let success_diff = if metric.metric_type == Some("success".to_string()) {
+                        metric.count
+                    } else {
+                        0
+                    };
+                    let failure_diff = if metric.metric_type == Some("failure".to_string()) {
+                        metric.count
+                    } else {
+                        0
+                    };
+                    (success_acc + success_diff, failure_acc + failure_diff)
+                });
 
-        // // Calculate success and failure RPS
-        // let success_rps = success_count as f64 / total_runtime_seconds as f64;
-        // let failure_rps = failure_count as f64 / total_runtime_seconds as f64;
+        // Calculate total runtime seconds
+        let total_runtime_seconds: u64 = after_metrics
+            .iter()
+            .map(|metric| metric.runtime.unwrap_or(0))
+            .sum();
 
-        // // Log success and failure counts
-        // info!("Total runtime is: {}", total_runtime_seconds);
-        // info!("Success count: {}", success_count);
-        // info!("Failure count: {}", failure_count);
+        // Calculate success and failure RPS
+        let success_rps = success_count as f64 / total_runtime_seconds as f64;
+        let failure_rps = failure_count as f64 / total_runtime_seconds as f64;
 
-        // // Log success and failure RPS
-        // info!("Success RPS: {:.2}", success_rps);
-        // info!("Failure RPS: {:.2}", failure_rps);
+        // Log success and failure counts
+        info!("Success count before: {}", success_count);
+        info!("Failed count after: {}", failure_count);
+
+        // Log success and failure RPS
+        info!("Success creation RPS: {:.2}", success_rps);
+        info!("Failure creation RPS: {:.2}", failure_rps);
 
         // Determine test outcome based on success RPS
         if created_rps >= 200.0 {

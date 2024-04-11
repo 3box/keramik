@@ -121,6 +121,9 @@ pub struct CeramicScenarioParameters {
     /// How many model instance documents to create in advance for each model.
     pub model_instance_reuse: ReuseType,
     pub number_of_documents: usize,
+
+    // If the modelInstanceDocuments should be stored in redis
+    pub store_mids: bool,
 }
 
 impl From<Scenario> for CeramicScenarioParameters {
@@ -133,36 +136,42 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_reuse: ReuseType::PerUser,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
+                store_mids: false,
             },
             Scenario::CeramicModelReuse => Self {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
+                store_mids: false,
             },
             Scenario::CeramicWriteOnly => Self {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
+                store_mids: false,
             },
             Scenario::CeramicNewStreams => Self {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::PerUser,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 0,
+                store_mids: false,
             },
             Scenario::CeramicNewStreamsBenchmark => Self {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 0,
+                store_mids: false, 
             },
             Scenario::CeramicQuery => Self {
                 did_type: DidType::Shared,
                 model_reuse: ReuseType::PerUser,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 3,
+                store_mids: false,
             },
             Scenario::IpfsRpc | Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 panic!("Not supported for non ceramic scenarios")
@@ -172,6 +181,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 0,
+                store_mids: true,
             },
         }
     }

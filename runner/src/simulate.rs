@@ -668,7 +668,7 @@ impl ScenarioState {
         Ok(response)
     }
 
-    pub async fn remove_stream_from_redis(&self, key: &str, stream_ids: Vec<String>) -> Result<String, anyhow::Error> {
+    pub async fn remove_stream_from_redis(&self, key: &str, stream_ids: Vec<String>) -> Result<i32, anyhow::Error> {
         let client: redis::Client = get_redis_client().await?;
         let mut connection = client.get_async_connection().await?;
         let response = redis::cmd("SREM").arg(key).arg(stream_ids).query_async(&mut connection).await?;
@@ -683,7 +683,7 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
-        let wait_duration = Duration::from_secs(500);
+        let wait_duration = Duration::from_secs(20 * 60);
         // TODO_3164_1 : Make this a parameter, pass it in from the scenario config
         // TODO_3164_2 : Code clean-up : Remove all info logs used for debugging 
         // TODO_3164_3 : Code clean-up : Move redis calls to separate file move it out of simulate.rs
@@ -720,12 +720,15 @@ impl ScenarioState {
         // remove stream ids from redis
         self.remove_stream_from_redis("anchor_mids", ids).await?;
 
+        // TODO_3164_5 : Report these counts to Graphana
+
         // Log the counts
         info!("Not requested count: {:2}", not_requested_count);
-        info!("Anchored count: {}", anchored_count);
-        info!("Pending count: {}", pending_count);
-        info!("Failed count: {}", failed_count);
+        info!("Anchored count: {:2}", anchored_count);
+        info!("Pending count: {:2}", pending_count);
+        info!("Failed count: {:2}", failed_count);
 
+        // TODO_3164_6 : Remove this logic if not needed. If it gives us something better keep it
         let after_metrics = self
         .combine_metrics(
             vec![

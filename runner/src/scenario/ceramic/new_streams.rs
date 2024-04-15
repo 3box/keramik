@@ -222,7 +222,7 @@ async fn instantiate_small_model(user: &mut GooseUser, store_in_redis: bool, con
     .await?;
     if store_in_redis {
         let stream_id_string = response.to_string();
-        let _: () = conn.set(format!("anchor_mids_{}", stream_id_string), stream_id_string).await.unwrap();
+        let _: () = conn.sadd(format!("anchor_mids"), stream_id_string).await.unwrap();
     }
     Ok(())
 }
@@ -239,7 +239,7 @@ async fn instantiate_large_model(user: &mut GooseUser, store_in_redis: bool, con
     .await?;
     if store_in_redis {
         let stream_id_string = response.to_string();
-        let _: () = conn.set(format!("anchor_mids_{}", stream_id_string), stream_id_string).await.unwrap();
+        let _: () = conn.sadd(format!("anchor_mids"), stream_id_string).await.unwrap();
     }
     Ok(())
 }

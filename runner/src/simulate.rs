@@ -14,12 +14,12 @@ use opentelemetry::{
     KeyValue,
 };
 use reqwest::Url;
+use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 use crate::{
     scenario::{
-        ceramic::{self, new_streams},
-        ipfs_block_fetch, recon_sync,
+        ceramic::{self, new_streams}, get_redis_client, ipfs_block_fetch, recon_sync
     },
     utils::parse_peers_info,
     CommandResult,
@@ -85,6 +85,9 @@ pub struct Opts {
     /// left to the scenario (requests per second, total requests, rps/node etc).
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
+
+    // #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME")]
+    // anchor_wait_time: Option<u64>,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -341,6 +344,7 @@ struct ScenarioState {
     before_metrics: Option<Vec<PeerRequestMetricInfo>>,
     run_time: String,
     throttle_requests: Option<usize>,
+    // wait_time: Option<u64>,
 }
 
 impl ScenarioState {
@@ -381,6 +385,7 @@ impl ScenarioState {
             before_metrics: None,
             run_time: opts.run_time,
             throttle_requests: opts.throttle_requests,
+            // wait_time: opts.anchor_wait_time,
         })
     }
 
@@ -526,7 +531,7 @@ impl ScenarioState {
     /// Should return the Minimum RPS of all peers as the f64
     pub async fn validate_scenario_success(
         &self,
-        metrics: &GooseMetrics,
+        metrics: &GooseMetrics
     ) -> (CommandResult, Option<PeerRps>) {
         if !self.manager {
             return (CommandResult::Success, None);
@@ -615,69 +620,141 @@ impl ScenarioState {
         }
     }
 
+    pub async fn get_anchor_status(&self, peer: &Peer, stream_id: String) -> Result<String, anyhow::Error> {
+        let client = reqwest::Client::new();
+        let ceramic_addr = peer.ceramic_addr().ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;
+    
+        let streams_url = format!("{}/{}/{}", ceramic_addr, "api/v0/streams", stream_id);
+        info!("Getting anchor status at URL: {}", streams_url);
+    
+        let response = client.get(streams_url).send().await.map_err(|e| {
+            error!("HTTP request failed: {}", e);
+            e
+        })?.error_for_status().map_err(|e| {
+            error!("HTTP request returned unsuccessful status: {}", e);
+            e
+        })?;
+    
+        let response_json = response.json::<serde_json::Value>().await.map_err(|e| {
+            error!("Failed to parse response as JSON: {}", e);
+            e
+        })?;
+    
+        if let Some(state) = response_json.get("state") {
+            if let Some(anchor_status) = state.get("anchorStatus") {
+                match anchor_status {
+                    serde_json::Value::String(s) => return Ok(s.clone()),
+                    serde_json::Value::Number(n) => return Ok(n.to_string()),
+                    _ => {
+                        error!("Unexpected anchor status type in response: {}", anchor_status);
+                        bail!("Unexpected anchor status type: expected string or number, got: {:?}", anchor_status);
+                    }
+                }
+            }
+        }
+    
+        error!("Anchor status not found in the response JSON");
+        bail!("Anchor status missing in the response")
+    }
+    
+
+    pub async fn get_set_from_redis(&self, key: &str) -> Result<Vec<String>, anyhow::Error> {
+        // Create a new Redis client
+        let client: redis::Client = get_redis_client().await?;
+        let mut connection = client.get_async_connection().await?;
+        // Get the MIDs from Redis
+        let response = redis::cmd("SMEMBERS").arg(key).query_async(&mut connection).await?;
+        // Return the MIDs
+        Ok(response)
+    }
+
+    pub async fn remove_stream_from_redis(&self, key: &str, stream_ids: Vec<String>) -> Result<String, anyhow::Error> {
+        let client: redis::Client = get_redis_client().await?;
+        let mut connection = client.get_async_connection().await?;
+        let response = redis::cmd("SREM").arg(key).arg(stream_ids).query_async(&mut connection).await?;
+        Ok(response)
+    }
+
     async fn validate_anchoring_banchmark_scenario_success(
         &self,
     ) -> Result<(CommandResult, Option<PeerRps>), anyhow::Error> {
-        // TODO : Create mechanism to sleep for a configurable time mentioned in scenario config
-        // TODO : Validate the CAS RPS after 1 hour after reading requests from the redis store
 
-        let after_ar_metrics = self
-            .get_peers_counter_metric(&CERAMIC_CAS_REQUESTED_METRIC_NAME, PROM_METRICS_PATH)
-            .await?;
+        let mut anchored_count = 0;
+        let mut pending_count = 0;
+        let mut failed_count = 0;
+        let mut not_requested_count = 0;
+        let wait_duration = Duration::from_secs(500);
+        // TODO_3164_1 : Make this a parameter, pass it in from the scenario config
+        // TODO_3164_2 : Code clean-up : Remove all info logs used for debugging 
+        // TODO_3164_3 : Code clean-up : Move redis calls to separate file move it out of simulate.rs
+        // TODO_3164_4 : Code clean-up : Move api call (fetch stream) to model_instance.rs?, maybe rename it 
+        sleep(wait_duration).await;
 
-        let run_time_seconds = self
-            .run_time
-            .trim_end_matches('m')
-            .parse::<f64>()
-            .unwrap_or(0.0)
-            * 60.0;
+        // Pick a peer at random
+        let peer = self.peers.iter().next().unwrap();
 
-        let total_count_after: u64 = after_ar_metrics.iter().map(|m| m.count).sum();
-        let total_count_before: u64 = self
-            .before_metrics
-            .as_ref()
-            .unwrap()
-            .iter()
-            .map(|m| m.count)
-            .sum();
-        let created_rps = (total_count_after - total_count_before) as f64 / run_time_seconds;
+        let ids = self.get_set_from_redis("anchor_mids").await?;
+        info!("Number of MIDs: {}", ids.len());
 
-        // Log success and failure counts
-        info!("Total runtime is: {}", run_time_seconds);
-        info!("Requested count before: {}", total_count_before);
-        info!("Requested count after: {}", total_count_after);
+        // Make an API call to get the status of request from the chosen peer
+        // This assumes the existence of a function `get_anchor_status` which is not defined in the provided snippet
+        for stream_id in ids.clone() {
+            info!("Fetching anchorstatus for streamID {}", stream_id);
+            match self.get_anchor_status(peer, stream_id.clone()).await {
+                Ok(status) => {
+                    match status.as_str() {
+                        "ANCHORED" => anchored_count += 1,
+                        "PENDING" => pending_count += 1,
+                        "FAILED" => failed_count += 1,
+                        "NOT_REQUESTED" => not_requested_count += 1,
+                        _ => info!("Unknown anchor status: {}", status),
+                    }
+                }
+                Err(e) => {
+                    failed_count += 1;
+                    error!("Failed to get anchor status: {}", e);
+                }
+            }
+        }
 
-        // Log success and failure RPS
-        info!("Success creation RPS: {:.2}", created_rps);
+        // remove stream ids from redis
+        self.remove_stream_from_redis("anchor_mids", ids).await?;
+
+        // Log the counts
+        info!("Not requested count: {:2}", not_requested_count);
+        info!("Anchored count: {}", anchored_count);
+        info!("Pending count: {}", pending_count);
+        info!("Failed count: {}", failed_count);
 
         let after_metrics = self
-            .combine_metrics(
-                vec![
-                    CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
-                    CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
-                ],
-                &["success", "failure"],
-                PROM_METRICS_PATH,
-            )
-            .await?;
+        .combine_metrics(
+            vec![
+                CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
+                CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
+            ],
+            &["success", "failure"],
+            PROM_METRICS_PATH,
+        )
+        .await?;
+    let before_metrics = self.before_metrics.as_ref().unwrap();
 
-        // Calculate success and failure counts
-        let (success_count, failure_count): (u64, u64) =
-            after_metrics
-                .iter()
-                .fold((0, 0), |(success_acc, failure_acc), metric| {
-                    let success_diff = if metric.metric_type == Some("success".to_string()) {
-                        metric.count
-                    } else {
-                        0
-                    };
-                    let failure_diff = if metric.metric_type == Some("failure".to_string()) {
-                        metric.count
-                    } else {
-                        0
-                    };
-                    (success_acc + success_diff, failure_acc + failure_diff)
-                });
+       // Calculate success and failure counts
+         let (success_count, failure_count): (u64, u64) = after_metrics
+            .iter()
+            .zip(before_metrics)
+            .fold((0, 0), |(success_acc, failure_acc), (after, before)| {
+                let success_diff = if after.metric_type == Some("success".to_string()) {
+                    after.count - before.count
+                } else {
+                    0
+                };
+                let failure_diff = if after.metric_type == Some("failure".to_string()) {
+                    after.count - before.count
+                } else {
+                    0
+                };
+                (success_acc + success_diff, failure_acc + failure_diff)
+            });
 
         // Calculate total runtime seconds
         let total_runtime_seconds: u64 = after_metrics
@@ -690,25 +767,20 @@ impl ScenarioState {
         let failure_rps = failure_count as f64 / total_runtime_seconds as f64;
 
         // Log success and failure counts
-        info!("Success count before: {}", success_count);
-        info!("Failed count after: {}", failure_count);
-
+        info!("Total runtime is: {}", total_runtime_seconds);
+        info!("Success count: {}", success_count);
         // Log success and failure RPS
-        info!("Success creation RPS: {:.2}", success_rps);
-        info!("Failure creation RPS: {:.2}", failure_rps);
+        info!("Success RPS: {:.2}", success_rps);
+        info!("Failure RPS: {:.2}", failure_rps);
 
-        // Determine test outcome based on success RPS
-        if created_rps >= 200.0 {
+
+        // Determine success based on the anchored_count
+        if anchored_count > 1000000 {
             Ok((CommandResult::Success, None))
         } else {
-            Ok((
-                CommandResult::Failure(anyhow!(
-                    "Created RPS is below the desired threshold: {:.2}",
-                    created_rps
-                )),
-                None,
-            ))
+            Ok((CommandResult::Failure(anyhow!("Anchored count {} is less than the success threshold of 1000000", anchored_count)), None))
         }
+
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
@@ -1234,6 +1306,7 @@ mod test {
             nonce: 42,
             throttle_requests: None,
             target_request_rate,
+            // anchor_wait_time: None,
         }
     }
 

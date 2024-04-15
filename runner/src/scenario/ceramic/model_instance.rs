@@ -649,8 +649,10 @@ impl ModelInstanceRequests {
         data: &T,
     ) -> Result<StreamId, TransactionError> {
         let url = user.build_url(cli.streams_endpoint())?;
+        info!("url for goose attack: {}", url);
         let req = cli.create_list_instance_request(model, data).await.unwrap();
         let req = user.client.post(url).json(&req);
+        info!("req for goose attack: {:?}", req);
         let name = format!("create_model_instance_{}", tx_name);
         let req = GooseRequest::builder()
             .name(name.as_str())

@@ -164,7 +164,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 0,
-                store_mids: false, 
+                store_mids: false,
             },
             Scenario::CeramicQuery => Self {
                 did_type: DidType::Shared,

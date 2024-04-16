@@ -126,7 +126,7 @@ pub async fn small_large_scenario(
     let redis_cli = get_redis_client().await.unwrap();
     let multiplexed_conn = redis_cli.get_multiplexed_tokio_connection().await.unwrap();
     let shared_conn = Arc::new(Mutex::new(multiplexed_conn));
-    
+
     let config = CeramicModelInstanceTestUser::prep_scenario(params.clone())
         .await
         .unwrap();
@@ -145,11 +145,7 @@ pub async fn small_large_scenario(
         let conn_clone = instantiate_small_model_conn.clone();
         Box::pin(async move {
             let mut conn = conn_clone.lock().await;
-            instantiate_small_model(
-                user,
-                params.store_mids,
-                &mut *conn
-            ).await
+            instantiate_small_model(user, params.store_mids, &mut *conn).await
         })
     }))
     .set_name("instantiate_small_model");
@@ -210,7 +206,11 @@ pub async fn benchmark_scenario(
         .register_transaction(after_metrics))
 }
 
-async fn instantiate_small_model(user: &mut GooseUser, store_in_redis: bool, conn: &mut MultiplexedConnection) -> TransactionResult {
+async fn instantiate_small_model(
+    user: &mut GooseUser,
+    store_in_redis: bool,
+    conn: &mut MultiplexedConnection,
+) -> TransactionResult {
     let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
     let response = ModelInstanceRequests::create_model_instance(
         user,
@@ -222,12 +222,19 @@ async fn instantiate_small_model(user: &mut GooseUser, store_in_redis: bool, con
     .await?;
     if store_in_redis {
         let stream_id_string = response.to_string();
-        let _: () = conn.sadd(format!("anchor_mids"), stream_id_string).await.unwrap();
+        let _: () = conn
+            .sadd(format!("anchor_mids"), stream_id_string)
+            .await
+            .unwrap();
     }
     Ok(())
 }
 
-async fn instantiate_large_model(user: &mut GooseUser, store_in_redis: bool, conn: &mut MultiplexedConnection) -> TransactionResult {
+async fn instantiate_large_model(
+    user: &mut GooseUser,
+    store_in_redis: bool,
+    conn: &mut MultiplexedConnection,
+) -> TransactionResult {
     let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
     let response = ModelInstanceRequests::create_model_instance(
         user,
@@ -239,7 +246,10 @@ async fn instantiate_large_model(user: &mut GooseUser, store_in_redis: bool, con
     .await?;
     if store_in_redis {
         let stream_id_string = response.to_string();
-        let _: () = conn.sadd(format!("anchor_mids"), stream_id_string).await.unwrap();
+        let _: () = conn
+            .sadd(format!("anchor_mids"), stream_id_string)
+            .await
+            .unwrap();
     }
     Ok(())
 }

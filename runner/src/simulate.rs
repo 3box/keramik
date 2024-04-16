@@ -800,15 +800,13 @@ impl ScenarioState {
 
         // Determine success based on the anchored_count
         if failed_count > 0 {
-            Ok((CommandResult::Failure(anyhow!("Failed count is greater than 0")), None))
-        } else {
             Ok((
-                CommandResult::Success(anyhow!(
-                    "Anchored count is : {}",
-                    anchored_count
-                )),
+                CommandResult::Failure(anyhow!("Failed count is greater than 0")),
                 None,
             ))
+        } else {
+            info!("Anchored count is : {}", anchored_count);
+            Ok((CommandResult::Success, None))
         }
     }
 

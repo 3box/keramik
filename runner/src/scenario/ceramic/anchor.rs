@@ -1,4 +1,5 @@
 use anyhow::Result;
+use base64::{engine::general_purpose, Engine};
 use ceramic_core::{Cid, DidDocument, JwkSigner, Jws, StreamId, StreamIdType};
 use chrono::Utc;
 use goose::prelude::*;
@@ -6,10 +7,9 @@ use iroh_car::{CarHeader, CarWriter};
 use libipld::{cbor::DagCborCodec, ipld, prelude::Codec, Ipld, IpldCodec};
 use multihash::{Code::Sha2_256, MultihashDigest};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use redis::AsyncCommands;
+use redis::{aio::MultiplexedConnection, AsyncCommands};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
 use std::{collections::BTreeMap, sync::Arc};
 use uuid::Uuid;
 
@@ -54,11 +54,9 @@ pub async fn stream_tip_car(
         "streamId": stream_id.to_vec()?,
         "tip": genesis_cid,
     });
-    // let ipld_map: BTreeMap<String, Ipld> = libipld::serde::from_ipld(root_block)?;
+    
     let ipld_bytes = DagCborCodec.encode(&root_block)?;
     let root_cid = Cid::new_v1(IpldCodec::DagCbor.into(), Sha2_256.digest(&ipld_bytes));
-    // let ipld_bytes = DagCborCodec.encode(&ipld_map)?;
-    // let root_cid = Cid::new_v1(IpldCodec::DagCbor.into(), Sha2_256.digest(&ipld_bytes));
     let car_header = CarHeader::new_v1(vec![root_cid]);
     let mut car_writer = CarWriter::new(car_header, Vec::new());
     car_writer.write(root_cid, ipld_bytes).await.unwrap();
@@ -69,12 +67,12 @@ pub async fn stream_tip_car(
 
 pub async fn create_anchor_request_on_cas(
     user: &mut GooseUser,
-    cas_service_url: &str,
-    auth_token: &str,
-    tx_name: &str,
+    conn: MultiplexedConnection,
 ) -> TransactionResult {
     let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
-
+    let cas_service_url = std::env::var("CAS_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8081/api/v0/requests".to_string());
+    let auth_token = std::env::var("CAS_AUTH_TOKEN").unwrap_or_else(|_| "your_default_auth_token".to_string());
+    
     let (stream_id, genesis_cid, genesis_block) =
         create_stream(StreamIdType::Tile, user_data.user_info.did.to_string(), true).unwrap();
 
@@ -88,11 +86,8 @@ pub async fn create_anchor_request_on_cas(
     .await
     .unwrap();
 
-
-    let name = format!("create_anchor_request_{}", tx_name);
-
     let goose_request = GooseRequest::builder()
-        .name(name.as_str())
+        .name("create_anchor_request")
         .method(GooseMethod::Post)
         .set_request_builder(Client::new()
             .post(cas_service_url)
@@ -113,17 +108,11 @@ pub async fn create_anchor_request_on_cas(
 pub async fn cas_benchmark() -> Result<Scenario, GooseError> {
     let redis_cli = get_redis_client().await.unwrap();
     let multiplexed_conn = redis_cli.get_multiplexed_tokio_connection().await.unwrap();
-    let shared_conn = Arc::new(Mutex::new(multiplexed_conn));
-
-    let cas_service_url = std::env::var("CAS_SERVICE_URL").unwrap_or_else(|_| "http://localhost:8081/api/v0/requests".to_string());
-    let auth_token = std::env::var("CAS_AUTH_TOKEN").unwrap_or_else(|_| "your_default_auth_token".to_string());
 
     let create_anchor_request = Transaction::new(Arc::new(move |user| {
         Box::pin(create_anchor_request_on_cas(
-            user,
-            &cas_service_url,
-            &auth_token,
-            "create_anchor_request",
+            user, 
+            multiplexed_conn.clone(),
         ))
     }))
     .set_name("create_anchor_request");
@@ -173,10 +162,8 @@ pub fn create_stream(
     ))
 }
 
-// fn convert_type(value: StreamType) -> StreamIdType {
-//     match value {
-//         StreamType::Tile => StreamIdType::Tile,
-//         StreamType::Model => StreamIdType::Model,
-//         StreamType::Document => StreamIdType::ModelInstanceDocument,
-//     }
-// }
+fn stream_unique_header() -> String {
+    let mut data = [0u8; 8];
+    thread_rng().fill(&mut data);
+    general_purpose::STANDARD.encode(data)
+}

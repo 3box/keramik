@@ -3,6 +3,7 @@ mod models;
 pub mod new_streams;
 pub mod query;
 pub mod simple;
+pub mod anchor;
 pub mod util;
 pub mod write_only;
 
@@ -173,7 +174,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 number_of_documents: 3,
                 store_mids: false,
             },
-            Scenario::IpfsRpc | Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
+            Scenario::IpfsRpc | Scenario::ReconEventSync | Scenario::ReconEventKeySync | Scenario::CASBenchmark => {
                 panic!("Not supported for non ceramic scenarios")
             }
             Scenario::CeramicAnchoringBenchmark => Self {

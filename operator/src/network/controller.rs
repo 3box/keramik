@@ -4053,4 +4053,118 @@ mod tests {
             .expect("reconciler");
         timeout_after_1s(mocksrv).await;
     }
+    #[tokio::test]
+    #[traced_test]
+    async fn debug_mode() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            debug_mode: Some(true),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramics[0].stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -148,6 +148,13 @@
+                                 "memory": "1Gi"
+                               }
+                             },
+            +                "securityContext": {
+            +                  "capabilities": {
+            +                    "add": [
+            +                      "SYS_PTRACE"
+            +                    ]
+            +                  }
+            +                },
+                             "volumeMounts": [
+                               {
+                                 "mountPath": "/config",
+            @@ -252,6 +259,10 @@
+                                 "value": "/ip4/0.0.0.0/tcp/4001"
+                               },
+                               {
+            +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
+            +                    "value": "true"
+            +                  },
+            +                  {
+                                 "name": "RUST_LOG",
+                                 "value": "info,ceramic_one=debug,multipart=error"
+                               }
+            @@ -274,6 +285,11 @@
+                                 "containerPort": 9465,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            +                  },
+            +                  {
+            +                    "containerPort": 6669,
+            +                    "name": "tokio-console",
+            +                    "protocol": "TCP"
+                               }
+                             ],
+                             "resources": {
+            @@ -288,6 +304,13 @@
+                                 "memory": "512Mi"
+                               }
+                             },
+            +                "securityContext": {
+            +                  "capabilities": {
+            +                    "add": [
+            +                      "SYS_PTRACE"
+            +                    ]
+            +                  }
+            +                },
+                             "volumeMounts": [
+                               {
+                                 "mountPath": "/data/ipfs",
+        "#]]);
+        stub.cas_ipfs_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -69,6 +69,10 @@
+                                 "value": "/ip4/0.0.0.0/tcp/4001"
+                               },
+                               {
+            +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
+            +                    "value": "true"
+            +                  },
+            +                  {
+                                 "name": "RUST_LOG",
+                                 "value": "info,ceramic_one=debug,multipart=error"
+                               }
+            @@ -91,6 +95,11 @@
+                                 "containerPort": 9465,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            +                  },
+            +                  {
+            +                    "containerPort": 6669,
+            +                    "name": "tokio-console",
+            +                    "protocol": "TCP"
+                               }
+                             ],
+                             "resources": {
+            @@ -105,6 +114,13 @@
+                                 "memory": "512Mi"
+                               }
+                             },
+            +                "securityContext": {
+            +                  "capabilities": {
+            +                    "add": [
+            +                      "SYS_PTRACE"
+            +                    ]
+            +                  }
+            +                },
+                             "volumeMounts": [
+                               {
+                                 "mountPath": "/data/ipfs",
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
 }

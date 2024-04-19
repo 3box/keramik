@@ -50,6 +50,11 @@ pub struct NetworkSpec {
     /// explicitly overridden by the spec. This allows deploying the network on a smaller machine,
     /// as well as running every container with unlimited resources.
     pub dev_mode: Option<bool>,
+    /// Enable debug mode for the network. This will add capabilities to containers to enable
+    /// process tracing and other debug related features.
+    /// Generally do NOT run debug_mode on production infrastructure as it has weaker security
+    /// properties.
+    pub debug_mode: Option<bool>,
     /// Enable monitoring resources to be deployed into the network.
     pub monitoring: Option<MonitoringSpec>,
     /// A list of node selector terms. These node select terms will be applied to all pods in the network.

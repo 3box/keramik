@@ -17,6 +17,8 @@ use crate::network::{
     resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec, RustIpfsSpec, NETWORK_LOCAL_ID,
 };
 
+use super::debug_mode_security_context;
+
 /// Unique identifying information about this IPFS spec.
 #[derive(Debug, Clone)]
 pub struct IpfsInfo {
@@ -188,6 +190,13 @@ impl RustIpfsConfig {
                 ..Default::default()
             },
         ];
+        if net_config.debug_mode {
+            env.push(EnvVar {
+                name: "CERAMIC_ONE_TOKIO_CONSOLE".to_owned(),
+                value: Some("true".to_owned()),
+                ..Default::default()
+            })
+        }
         if let Some(extra_env) = &self.env {
             extra_env.iter().for_each(|(key, value)| {
                 if let Some((pos, _)) = env.iter().enumerate().find(|(_, var)| &var.name == key) {
@@ -202,31 +211,42 @@ impl RustIpfsConfig {
         }
         // Sort env vars so we can have stable tests
         env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+
+        // Construct the set of ports
+        let mut ports = vec![
+            ContainerPort {
+                container_port: 4001,
+                name: Some("swarm-tcp".to_owned()),
+                protocol: Some("TCP".to_owned()),
+                ..Default::default()
+            },
+            ContainerPort {
+                container_port: IPFS_SERVICE_PORT,
+                name: Some("rpc".to_owned()),
+                protocol: Some("TCP".to_owned()),
+                ..Default::default()
+            },
+            ContainerPort {
+                container_port: 9465,
+                name: Some("metrics".to_owned()),
+                protocol: Some("TCP".to_owned()),
+                ..Default::default()
+            },
+        ];
+        if net_config.debug_mode {
+            ports.push(ContainerPort {
+                container_port: 6669,
+                name: Some("tokio-console".to_owned()),
+                protocol: Some("TCP".to_owned()),
+                ..Default::default()
+            })
+        }
         Container {
             env: Some(env),
             image: Some(self.image.to_owned()),
             image_pull_policy: Some(self.image_pull_policy.to_owned()),
             name: IPFS_CONTAINER_NAME.to_owned(),
-            ports: Some(vec![
-                ContainerPort {
-                    container_port: 4001,
-                    name: Some("swarm-tcp".to_owned()),
-                    protocol: Some("TCP".to_owned()),
-                    ..Default::default()
-                },
-                ContainerPort {
-                    container_port: IPFS_SERVICE_PORT,
-                    name: Some("rpc".to_owned()),
-                    protocol: Some("TCP".to_owned()),
-                    ..Default::default()
-                },
-                ContainerPort {
-                    container_port: 9465,
-                    name: Some("metrics".to_owned()),
-                    protocol: Some("TCP".to_owned()),
-                    ..Default::default()
-                },
-            ]),
+            ports: Some(ports),
             resources: Some(ResourceRequirements {
                 limits: Some(self.resource_limits.clone().into()),
                 requests: Some(self.resource_limits.clone().into()),
@@ -237,6 +257,7 @@ impl RustIpfsConfig {
                 name: IPFS_DATA_PV_CLAIM.to_owned(),
                 ..Default::default()
             }]),
+            security_context: net_config.debug_mode.then(debug_mode_security_context),
             ..Default::default()
         }
     }

@@ -33,6 +33,8 @@ use crate::{
     },
 };
 
+use super::debug_mode_security_context;
+
 pub fn config_maps(
     info: &CeramicInfo,
     config: &CeramicConfig,
@@ -173,6 +175,7 @@ pub struct NetworkConfig {
     pub eth_rpc_url: String,
     pub cas_api_url: String,
     pub node_affinity_config: NodeAffinityConfig,
+    pub debug_mode: bool,
 }
 
 impl Default for NetworkConfig {
@@ -183,6 +186,7 @@ impl Default for NetworkConfig {
             eth_rpc_url: format!("http://{GANACHE_SERVICE_NAME}:8545"),
             cas_api_url: format!("http://{CAS_SERVICE_NAME}:8081"),
             node_affinity_config: NodeAffinityConfig::default(),
+            debug_mode: false,
         }
     }
 }
@@ -199,6 +203,7 @@ impl From<&NetworkSpec> for NetworkConfig {
             eth_rpc_url: value.eth_rpc_url.to_owned().unwrap_or(default.eth_rpc_url),
             cas_api_url: value.cas_api_url.to_owned().unwrap_or(default.cas_api_url),
             node_affinity_config: value.into(),
+            debug_mode: value.debug_mode.unwrap_or(default.debug_mode),
         }
     }
 }
@@ -570,6 +575,10 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                                     ..Default::default()
                                 },
                             ]),
+                            security_context: bundle
+                                .net_config
+                                .debug_mode
+                                .then(debug_mode_security_context),
                             ..Default::default()
                         },
                         Container {

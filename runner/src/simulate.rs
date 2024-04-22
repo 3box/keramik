@@ -34,6 +34,7 @@ const CERAMIC_CAS_SUCCESS_METRIC_NAME: &str = "js_ceramic_cas_request_completed_
 const CERAMIC_CAS_FAILED_METRIC_NAME: &str = "js_ceramic_cas_request_failed_total";
 const CERAMIC_CAS_REQUESTED_METRIC_NAME: &str = "js_ceramic_cas_request_created_total";
 const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
+const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -137,7 +138,6 @@ pub enum Scenario {
     // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
     // but covering using js-ceramic rather than talking directly to the ipfs API.
     CASBenchmark,
-    
 }
 
 impl Scenario {
@@ -553,7 +553,6 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
-            | Scenario::CASBenchmark
             | Scenario::CeramicModelReuse => (CommandResult::Success, None),
             Scenario::CeramicNewStreamsBenchmark => {
                 let res =
@@ -628,6 +627,17 @@ impl ScenarioState {
                     Ok(result) => result,
                     Err(e) => (CommandResult::Failure(e), None),
                 }
+            }
+            Scenario::CASBenchmark => {
+                let ids = self
+                    .get_set_from_redis(CAS_ANCHOR_REQUEST_KEY)
+                    .await
+                    .unwrap();
+                info!("Number of CAS anchoring requests: {}", ids.len());
+                self.remove_stream_from_redis(CAS_ANCHOR_REQUEST_KEY, ids)
+                    .await
+                    .unwrap();
+                (CommandResult::Success, None)
             }
         }
     }

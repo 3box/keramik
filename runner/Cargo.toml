@@ -4,7 +4,6 @@ description = "Utility binary for performing various jobs to simulate Ceramic ne
 version = "0.1.0"
 edition = "2021"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 anyhow.workspace = true
@@ -18,7 +17,7 @@ did-method-key = "0.2"
 goose = { version = "0.16", features = ["gaggle"] }
 hex.workspace = true
 keramik-common = { workspace = true, features = ["telemetry", "tokio-console"] }
-libipld = "0.16.0"
+libipld = { version = "0.16.0", features = ["serde-codec"] }
 multihash.workspace = true
 opentelemetry.workspace = true
 rand = "0.8.5"
@@ -34,7 +33,6 @@ multibase.workspace = true
 base64 = "0.21.5"
 uuid = { version = "1.6.1", features = ["v4"] }
 chrono = "0.4.31"
-
 ed25519-dalek = "2.1"
 
 [dev-dependencies]

@@ -1,9 +1,9 @@
+pub mod anchor;
 pub mod model_instance;
 mod models;
 pub mod new_streams;
 pub mod query;
 pub mod simple;
-pub mod anchor;
 pub mod util;
 pub mod write_only;
 
@@ -68,7 +68,10 @@ impl Credentials {
         let doc: DidDocument = DocumentBuilder::default()
             .id(did)
             .build()
-            .map_err(|e| anyhow::anyhow!("failed to build DID document: {}", e))?;
+            .map_err(|e| anyhow::anyhow!("failed to build DID document: {}", e))
+            .map(|core_doc| {
+                ceramic_http_client::ceramic_event::DidDocument::new(core_doc.id.as_str())
+            })?;
         tracing::debug!("Generated DID: {:?}", doc);
         Ok(doc)
     }
@@ -174,7 +177,10 @@ impl From<Scenario> for CeramicScenarioParameters {
                 number_of_documents: 3,
                 store_mids: false,
             },
-            Scenario::IpfsRpc | Scenario::ReconEventSync | Scenario::ReconEventKeySync | Scenario::CASBenchmark => {
+            Scenario::IpfsRpc
+            | Scenario::ReconEventSync
+            | Scenario::ReconEventKeySync
+            | Scenario::CASBenchmark => {
                 panic!("Not supported for non ceramic scenarios")
             }
             Scenario::CeramicAnchoringBenchmark => Self {

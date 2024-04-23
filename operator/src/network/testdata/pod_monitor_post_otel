@@ -18,6 +18,11 @@ Request {
             "targetPort": 9464
           }
         ],
+        "podTargetLabels": [
+          "affinity",
+          "scenario",
+          "simulation"
+        ],
         "selector": {
           "matchLabels": {
             "app": "otel"

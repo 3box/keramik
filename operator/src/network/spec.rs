@@ -266,7 +266,17 @@ pub struct MonitoringSpec {
     /// Deploy monitoring resources into the network namespace directly
     pub namespaced: Option<bool>,
     /// Deploy pod monitors
-    pub pod_monitoring: Option<bool>,
+    pub pod_monitoring: Option<PodMonitoringSpec>,
+}
+
+/// Describes the pod monitor configuration
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PodMonitoringSpec {
+    /// Whether pod monitoring is enabled
+    pub enabled: Option<bool>,
+    /// Labels transferred from the pod onto the ingested metrics
+    pub pod_target_labels: Option<Vec<String>>,
 }
 
 /// CRD for pod monitors.
@@ -281,9 +291,11 @@ pub struct MonitoringSpec {
 )]
 #[serde(rename_all = "camelCase")]
 pub struct PodMonitorSpec {
-    /// The pod monitor endpoint specs
+    /// List of endpoints that are part of this monitor
     pub pod_metrics_endpoints: Vec<PodMetricsEndpointSpec>,
-    /// The selector for the pod to monitor
+    /// Labels transferred from the pod onto the ingested metrics
+    pub pod_target_labels: Option<Vec<String>>,
+    /// Label selector to select pods
     pub selector: Option<SelectorSpec>,
 }
 

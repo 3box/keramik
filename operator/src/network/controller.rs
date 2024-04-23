@@ -162,16 +162,38 @@ const MAX_CERAMICS: usize = 10;
 #[derive(Default)]
 struct MonitoringConfig {
     namespaced: bool,
-    pod_monitoring: bool,
+    pod_monitoring: PodMonitoringConfig,
+}
+
+#[derive(Default)]
+struct PodMonitoringConfig {
+    enabled: bool,
+    pod_target_labels: Vec<String>,
 }
 
 impl From<&Option<MonitoringSpec>> for MonitoringConfig {
-    fn from(value: &Option<MonitoringSpec>) -> Self {
+    fn from(spec: &Option<MonitoringSpec>) -> Self {
         let default = MonitoringConfig::default();
-        if let Some(value) = value {
-            Self {
-                namespaced: value.namespaced.unwrap_or(default.namespaced),
-                pod_monitoring: value.pod_monitoring.unwrap_or(default.pod_monitoring),
+        if let Some(spec) = spec {
+            if let Some(pod_monitoring) = &spec.pod_monitoring {
+                Self {
+                    namespaced: spec.namespaced.unwrap_or(default.namespaced),
+                    pod_monitoring: PodMonitoringConfig {
+                        enabled: pod_monitoring
+                            .enabled
+                            .unwrap_or(default.pod_monitoring.enabled),
+                        pod_target_labels: pod_monitoring
+                            .pod_target_labels
+                            .as_ref()
+                            .map(|labels| labels.clone())
+                            .unwrap_or(default.pod_monitoring.pod_target_labels),
+                    },
+                }
+            } else {
+                Self {
+                    namespaced: spec.namespaced.unwrap_or(default.namespaced),
+                    pod_monitoring: default.pod_monitoring,
+                }
             }
         } else {
             default
@@ -265,10 +287,34 @@ async fn reconcile_(
     let node_affinity_config: NodeAffinityConfig = spec.into();
 
     if monitoring_config.namespaced {
-        if monitoring_config.pod_monitoring {
-            apply_pod_monitor(cx.clone(), network.clone(), "ceramic", 9464, "ceramic").await?;
-            apply_pod_monitor(cx.clone(), network.clone(), "ceramic-one", 9465, "ceramic").await?;
-            apply_pod_monitor(cx.clone(), network.clone(), "otel", 9464, "otel").await?;
+        if monitoring_config.pod_monitoring.enabled {
+            apply_pod_monitor(
+                cx.clone(),
+                network.clone(),
+                "ceramic",
+                9464,
+                "ceramic",
+                monitoring_config.pod_monitoring.pod_target_labels.clone(),
+            )
+            .await?;
+            apply_pod_monitor(
+                cx.clone(),
+                network.clone(),
+                "ceramic-one",
+                9465,
+                "ceramic",
+                monitoring_config.pod_monitoring.pod_target_labels.clone(),
+            )
+            .await?;
+            apply_pod_monitor(
+                cx.clone(),
+                network.clone(),
+                "otel",
+                9464,
+                "otel",
+                monitoring_config.pod_monitoring.pod_target_labels,
+            )
+            .await?;
         }
 
         let orefs = network
@@ -978,7 +1024,8 @@ async fn apply_pod_monitor(
     network: Arc<Network>,
     monitor_name: &str,
     monitor_port: u32,
-    monitor_label: &str,
+    monitor_selector: &str,
+    monitor_labels: Vec<String>,
 ) -> Result<(), Error> {
     // Create the pod monitor CR only if the CRD already exists
     let crds: Api<CustomResourceDefinition> = Api::all(cx.k_client.clone());
@@ -997,10 +1044,11 @@ async fn apply_pod_monitor(
                         path: Some("/metrics".to_owned()),
                         target_port: Some(monitor_port),
                     }],
+                    pod_target_labels: Some(monitor_labels),
                     selector: Some(SelectorSpec {
                         match_labels: {
                             let mut map = BTreeMap::new();
-                            map.insert("app".to_owned(), monitor_label.to_owned());
+                            map.insert("app".to_owned(), monitor_selector.to_owned());
                             map
                         },
                     }),
@@ -1034,7 +1082,8 @@ mod tests {
             ipfs_rpc::{tests::MockIpfsRpcClientTest, Peer},
             stub::{CeramicStub, Stub},
             BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, MonitoringSpec,
-            NetworkSpec, NetworkStatus, NetworkType, ResourceLimitsSpec, RustIpfsSpec,
+            NetworkSpec, NetworkStatus, NetworkType, PodMonitoringSpec, ResourceLimitsSpec,
+            RustIpfsSpec,
         },
         utils::{
             test::{timeout_after_1s, ApiServerVerifier, WithStatus},
@@ -3762,7 +3811,10 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
-                pod_monitoring: Some(true),
+                pod_monitoring: Some(PodMonitoringSpec {
+                    enabled: Some(true),
+                    ..Default::default()
+                }),
             }),
             ..Default::default()
         });
@@ -3812,7 +3864,14 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
-                pod_monitoring: Some(true),
+                pod_monitoring: Some(PodMonitoringSpec {
+                    enabled: Some(true),
+                    pod_target_labels: Some(vec![
+                        "affinity".to_owned(),
+                        "scenario".to_owned(),
+                        "simulation".to_owned(),
+                    ]),
+                }),
             }),
             ..Default::default()
         });
@@ -3865,7 +3924,10 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
-                pod_monitoring: Some(true),
+                pod_monitoring: Some(PodMonitoringSpec {
+                    enabled: Some(true),
+                    ..Default::default()
+                }),
             }),
             ..Default::default()
         });

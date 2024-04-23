@@ -18,6 +18,11 @@ Request {
             "targetPort": 9465
           }
         ],
+        "podTargetLabels": [
+          "affinity",
+          "scenario",
+          "simulation"
+        ],
         "selector": {
           "matchLabels": {
             "app": "ceramic"

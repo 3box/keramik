@@ -145,7 +145,7 @@ pub async fn small_large_scenario(
         let conn_clone = instantiate_small_model_conn.clone();
         Box::pin(async move {
             let mut conn = conn_clone.lock().await;
-            instantiate_small_model(user, params.store_mids, &mut *conn).await
+            instantiate_small_model(user, params.store_mids, &mut conn).await
         })
     }))
     .set_name("instantiate_small_model");
@@ -155,7 +155,7 @@ pub async fn small_large_scenario(
         let conn_clone = instantiate_large_model_conn.clone();
         Box::pin(async move {
             let mut conn = conn_clone.lock().await;
-            instantiate_large_model(user, params.store_mids, &mut *conn).await
+            instantiate_large_model(user, params.store_mids, &mut conn).await
         })
     }))
     .set_name("instantiate_large_model");
@@ -222,10 +222,7 @@ async fn instantiate_small_model(
     .await?;
     if store_in_redis {
         let stream_id_string = response.to_string();
-        let _: () = conn
-            .sadd(format!("anchor_mids"), stream_id_string)
-            .await
-            .unwrap();
+        let _: () = conn.sadd("anchor_mids", stream_id_string).await.unwrap();
     }
     Ok(())
 }
@@ -246,10 +243,7 @@ async fn instantiate_large_model(
     .await?;
     if store_in_redis {
         let stream_id_string = response.to_string();
-        let _: () = conn
-            .sadd(format!("anchor_mids"), stream_id_string)
-            .await
-            .unwrap();
+        let _: () = conn.sadd("anchor_mids", stream_id_string).await.unwrap();
     }
     Ok(())
 }

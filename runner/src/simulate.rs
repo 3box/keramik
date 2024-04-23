@@ -515,7 +515,7 @@ impl ScenarioState {
                 Scenario::CeramicAnchoringBenchmark => {
                     self.before_metrics = Some(
                         self.get_peers_counter_metric(
-                            &CERAMIC_CAS_REQUESTED_METRIC_NAME,
+                            CERAMIC_CAS_REQUESTED_METRIC_NAME,
                             PROM_METRICS_PATH,
                         )
                         .await?,
@@ -716,7 +716,7 @@ impl ScenarioState {
         sleep(wait_duration).await;
 
         // Pick a peer at random
-        let peer = self.peers.iter().next().unwrap();
+        let peer = self.peers.first().unwrap();
 
         let ids = self.get_set_from_redis("anchor_mids").await?;
         info!("Number of MIDs: {}", ids.len());

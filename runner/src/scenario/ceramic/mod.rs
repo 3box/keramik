@@ -68,10 +68,7 @@ impl Credentials {
         let doc: DidDocument = DocumentBuilder::default()
             .id(did)
             .build()
-            .map_err(|e| anyhow::anyhow!("failed to build DID document: {}", e))
-            .map(|core_doc| {
-                ceramic_http_client::ceramic_event::DidDocument::new(core_doc.id.as_str())
-            })?;
+            .map_err(|e| anyhow::anyhow!("failed to build DID document: {}", e))?;
         tracing::debug!("Generated DID: {:?}", doc);
         Ok(doc)
     }

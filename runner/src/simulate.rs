@@ -29,10 +29,6 @@ use crate::{
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_insert_count_total";
-const PROM_METRICS_PATH: &str = "9464/metrics";
-const CERAMIC_CAS_SUCCESS_METRIC_NAME: &str = "js_ceramic_cas_request_completed_total";
-const CERAMIC_CAS_FAILED_METRIC_NAME: &str = "js_ceramic_cas_request_failed_total";
-const CERAMIC_CAS_REQUESTED_METRIC_NAME: &str = "js_ceramic_cas_request_created_total";
 const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
 const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
 
@@ -98,6 +94,24 @@ pub struct Topology {
     pub total_workers: usize,
     pub users: usize,
     pub nonce: u64,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum AnchorStatus {
+    Anchored,
+    Pending,
+    Failed,
+    NotRequested,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct AnchorMetricsState {
+    #[serde(rename = "anchorStatus")]
+    anchor_status: AnchorStatus,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct AnchorMetrics {
+    state: AnchorMetricsState,
 }
 
 #[derive(Clone, Debug, Copy, ValueEnum)]
@@ -577,7 +591,7 @@ impl ScenarioState {
                 .await
             }
             Scenario::CeramicAnchoringBenchmark => {
-                match self.validate_anchoring_banchmark_scenario_success().await {
+                match self.validate_anchoring_benchmark_scenario_success().await {
                     Ok(result) => result,
                     Err(e) => (CommandResult::Failure(e), None),
                 }
@@ -600,7 +614,7 @@ impl ScenarioState {
         &self,
         peer: &Peer,
         stream_id: String,
-    ) -> Result<String, anyhow::Error> {
+    ) -> Result<AnchorStatus, anyhow::Error> {
         let client = reqwest::Client::new();
         let ceramic_addr = peer
             .ceramic_addr()
@@ -622,32 +636,11 @@ impl ScenarioState {
                 e
             })?;
 
-        let response_json = response.json::<serde_json::Value>().await.map_err(|e| {
-            error!("Failed to parse response as JSON: {}", e);
+        let metrics = response.json::<AnchorMetrics>().await.map_err(|e| {
+            error!("Failed to parse anchor metrics response: {}", e);
             e
         })?;
-
-        if let Some(state) = response_json.get("state") {
-            if let Some(anchor_status) = state.get("anchorStatus") {
-                match anchor_status {
-                    serde_json::Value::String(s) => return Ok(s.clone()),
-                    serde_json::Value::Number(n) => return Ok(n.to_string()),
-                    _ => {
-                        error!(
-                            "Unexpected anchor status type in response: {}",
-                            anchor_status
-                        );
-                        bail!(
-                            "Unexpected anchor status type: expected string or number, got: {:?}",
-                            anchor_status
-                        );
-                    }
-                }
-            }
-        }
-
-        error!("Anchor status not found in the response JSON");
-        bail!("Anchor status missing in the response")
+        Ok(metrics.state.anchor_status)
     }
 
     pub async fn get_set_from_redis(&self, key: &str) -> Result<Vec<String>, anyhow::Error> {
@@ -678,7 +671,7 @@ impl ScenarioState {
         Ok(response)
     }
 
-    async fn validate_anchoring_banchmark_scenario_success(
+    async fn validate_anchoring_benchmark_scenario_success(
         &self,
     ) -> Result<(CommandResult, Option<PeerRps>), anyhow::Error> {
         let mut anchored_count = 0;
@@ -693,21 +686,19 @@ impl ScenarioState {
 
         // Pick a peer at random
         let peer = self.peers.first().unwrap();
+        let peer = self.peers.first().unwrap();
 
         let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;
         info!("Number of MIDs: {}", ids.len());
 
         // Make an API call to get the status of request from the chosen peer
         for stream_id in ids.clone() {
-            info!("Fetching anchorstatus for streamID {}", stream_id);
+            info!("Fetching anchor status for streamID {}", stream_id);
             match self.get_anchor_status(peer, stream_id.clone()).await {
-                Ok(status) => match status.as_str() {
-                    "ANCHORED" => anchored_count += 1,
-                    "PENDING" => pending_count += 1,
-                    "FAILED" => failed_count += 1,
-                    "NOT_REQUESTED" => not_requested_count += 1,
-                    _ => info!("Unknown anchor status: {}", status),
-                },
+                Ok(AnchorStatus::Anchored) => anchored_count += 1,
+                Ok(AnchorStatus::Pending) => pending_count += 1,
+                Ok(AnchorStatus::Failed) => failed_count += 1,
+                Ok(AnchorStatus::NotRequested) => not_requested_count += 1,
                 Err(e) => {
                     failed_count += 1;
                     error!("Failed to get anchor status: {}", e);
@@ -718,8 +709,6 @@ impl ScenarioState {
         // remove stream ids from redis
         self.remove_stream_from_redis(ANCHOR_REQUEST_MIDS_KEY, ids)
             .await?;
-
-        // TODO_3164_5 : Report these counts to Graphana : open telemetry emit how its done in MetricsInner
 
         // Log the counts
         info!("Not requested count: {:2}", not_requested_count);

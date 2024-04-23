@@ -74,7 +74,7 @@ pub async fn stream_tip_car(
 
 pub async fn create_anchor_request_on_cas(
     user: &mut GooseUser,
-    conn: &mut MultiplexedConnection,
+    conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,
 ) -> TransactionResult {
     let cas_service_url = std::env::var("CAS_SERVICE_URL")
         .unwrap_or_else(|_| "https://cas-dev.3boxlabs.com".to_string());
@@ -92,20 +92,17 @@ pub async fn create_anchor_request_on_cas(
     .await
     .unwrap();
 
-    let auth_header = auth_header(
-        cas_service_url.clone(),
-        node_controller.clone(),
-        root_cid.clone(),
-    )
-    .await
-    .unwrap();
+    let auth_header = auth_header(cas_service_url.clone(), node_controller.clone(), root_cid)
+        .await
+        .unwrap();
     let cas_create_request_url = cas_service_url.clone() + "/api/v0/requests";
+    let builder = user
+        .get_request_builder(&GooseMethod::Post, &cas_create_request_url)
+        .unwrap();
     let goose_request = GooseRequest::builder()
         .name("create_anchor_request")
-        .method(GooseMethod::Post)
         .set_request_builder(
-            reqwest::Client::new()
-                .post(cas_create_request_url)
+            builder
                 .header("Authorization", auth_header)
                 .header("Content-Type", "application/vnd.ipld.car")
                 .body(car_bytes),
@@ -114,7 +111,7 @@ pub async fn create_anchor_request_on_cas(
         .build();
 
     let _response = user.request(goose_request).await?;
-
+    let mut conn: tokio::sync::MutexGuard<'_, MultiplexedConnection> = conn.lock().await;
     let _: () = conn
         .sadd("anchor_requests", stream_id.to_string())
         .await
@@ -126,13 +123,9 @@ pub async fn cas_benchmark() -> Result<Scenario, GooseError> {
     let redis_cli = get_redis_client().await.unwrap();
     let multiplexed_conn = redis_cli.get_multiplexed_tokio_connection().await.unwrap();
     let conn_mutex = Arc::new(Mutex::new(multiplexed_conn));
-
     let create_anchor_request = Transaction::new(Arc::new(move |user| {
         let conn_mutex_clone = conn_mutex.clone();
-        Box::pin(async move {
-            let mut conn = conn_mutex_clone.lock().await;
-            create_anchor_request_on_cas(user, &mut conn).await
-        })
+        Box::pin(async move { create_anchor_request_on_cas(user, conn_mutex_clone).await })
     }))
     .set_name("create_anchor_request");
 

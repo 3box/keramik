@@ -29,10 +29,6 @@ use crate::{
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_insert_count_total";
-const PROM_METRICS_PATH: &str = "9464/metrics";
-const CERAMIC_CAS_SUCCESS_METRIC_NAME: &str = "js_ceramic_cas_request_completed_total";
-const CERAMIC_CAS_FAILED_METRIC_NAME: &str = "js_ceramic_cas_request_failed_total";
-const CERAMIC_CAS_REQUESTED_METRIC_NAME: &str = "js_ceramic_cas_request_created_total";
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -223,21 +219,14 @@ struct PeerRequestMetricInfo {
     pub name: String,
     pub count: u64,
     pub runtime: Option<u64>,
-    pub metric_type: Option<String>,
 }
 
 impl PeerRequestMetricInfo {
-    pub fn new(
-        name: String,
-        count: u64,
-        runtime: Option<u64>,
-        metric_type: Option<String>,
-    ) -> Self {
+    pub fn new(name: String, count: u64, runtime: Option<u64>) -> Self {
         Self {
             name,
             count,
             runtime,
-            metric_type,
         }
     }
 
@@ -297,7 +286,6 @@ fn final_peer_req_metric_info(
                     before.name.to_owned(),
                     current.count - before.count,
                     Some(run_time_seconds),
-                    None,
                 ))
             } else {
                 Err(anyhow!(
@@ -445,13 +433,11 @@ impl ScenarioState {
                             parse_base_url_to_pod(&addr)?,
                             m,
                             None,
-                            None,
                         ));
                     } else {
                         results.push(PeerRequestMetricInfo::new(
                             parse_base_url_to_pod(&addr)?,
                             0, // Use 0 as the count if the metric is not found
-                            None,
                             None,
                         ));
                     }
@@ -462,31 +448,6 @@ impl ScenarioState {
             }
         }
         Ok(results)
-    }
-
-    async fn combine_metrics(
-        &self,
-        metric_names: Vec<String>,
-        metric_types: &[&str],
-        metrics_path: &str,
-    ) -> Result<Vec<PeerRequestMetricInfo>> {
-        let mut combined_metrics = Vec::new();
-
-        for (metric_name, metric_type) in metric_names.into_iter().zip(metric_types.iter()) {
-            let metrics = self
-                .get_peers_counter_metric(&metric_name, metrics_path)
-                .await?;
-
-            let metrics_with_type = metrics
-                .into_iter()
-                .map(|metric| PeerRequestMetricInfo {
-                    metric_type: Some(metric_type.to_string()),
-                    ..metric
-                })
-                .collect::<Vec<_>>();
-            combined_metrics.extend(metrics_with_type);
-        }
-        Ok(combined_metrics)
     }
 
     async fn collect_before_metrics(&mut self) -> Result<()> {
@@ -500,8 +461,8 @@ impl ScenarioState {
                 | Scenario::CeramicNewStreams
                 | Scenario::CeramicQuery
                 | Scenario::CeramicModelReuse => Ok(()),
-                Scenario::CeramicNewStreamsBenchmark => {
-                    // we collect things in the scenario and use redis to propagate the metrics to the manager
+                Scenario::CeramicAnchoringBenchmark | Scenario::CeramicNewStreamsBenchmark => {
+                    // we collect things in the scenario and use redis to decide success/failure of the test
                     Ok(())
                 }
                 Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
@@ -510,16 +471,6 @@ impl ScenarioState {
                         .await?;
 
                     self.before_metrics = Some(peers);
-                    Ok(())
-                }
-                Scenario::CeramicAnchoringBenchmark => {
-                    self.before_metrics = Some(
-                        self.get_peers_counter_metric(
-                            CERAMIC_CAS_REQUESTED_METRIC_NAME,
-                            PROM_METRICS_PATH,
-                        )
-                        .await?,
-                    );
                     Ok(())
                 }
             }
@@ -561,7 +512,6 @@ impl ScenarioState {
                         name.clone(),
                         count as u64,
                         Some(metrics.duration as u64),
-                        None,
                     );
                     let rps = metric.rps();
                     rps_list.push(metric);
@@ -742,63 +692,12 @@ impl ScenarioState {
         // remove stream ids from redis
         self.remove_stream_from_redis("anchor_mids", ids).await?;
 
-        // TODO_3164_5 : Report these counts to Graphana
-
         // Log the counts
         info!("Not requested count: {:2}", not_requested_count);
         info!("Anchored count: {:2}", anchored_count);
         info!("Pending count: {:2}", pending_count);
         info!("Failed count: {:2}", failed_count);
 
-        // TODO_3164_6 : Logic to caluclate RPS, remove it if not needed
-        let after_metrics = self
-            .combine_metrics(
-                vec![
-                    CERAMIC_CAS_SUCCESS_METRIC_NAME.to_string(),
-                    CERAMIC_CAS_FAILED_METRIC_NAME.to_string(),
-                ],
-                &["success", "failure"],
-                PROM_METRICS_PATH,
-            )
-            .await?;
-        let before_metrics = self.before_metrics.as_ref().unwrap();
-
-        // Calculate success and failure counts
-        let (success_count, failure_count): (u64, u64) = after_metrics
-            .iter()
-            .zip(before_metrics)
-            .fold((0, 0), |(success_acc, failure_acc), (after, before)| {
-                let success_diff = if after.metric_type == Some("success".to_string()) {
-                    after.count - before.count
-                } else {
-                    0
-                };
-                let failure_diff = if after.metric_type == Some("failure".to_string()) {
-                    after.count - before.count
-                } else {
-                    0
-                };
-                (success_acc + success_diff, failure_acc + failure_diff)
-            });
-
-        // Calculate total runtime seconds
-        let total_runtime_seconds: u64 = after_metrics
-            .iter()
-            .map(|metric| metric.runtime.unwrap_or(0))
-            .sum();
-
-        // Calculate success and failure RPS
-        let success_rps = success_count as f64 / total_runtime_seconds as f64;
-        let failure_rps = failure_count as f64 / total_runtime_seconds as f64;
-
-        // Log success and failure counts
-        info!("Total runtime is: {}", total_runtime_seconds);
-        info!("Success count: {}", success_count);
-        // Log success and failure RPS
-        info!("Success RPS: {:.2}", success_rps);
-        info!("Failure RPS: {:.2}", failure_rps);
-
-        // Determine success based on the anchored_count
         if failed_count > 0 {
             Ok((
                 CommandResult::Failure(anyhow!("Failed count is greater than 0")),
@@ -808,6 +707,7 @@ impl ScenarioState {
             info!("Anchored count is : {}", anchored_count);
             Ok((CommandResult::Success, None))
         }
+        // TODO_3164_2 : Report these counts to Graphana
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult

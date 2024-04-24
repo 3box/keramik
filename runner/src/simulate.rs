@@ -68,8 +68,8 @@ pub struct Opts {
     run_time: String,
 
     /// Whether to log the scenario tx, req, errors to a file at a given level.
-    #[arg(long, env = "SIMULATE_LOG_LEVEL", default_value = "off")]
-    log_level: LogLevel,
+    #[arg(long, env = "SIMULATE_LOG_LEVEL")]
+    log_level: Option<LogLevel>,
 
     /// Unique value per test run to ensure uniqueness across different test runs.
     /// All workers and manager must be given the same nonce.
@@ -89,7 +89,6 @@ pub struct Opts {
 
 #[derive(Debug, Clone, ValueEnum)]
 pub enum LogLevel {
-    Off,
     Warn,
     Info,
     Debug,
@@ -97,13 +96,8 @@ pub enum LogLevel {
 }
 
 impl LogLevel {
-    fn is_enabled(&self) -> bool {
-        !matches!(self, LogLevel::Off)
-    }
-
     fn as_goose_log_level(&self) -> u8 {
         match self {
-            LogLevel::Off => panic!("LogLevel::Off should not be used as an integer (it is None)."),
             LogLevel::Warn => 0,
             LogLevel::Info => 1,
             LogLevel::Debug => 2,
@@ -351,7 +345,7 @@ struct ScenarioState {
     metrics_collector: MetricsCollector,
     before_metrics: Option<Vec<PeerRequestMetricInfo>>,
     run_time: String,
-    log_level: LogLevel,
+    log_level: Option<LogLevel>,
     throttle_requests: Option<usize>,
 }
 
@@ -692,10 +686,9 @@ impl ScenarioState {
     fn goose_config(&self) -> Result<GooseConfiguration> {
         let config = if self.manager {
             let mut config = GooseConfiguration::default();
-            if self.log_level.is_enabled() {
+            if let Some(ref log_level) = self.log_level {
                 // wow this is annoying but we're going to match goose internals here
-                match self.log_level {
-                    LogLevel::Off => unreachable!("LogLevel is enabled so can't be off"),
+                match log_level {
                     LogLevel::Warn => {
                         config.verbose = 0;
                         config.quiet = 1;
@@ -722,8 +715,8 @@ impl ScenarioState {
         } else {
             let mut config = GooseConfiguration::default();
             // we could set `config.verbose` which is for stdout, but for now we just use files as it doesn't seem to do anything on workers
-            if self.log_level.is_enabled() {
-                config.log_level = self.log_level.as_goose_log_level();
+            if let Some(ref log_level) = self.log_level {
+                config.log_level = log_level.as_goose_log_level();
                 config.scenario_log = "scenario.log".to_owned();
                 config.transaction_log = "transaction.log".to_owned();
                 config.request_log = "request.log".to_owned();
@@ -1123,7 +1116,7 @@ mod test {
             run_time: "60".into(),
             nonce: 42,
             throttle_requests: None,
-            log_level: LogLevel::Off,
+            log_level: None,
             target_request_rate,
         }
     }

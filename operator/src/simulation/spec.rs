@@ -37,7 +37,7 @@ pub struct SimulationSpec {
     /// Log level to use. On the manager writes to stdout, and on the workers will write
     /// files for the simulation. The files may not be flushed until the simulation is complete
     /// which consumes RAM, and will disappear if there is no persistent volume when the pod exits.
-    /// Valid values: 'off', 'warn', 'info', 'debug', 'trace'. Defaults to 'off'.
+    /// Valid values: 'warn', 'info', 'debug', 'trace'. Defaults to None meaning no logging beyond RUST_LOG.
     pub(crate) log_level: Option<String>,
 }
 

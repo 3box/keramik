@@ -504,6 +504,7 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
+            | Scenario::CASBenchmark
             | Scenario::CeramicModelReuse => (CommandResult::Success, None),
             Scenario::CeramicNewStreamsBenchmark => {
                 let res =
@@ -688,6 +689,7 @@ impl ScenarioState {
         sleep(wait_duration).await;
 
         // Pick a peer at random
+        let peer = self.peers.first().unwrap();
         let peer = self.peers.first().unwrap();
 
         let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;

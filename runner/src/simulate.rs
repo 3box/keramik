@@ -67,6 +67,10 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_RUN_TIME", default_value = "10m")]
     run_time: String,
 
+    /// Whether to log the scenario tx, req, errors to a file at a given level.
+    #[arg(long, env = "SIMULATE_LOG_LEVEL")]
+    log_level: Option<LogLevel>,
+
     /// Unique value per test run to ensure uniqueness across different test runs.
     /// All workers and manager must be given the same nonce.
     #[arg(long, env = "SIMULATE_NONCE")]
@@ -81,6 +85,25 @@ pub struct Opts {
     /// left to the scenario (requests per second, total requests, rps/node etc).
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
+}
+
+#[derive(Debug, Clone, ValueEnum)]
+pub enum LogLevel {
+    Warn,
+    Info,
+    Debug,
+    Trace,
+}
+
+impl LogLevel {
+    fn as_goose_log_level(&self) -> u8 {
+        match self {
+            LogLevel::Warn => 0,
+            LogLevel::Info => 1,
+            LogLevel::Debug => 2,
+            LogLevel::Trace => 3,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -322,6 +345,7 @@ struct ScenarioState {
     metrics_collector: MetricsCollector,
     before_metrics: Option<Vec<PeerRequestMetricInfo>>,
     run_time: String,
+    log_level: Option<LogLevel>,
     throttle_requests: Option<usize>,
 }
 
@@ -362,6 +386,7 @@ impl ScenarioState {
             target_request_rate: opts.target_request_rate,
             before_metrics: None,
             run_time: opts.run_time,
+            log_level: opts.log_level,
             throttle_requests: opts.throttle_requests,
         })
     }
@@ -661,7 +686,25 @@ impl ScenarioState {
     fn goose_config(&self) -> Result<GooseConfiguration> {
         let config = if self.manager {
             let mut config = GooseConfiguration::default();
-            config.log_level = 2;
+            if let Some(ref log_level) = self.log_level {
+                // wow this is annoying but we're going to match goose internals here
+                match log_level {
+                    LogLevel::Warn => {
+                        config.verbose = 0;
+                        config.quiet = 1;
+                    }
+                    LogLevel::Info => {
+                        config.verbose = 0;
+                        config.quiet = 0;
+                    }
+                    LogLevel::Debug => {
+                        config.verbose = 1;
+                    }
+                    LogLevel::Trace => {
+                        config.verbose = 2;
+                    }
+                }
+            }
             config.users = Some(self.topo.users);
             config.manager = true;
             config.manager_bind_port = 5115;
@@ -671,11 +714,14 @@ impl ScenarioState {
             config
         } else {
             let mut config = GooseConfiguration::default();
-            config.scenario_log = "scenario.log".to_owned();
-            config.transaction_log = "transaction.log".to_owned();
-            config.request_log = "request.log".to_owned();
-            config.error_log = "error.log".to_owned();
-            config.log_level = 2;
+            // we could set `config.verbose` which is for stdout, but for now we just use files as it doesn't seem to do anything on workers
+            if let Some(ref log_level) = self.log_level {
+                config.log_level = log_level.as_goose_log_level();
+                config.scenario_log = "scenario.log".to_owned();
+                config.transaction_log = "transaction.log".to_owned();
+                config.request_log = "request.log".to_owned();
+                config.error_log = "error.log".to_owned();
+            }
             config.worker = true;
             config.host = self.target_peer_addr()?;
             // We are leveraging k8s dns search path so we do not have to specify the fully qualified
@@ -1070,6 +1116,7 @@ mod test {
             run_time: "60".into(),
             nonce: 42,
             throttle_requests: None,
+            log_level: None,
             target_request_rate,
         }
     }

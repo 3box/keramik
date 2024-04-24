@@ -34,6 +34,11 @@ pub struct SimulationSpec {
     /// Enable dev mode for the simulation. This will remove resource limits that are not
     /// explicitly set in the simulation spec.
     pub(crate) dev_mode: Option<bool>,
+    /// Log level to use. On the manager writes to stdout, and on the workers will write
+    /// files for the simulation. The files may not be flushed until the simulation is complete
+    /// which consumes RAM, and will disappear if there is no persistent volume when the pod exits.
+    /// Valid values: 'warn', 'info', 'debug', 'trace'. Defaults to None meaning no logging beyond RUST_LOG.
+    pub(crate) log_level: Option<String>,
 }
 
 impl Simulation {

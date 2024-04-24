@@ -37,6 +37,7 @@ pub struct ManagerConfig {
     pub nonce: u32,
     pub job_image_config: JobImageConfig,
     pub success_request_target: Option<usize>,
+    pub log_level: Option<String>,
 }
 
 pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
@@ -127,6 +128,13 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
         env_vars.push(EnvVar {
             name: "SIMULATE_TARGET_REQUESTS".to_owned(),
             value: Some(success_request_target.to_string()),
+            ..Default::default()
+        })
+    }
+    if let Some(log_level) = config.log_level {
+        env_vars.push(EnvVar {
+            name: "SIMULATE_LOG_LEVEL".to_owned(),
+            value: Some(log_level),
             ..Default::default()
         })
     }

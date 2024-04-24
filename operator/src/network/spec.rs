@@ -266,13 +266,13 @@ pub struct MonitoringSpec {
     /// Deploy monitoring resources into the network namespace directly
     pub namespaced: Option<bool>,
     /// Deploy pod monitors
-    pub pod_monitoring: Option<PodMonitoringSpec>,
+    pub pod_monitor: Option<PodMonitorSpec>,
 }
 
 /// Describes the pod monitor configuration
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
-pub struct PodMonitoringSpec {
+pub struct PodMonitorSpec {
     /// Whether pod monitoring is enabled
     pub enabled: Option<bool>,
     /// Labels transferred from the pod onto the ingested metrics
@@ -290,7 +290,7 @@ pub struct PodMonitoringSpec {
     derive = "PartialEq"
 )]
 #[serde(rename_all = "camelCase")]
-pub struct PodMonitorSpec {
+pub struct PodMonitorCrd {
     /// List of endpoints that are part of this monitor
     pub pod_metrics_endpoints: Vec<PodMetricsEndpointSpec>,
     /// Labels transferred from the pod onto the ingested metrics

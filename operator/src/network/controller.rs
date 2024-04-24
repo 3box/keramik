@@ -49,7 +49,7 @@ use crate::{
         ipfs_rpc::{HttpRpcClient, IpfsRpcClient},
         node_affinity::NodeAffinityConfig,
         peers, CasSpec, MonitoringSpec, Network, NetworkStatus, NetworkType,
-        PodMetricsEndpointSpec, PodMonitor, PodMonitorSpec, SelectorSpec,
+        PodMetricsEndpointSpec, PodMonitor, PodMonitorCrd, SelectorSpec,
     },
     utils::{
         apply_config_map, apply_job, apply_service, apply_service_with_labels, apply_stateful_set,
@@ -162,11 +162,11 @@ const MAX_CERAMICS: usize = 10;
 #[derive(Default)]
 struct MonitoringConfig {
     namespaced: bool,
-    pod_monitoring: PodMonitoringConfig,
+    pod_monitor: PodMonitorConfig,
 }
 
 #[derive(Default)]
-struct PodMonitoringConfig {
+struct PodMonitorConfig {
     enabled: bool,
     pod_target_labels: Vec<String>,
 }
@@ -175,24 +175,22 @@ impl From<&Option<MonitoringSpec>> for MonitoringConfig {
     fn from(spec: &Option<MonitoringSpec>) -> Self {
         let default = MonitoringConfig::default();
         if let Some(spec) = spec {
-            if let Some(pod_monitoring) = &spec.pod_monitoring {
+            if let Some(pod_monitor) = &spec.pod_monitor {
                 Self {
                     namespaced: spec.namespaced.unwrap_or(default.namespaced),
-                    pod_monitoring: PodMonitoringConfig {
-                        enabled: pod_monitoring
-                            .enabled
-                            .unwrap_or(default.pod_monitoring.enabled),
-                        pod_target_labels: pod_monitoring
+                    pod_monitor: PodMonitorConfig {
+                        enabled: pod_monitor.enabled.unwrap_or(default.pod_monitor.enabled),
+                        pod_target_labels: pod_monitor
                             .pod_target_labels
                             .as_ref()
-                            .map(|labels| labels.clone())
-                            .unwrap_or(default.pod_monitoring.pod_target_labels),
+                            .cloned()
+                            .unwrap_or(default.pod_monitor.pod_target_labels),
                     },
                 }
             } else {
                 Self {
                     namespaced: spec.namespaced.unwrap_or(default.namespaced),
-                    pod_monitoring: default.pod_monitoring,
+                    pod_monitor: default.pod_monitor,
                 }
             }
         } else {
@@ -287,14 +285,14 @@ async fn reconcile_(
     let node_affinity_config: NodeAffinityConfig = spec.into();
 
     if monitoring_config.namespaced {
-        if monitoring_config.pod_monitoring.enabled {
+        if monitoring_config.pod_monitor.enabled {
             apply_pod_monitor(
                 cx.clone(),
                 network.clone(),
                 "ceramic",
                 9464,
                 "ceramic",
-                monitoring_config.pod_monitoring.pod_target_labels.clone(),
+                monitoring_config.pod_monitor.pod_target_labels.clone(),
             )
             .await?;
             apply_pod_monitor(
@@ -303,7 +301,7 @@ async fn reconcile_(
                 "ceramic-one",
                 9465,
                 "ceramic",
-                monitoring_config.pod_monitoring.pod_target_labels.clone(),
+                monitoring_config.pod_monitor.pod_target_labels.clone(),
             )
             .await?;
             apply_pod_monitor(
@@ -312,7 +310,7 @@ async fn reconcile_(
                 "otel",
                 9464,
                 "otel",
-                monitoring_config.pod_monitoring.pod_target_labels,
+                monitoring_config.pod_monitor.pod_target_labels,
             )
             .await?;
         }
@@ -1038,7 +1036,7 @@ async fn apply_pod_monitor(
         if pod_monitor.is_none() {
             let mut pod_monitor = PodMonitor::new(
                 monitor_name,
-                PodMonitorSpec {
+                PodMonitorCrd {
                     pod_metrics_endpoints: vec![PodMetricsEndpointSpec {
                         interval: Some("10s".to_owned()),
                         path: Some("/metrics".to_owned()),
@@ -1082,7 +1080,7 @@ mod tests {
             ipfs_rpc::{tests::MockIpfsRpcClientTest, Peer},
             stub::{CeramicStub, Stub},
             BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, MonitoringSpec,
-            NetworkSpec, NetworkStatus, NetworkType, PodMonitoringSpec, ResourceLimitsSpec,
+            NetworkSpec, NetworkStatus, NetworkType, PodMonitorSpec, ResourceLimitsSpec,
             RustIpfsSpec,
         },
         utils::{
@@ -3778,7 +3776,7 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
-                pod_monitoring: None,
+                pod_monitor: None,
             }),
             ..Default::default()
         });
@@ -3811,7 +3809,7 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
-                pod_monitoring: Some(PodMonitoringSpec {
+                pod_monitor: Some(PodMonitorSpec {
                     enabled: Some(true),
                     ..Default::default()
                 }),
@@ -3864,7 +3862,7 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
-                pod_monitoring: Some(PodMonitoringSpec {
+                pod_monitor: Some(PodMonitorSpec {
                     enabled: Some(true),
                     pod_target_labels: Some(vec![
                         "affinity".to_owned(),
@@ -3924,7 +3922,7 @@ mod tests {
         let network = Network::test().with_spec(NetworkSpec {
             monitoring: Some(MonitoringSpec {
                 namespaced: Some(true),
-                pod_monitoring: Some(PodMonitoringSpec {
+                pod_monitor: Some(PodMonitorSpec {
                     enabled: Some(true),
                     ..Default::default()
                 }),

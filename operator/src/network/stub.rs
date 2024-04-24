@@ -14,7 +14,7 @@ use kube::{
 
 use crate::{
     labels::managed_labels,
-    network::{Network, NetworkSpec, NetworkStatus, PodMonitor, PodMonitorSpec},
+    network::{Network, NetworkSpec, NetworkStatus, PodMonitor, PodMonitorCrd},
     utils::test::{ApiServerVerifier, WithStatus},
 };
 
@@ -238,7 +238,7 @@ impl Stub {
                 .expect("pod monitor crd should fetch");
             if let Some((monitor_get, monitor_exists)) = monitor_get {
                 let monitor = if monitor_exists {
-                    Some(PodMonitor::new("test", PodMonitorSpec::default()))
+                    Some(PodMonitor::new("test", PodMonitorCrd::default()))
                 } else {
                     None
                 };
@@ -251,7 +251,7 @@ impl Stub {
                 fakeserver
                     .handle_request_response(
                         monitor_post,
-                        Some(&PodMonitor::new("test", PodMonitorSpec::default())),
+                        Some(&PodMonitor::new("test", PodMonitorCrd::default())),
                     )
                     .await
                     .expect("pod monitor should create");

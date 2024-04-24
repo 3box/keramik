@@ -504,7 +504,6 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
-            | Scenario::CASBenchmark
             | Scenario::CeramicModelReuse => (CommandResult::Success, None),
             Scenario::CeramicNewStreamsBenchmark => {
                 let res =

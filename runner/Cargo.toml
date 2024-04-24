@@ -34,7 +34,6 @@ multibase.workspace = true
 base64 = "0.21.5"
 uuid = { version = "1.6.1", features = ["v4"] }
 chrono = "0.4.31"
-
 ed25519-dalek = "2.1"
 
 [dev-dependencies]

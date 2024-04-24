@@ -686,7 +686,6 @@ impl ScenarioState {
 
         // Pick a peer at random
         let peer = self.peers.first().unwrap();
-        let peer = self.peers.first().unwrap();
 
         let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;
         info!("Number of MIDs: {}", ids.len());

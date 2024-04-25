@@ -14,12 +14,13 @@ use opentelemetry::{
     KeyValue,
 };
 use reqwest::Url;
+use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 use crate::{
     scenario::{
         ceramic::{self, new_streams},
-        ipfs_block_fetch, recon_sync,
+        get_redis_client, ipfs_block_fetch, recon_sync,
     },
     utils::parse_peers_info,
     CommandResult,
@@ -28,6 +29,8 @@ use crate::{
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_insert_count_total";
+const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
+const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -85,6 +88,8 @@ pub struct Opts {
     /// left to the scenario (requests per second, total requests, rps/node etc).
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
+    // #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME")]
+    // anchor_wait_time: Option<u64>,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -112,6 +117,24 @@ pub struct Topology {
     pub total_workers: usize,
     pub users: usize,
     pub nonce: u64,
+}
+
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+enum AnchorStatus {
+    Anchored,
+    Pending,
+    Failed,
+    NotRequested,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct AnchorMetricsState {
+    #[serde(rename = "anchorStatus")]
+    anchor_status: AnchorStatus,
+}
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+struct AnchorMetrics {
+    state: AnchorMetricsState,
 }
 
 #[derive(Clone, Debug, Copy, ValueEnum)]
@@ -143,6 +166,15 @@ pub enum Scenario {
     /// being used. Previously, it only supported keys but newer versions support keys and data.
     /// This scenario is for the keys only version and will fail on new verisons.
     ReconEventKeySync,
+    // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
+    // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    // but covering using js-ceramic rather than talking directly to the ipfs API.
+    CeramicAnchoringBenchmark,
+
+    // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
+    // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    // but covering using js-ceramic rather than talking directly to the ipfs API.
+    CASBenchmark,
 }
 
 impl Scenario {
@@ -157,6 +189,8 @@ impl Scenario {
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
             Scenario::ReconEventSync => "recon_event_sync",
             Scenario::ReconEventKeySync => "recon_event_key_sync",
+            Scenario::CeramicAnchoringBenchmark => "ceramic_anchoring_benchmark",
+            Scenario::CASBenchmark => "cas_benchmark",
         }
     }
 
@@ -168,8 +202,10 @@ impl Scenario {
             Self::CeramicSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
+            | Self::CeramicAnchoringBenchmark
             | Self::CeramicNewStreamsBenchmark
             | Self::CeramicQuery
+            | Self::CASBenchmark
             | Self::CeramicModelReuse => Ok(peer
                 .ceramic_addr()
                 .ok_or_else(|| {
@@ -347,6 +383,7 @@ struct ScenarioState {
     run_time: String,
     log_level: Option<LogLevel>,
     throttle_requests: Option<usize>,
+    // wait_time: Option<u64>,
 }
 
 impl ScenarioState {
@@ -388,6 +425,7 @@ impl ScenarioState {
             run_time: opts.run_time,
             log_level: opts.log_level,
             throttle_requests: opts.throttle_requests,
+            // wait_time: opts.anchor_wait_time,
         })
     }
 
@@ -399,7 +437,7 @@ impl ScenarioState {
             Scenario::CeramicWriteOnly => {
                 ceramic::write_only::scenario(self.scenario.into()).await?
             }
-            Scenario::CeramicNewStreams => {
+            Scenario::CeramicNewStreams | Scenario::CeramicAnchoringBenchmark => {
                 ceramic::new_streams::small_large_scenario(self.scenario.into()).await?
             }
             Scenario::CeramicNewStreamsBenchmark => {
@@ -409,6 +447,7 @@ impl ScenarioState {
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
+            Scenario::CASBenchmark => ceramic::anchor::cas_benchmark().await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -449,7 +488,11 @@ impl ScenarioState {
                             None,
                         ));
                     } else {
-                        bail!("Failed to collect metric from peer: {}", addr);
+                        results.push(PeerRequestMetricInfo::new(
+                            parse_base_url_to_pod(&addr)?,
+                            0, // Use 0 as the count if the metric is not found
+                            None,
+                        ));
                     }
                 } else {
                     warn!("Failed to parse ceramic addr for host: {}", addr);
@@ -470,9 +513,10 @@ impl ScenarioState {
                 | Scenario::CeramicWriteOnly
                 | Scenario::CeramicNewStreams
                 | Scenario::CeramicQuery
+                | Scenario::CASBenchmark
                 | Scenario::CeramicModelReuse => Ok(()),
-                Scenario::CeramicNewStreamsBenchmark => {
-                    // we collect things in the scenario and use redit to propagate the metrics to the manager
+                Scenario::CeramicAnchoringBenchmark | Scenario::CeramicNewStreamsBenchmark => {
+                    // we collect things in the scenario and use redis to decide success/failure of the test
                     Ok(())
                 }
                 Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
@@ -571,7 +615,141 @@ impl ScenarioState {
                 )
                 .await
             }
+            Scenario::CeramicAnchoringBenchmark => {
+                match self.validate_anchoring_benchmark_scenario_success().await {
+                    Ok(result) => result,
+                    Err(e) => (CommandResult::Failure(e), None),
+                }
+            }
+            Scenario::CASBenchmark => {
+                let ids = self
+                    .get_set_from_redis(CAS_ANCHOR_REQUEST_KEY)
+                    .await
+                    .unwrap();
+                info!("Number of CAS anchoring requests: {}", ids.len());
+                self.remove_stream_from_redis(CAS_ANCHOR_REQUEST_KEY, ids)
+                    .await
+                    .unwrap();
+                (CommandResult::Success, None)
+            }
         }
+    }
+
+    pub async fn get_anchor_status(
+        &self,
+        peer: &Peer,
+        stream_id: String,
+    ) -> Result<AnchorStatus, anyhow::Error> {
+        let client = reqwest::Client::new();
+        let ceramic_addr = peer
+            .ceramic_addr()
+            .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;
+
+        let streams_url = format!("{}/{}/{}", ceramic_addr, "api/v0/streams", stream_id);
+
+        let response = client
+            .get(streams_url)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("HTTP request failed: {}", e);
+                e
+            })?
+            .error_for_status()
+            .map_err(|e| {
+                error!("HTTP request returned unsuccessful status: {}", e);
+                e
+            })?;
+
+        let metrics = response.json::<AnchorMetrics>().await.map_err(|e| {
+            error!("Failed to parse anchor metrics response: {}", e);
+            e
+        })?;
+        Ok(metrics.state.anchor_status)
+    }
+
+    pub async fn get_set_from_redis(&self, key: &str) -> Result<Vec<String>, anyhow::Error> {
+        // Create a new Redis client
+        let client: redis::Client = get_redis_client().await?;
+        let mut connection = client.get_async_connection().await?;
+        // Get the MIDs from Redis
+        let response = redis::cmd("SMEMBERS")
+            .arg(key)
+            .query_async(&mut connection)
+            .await?;
+        // Return the MIDs
+        Ok(response)
+    }
+
+    pub async fn remove_stream_from_redis(
+        &self,
+        key: &str,
+        stream_ids: Vec<String>,
+    ) -> Result<i32, anyhow::Error> {
+        let client: redis::Client = get_redis_client().await?;
+        let mut connection = client.get_async_connection().await?;
+        let response = redis::cmd("SREM")
+            .arg(key)
+            .arg(stream_ids)
+            .query_async(&mut connection)
+            .await?;
+        Ok(response)
+    }
+
+    async fn validate_anchoring_benchmark_scenario_success(
+        &self,
+    ) -> Result<(CommandResult, Option<PeerRps>), anyhow::Error> {
+        let mut anchored_count = 0;
+        let mut pending_count = 0;
+        let mut failed_count = 0;
+        let mut not_requested_count = 0;
+        let wait_duration = Duration::from_secs(60 * 60);
+        // TODO_3164_1 : Make this a parameter, pass it in from the scenario config
+        // TODO_3164_3 : Code clean-up : Move redis calls to separate file move it out of simulate.rs
+        // TODO_3164_4 : Code clean-up : Move api call (fetch stream) to model_instance.rs?, maybe rename it
+        sleep(wait_duration).await;
+
+        // Pick a peer at random
+        let peer = self.peers.first().unwrap();
+
+        let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;
+        info!("Number of MIDs: {}", ids.len());
+
+        // Make an API call to get the status of request from the chosen peer
+        for stream_id in ids.clone() {
+            info!("Fetching anchor status for streamID {}", stream_id);
+            match self.get_anchor_status(peer, stream_id.clone()).await {
+                Ok(AnchorStatus::Anchored) => anchored_count += 1,
+                Ok(AnchorStatus::Pending) => pending_count += 1,
+                Ok(AnchorStatus::Failed) => failed_count += 1,
+                Ok(AnchorStatus::NotRequested) => not_requested_count += 1,
+                Err(e) => {
+                    failed_count += 1;
+                    error!("Failed to get anchor status: {}", e);
+                }
+            }
+        }
+
+        // remove stream ids from redis
+        self.remove_stream_from_redis(ANCHOR_REQUEST_MIDS_KEY, ids)
+            .await?;
+
+        // Log the counts
+        info!("Not requested count: {:2}", not_requested_count);
+        info!("Anchored count: {:2}", anchored_count);
+        info!("Pending count: {:2}", pending_count);
+        info!("Failed count: {:2}", failed_count);
+
+        if failed_count > 0 {
+            Ok((
+                CommandResult::Failure(anyhow!("Failed count is greater than 0")),
+                None,
+            ))
+        } else {
+            info!("Anchored count is : {}", anchored_count);
+            Ok((CommandResult::Success, None))
+        }
+        // TODO_3164_2 : Report these counts to Graphana
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
@@ -591,6 +769,8 @@ impl ScenarioState {
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
             | Scenario::CeramicModelReuse
+            | Scenario::CeramicAnchoringBenchmark
+            | Scenario::CASBenchmark
             | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;
@@ -1118,6 +1298,7 @@ mod test {
             throttle_requests: None,
             log_level: None,
             target_request_rate,
+            // anchor_wait_time: None,
         }
     }
 

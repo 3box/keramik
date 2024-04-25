@@ -536,7 +536,7 @@ impl ModelInstanceRequests {
             .create_query_request(model_id, filter, Pagination::default())
             .await
             .unwrap();
-        let goose = user
+        let goose: goose::goose::GooseResponse = user
             .request(
                 GooseRequest::builder()
                     .name("query_model")

@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use goose::prelude::*;
 use redis::{aio::MultiplexedConnection, AsyncCommands};
@@ -158,6 +158,7 @@ pub async fn small_large_scenario(
     .set_name("instantiate_large_model");
 
     Ok(scenario!("CeramicNewStreams")
+        .set_wait_time(Duration::from_millis(50), Duration::from_millis(500))?
         .register_transaction(test_start)
         .register_transaction(instantiate_small_model)
         .register_transaction(instantiate_large_model))

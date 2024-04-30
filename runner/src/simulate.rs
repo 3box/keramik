@@ -161,11 +161,6 @@ pub enum Scenario {
     CeramicQuery,
     /// Nodes subscribe to same model. One node generates new events, recon syncs event keys and data to peers.
     ReconEventSync,
-    /// Nodes subscribe to same model. One node generates new events, recon syncs event keys to peers.
-    /// Which of the Recon scenarios  you should choose is dictated by the API of the ceramic-one instance
-    /// being used. Previously, it only supported keys but newer versions support keys and data.
-    /// This scenario is for the keys only version and will fail on new verisons.
-    ReconEventKeySync,
     // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
     // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
     // but covering using js-ceramic rather than talking directly to the ipfs API.
@@ -188,7 +183,6 @@ impl Scenario {
             Scenario::CeramicQuery => "ceramic_query",
             Scenario::CeramicModelReuse => "ceramic_model_reuse",
             Scenario::ReconEventSync => "recon_event_sync",
-            Scenario::ReconEventKeySync => "recon_event_key_sync",
             Scenario::CeramicAnchoringBenchmark => "ceramic_anchoring_benchmark",
             Scenario::CASBenchmark => "cas_benchmark",
         }
@@ -196,9 +190,7 @@ impl Scenario {
 
     fn target_addr(&self, peer: &Peer) -> Result<String> {
         match self {
-            Self::IpfsRpc | Self::ReconEventSync | Self::ReconEventKeySync => {
-                Ok(peer.ipfs_rpc_addr().to_owned())
-            }
+            Self::IpfsRpc | Self::ReconEventSync => Ok(peer.ipfs_rpc_addr().to_owned()),
             Self::CeramicSimple
             | Self::CeramicWriteOnly
             | Self::CeramicNewStreams
@@ -446,7 +438,6 @@ impl ScenarioState {
             }
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
-            Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
             Scenario::CASBenchmark => ceramic::anchor::cas_benchmark().await?,
         };
         self.collect_before_metrics().await?;
@@ -519,7 +510,7 @@ impl ScenarioState {
                     // we collect things in the scenario and use redis to decide success/failure of the test
                     Ok(())
                 }
-                Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
+                Scenario::ReconEventSync => {
                     let peers = self
                         .get_peers_counter_metric(EVENT_SYNC_METRIC_NAME, IPFS_SERVICE_METRICS_PORT)
                         .await?;
@@ -591,7 +582,7 @@ impl ScenarioState {
                     (CommandResult::Failure(anyhow!(errors.join("\n"))), min)
                 }
             }
-            Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
+            Scenario::ReconEventSync => {
                 // It'd be easy to make work for other scenarios if they defined a rate and metric. However, the scenario we're
                 // interested in is asymmetrical in what the workers do, and we're trying to look at what happens to other nodes,
                 // which is not how most scenarios work. It also uses the IPFS metrics endpoint. We could parameterize or use a
@@ -772,7 +763,7 @@ impl ScenarioState {
             | Scenario::CeramicAnchoringBenchmark
             | Scenario::CASBenchmark
             | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
-            Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
+            Scenario::ReconEventSync => {
                 let default_rate = 300;
                 let metric_name = EVENT_SYNC_METRIC_NAME;
 

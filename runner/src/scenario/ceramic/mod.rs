@@ -160,7 +160,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 number_of_documents: 0,
                 store_mids: false,
             },
-            Scenario::CeramicNewStreamsBenchmark => Self {
+            Scenario::ReconEventSync | Scenario::CeramicNewStreamsBenchmark => Self {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,
@@ -174,10 +174,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 number_of_documents: 3,
                 store_mids: false,
             },
-            Scenario::IpfsRpc
-            | Scenario::ReconEventSync
-            | Scenario::ReconEventKeySync
-            | Scenario::CASBenchmark => {
+            Scenario::IpfsRpc | Scenario::CASBenchmark => {
                 panic!("Not supported for non ceramic scenarios")
             }
             Scenario::CeramicAnchoringBenchmark => Self {

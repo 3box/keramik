@@ -1,7 +1,6 @@
 use crate::scenario::ceramic::model_instance::{loop_until_key_value_set, set_key_to_stream_id};
 use crate::scenario::{
     get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
-    reset_goose_lead_user,
 };
 use ceramic_core::{Cid, EventId};
 use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
@@ -66,26 +65,6 @@ pub async fn event_sync_scenario() -> Result<Scenario, GooseError> {
         .register_transaction(stop))
 }
 
-// accept option as goose manager builds the scenario as well, but doesn't need any peers and won't run it so it will always be Some in execution
-pub async fn event_key_sync_scenario() -> Result<Scenario, GooseError> {
-    let test_start = init_scenario(false).await?;
-
-    let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
-    let reset_single_user = transaction!(reset_first_user)
-        .set_name("reset_first_user")
-        .set_on_start();
-
-    Ok(scenario!("ReconKeySync")
-        .register_transaction(test_start)
-        .register_transaction(reset_single_user)
-        .register_transaction(create_new_event))
-}
-
-async fn reset_first_user(_user: &mut GooseUser) -> TransactionResult {
-    reset_goose_lead_user();
-    Ok(())
-}
-
 /// One user on one node creates a model.
 /// One user on each node subscribes to the model via Recon
 #[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
@@ -104,6 +83,9 @@ async fn setup(
             cid: random_cid(),
         };
         set_key_to_stream_id(&mut conn, MODEL_ID_KEY, &model_id).await;
+
+        // TODO: set a real model
+
         model_id
     } else {
         loop_until_key_value_set(&mut conn, MODEL_ID_KEY).await

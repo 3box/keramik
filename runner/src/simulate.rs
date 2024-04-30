@@ -152,6 +152,10 @@ pub enum Scenario {
     // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
     // but covering using js-ceramic rather than talking directly to the ipfs API.
     CASBenchmark,
+ // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
+    // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    // but covering using js-ceramic rather than talking directly to the ipfs API.
+    CASStatusBenchmark,
 }
 
 impl Scenario {
@@ -168,6 +172,7 @@ impl Scenario {
             Scenario::ReconEventKeySync => "recon_event_key_sync",
             Scenario::CeramicAnchoringBenchmark => "ceramic_anchoring_benchmark",
             Scenario::CASBenchmark => "cas_benchmark",
+            Scenario::CASStatusBenchmark => "cas_status_benchmark",
         }
     }
 
@@ -183,6 +188,7 @@ impl Scenario {
             | Self::CeramicNewStreamsBenchmark
             | Self::CeramicQuery
             | Self::CASBenchmark
+            | Self::CASStatusBenchmark
             | Self::CeramicModelReuse => Ok(peer
                 .ceramic_addr()
                 .ok_or_else(|| {
@@ -423,6 +429,7 @@ impl ScenarioState {
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::ReconEventKeySync => recon_sync::event_key_sync_scenario().await?,
             Scenario::CASBenchmark => ceramic::anchor::cas_benchmark().await?,
+            Scenario::CASStatusBenchmark => ceramic::anchor::cas_status_benchmark().await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -489,6 +496,7 @@ impl ScenarioState {
                 | Scenario::CeramicNewStreams
                 | Scenario::CeramicQuery
                 | Scenario::CASBenchmark
+                | Scenario::CASStatusBenchmark
                 | Scenario::CeramicModelReuse => Ok(()),
                 Scenario::CeramicAnchoringBenchmark | Scenario::CeramicNewStreamsBenchmark => {
                     // we collect things in the scenario and use redis to decide success/failure of the test
@@ -522,6 +530,7 @@ impl ScenarioState {
             | Scenario::CeramicWriteOnly
             | Scenario::CeramicNewStreams
             | Scenario::CeramicQuery
+            | Scenario::CASStatusBenchmark
             | Scenario::CeramicModelReuse => (CommandResult::Success, None),
             Scenario::CeramicNewStreamsBenchmark => {
                 let res =
@@ -678,7 +687,7 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
-        let wait_duration = Duration::from_secs(60 * 60);
+        let wait_duration = Duration::from_secs(30 * 60);
         // TODO_3164_1 : Make this a parameter, pass it in from the scenario config
         // TODO_3164_3 : Code clean-up : Move redis calls to separate file move it out of simulate.rs
         // TODO_3164_4 : Code clean-up : Move api call (fetch stream) to model_instance.rs?, maybe rename it
@@ -746,6 +755,7 @@ impl ScenarioState {
             | Scenario::CeramicModelReuse
             | Scenario::CeramicAnchoringBenchmark
             | Scenario::CASBenchmark
+            | Scenario::CASStatusBenchmark
             | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
             Scenario::ReconEventSync | Scenario::ReconEventKeySync => {
                 let default_rate = 300;

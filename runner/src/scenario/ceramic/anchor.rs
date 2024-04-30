@@ -116,8 +116,41 @@ pub async fn create_anchor_request_on_cas(
         .sadd("anchor_requests", stream_id.to_string())
         .await
         .unwrap();
+    let _: () = conn
+        .sadd("anchor_requests_commits", genesis_cid.to_string())
+        .await
+        .unwrap();
     Ok(())
 }
+
+pub async fn fetch_anchor_request_status(
+    user: &mut GooseUser,
+    conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,
+) -> TransactionResult {
+    let cas_service_url = std::env::var("CAS_SERVICE_URL")
+        .unwrap_or_else(|_| "https://cas-dev-direct.3boxlabs.com".to_string());
+    let mut conn_lock: tokio::sync::MutexGuard<'_, MultiplexedConnection> = conn.lock().await;
+    let mut cids: Vec<String> = conn_lock.smembers("anchor_requests_commits").await.unwrap();
+    while cids.len() < 1000 {
+        let conn_clone = conn.clone();
+        create_anchor_request_on_cas(user, conn_clone).await.unwrap();
+        cids = conn_lock.smembers("anchor_requests_commits").await.unwrap();
+    }
+    for cid in cids {
+        let cas_create_request_url = format!("{}/api/v0/requests/{}", cas_service_url, cid);
+        let builder = user
+            .get_request_builder(&GooseMethod::Get, &cas_create_request_url)
+            .unwrap();
+        let goose_request = GooseRequest::builder()
+            .name("fetch_anchor_request_status")
+            .set_request_builder(builder.header("Content-Type", "application/vnd.ipld.car"))
+            .expect_status_code(200)
+            .build();
+        let _response = user.request(goose_request).await?;
+    }
+    Ok(())
+}
+
 
 pub async fn cas_benchmark() -> Result<Scenario, GooseError> {
     let redis_cli = get_redis_client().await.unwrap();
@@ -130,6 +163,20 @@ pub async fn cas_benchmark() -> Result<Scenario, GooseError> {
     .set_name("create_anchor_request");
 
     Ok(scenario!("CeramicCasBenchmark").register_transaction(create_anchor_request))
+}
+
+
+pub async fn cas_status_benchmark() -> Result<Scenario, GooseError> {
+    let redis_cli = get_redis_client().await.unwrap();
+    let multiplexed_conn = redis_cli.get_multiplexed_tokio_connection().await.unwrap();
+    let conn_mutex = Arc::new(Mutex::new(multiplexed_conn));
+    let fetch_anchor_request_status = Transaction::new(Arc::new(move |user| {
+        let conn_mutex_clone = conn_mutex.clone();
+        Box::pin(async move { fetch_anchor_request_status(user, conn_mutex_clone).await })
+    }))
+    .set_name("fetch_anchor_request_status");
+
+    Ok(scenario!("CeramicCasBenchmark").register_transaction(fetch_anchor_request_status))
 }
 
 /// Create a new Ceramic stream

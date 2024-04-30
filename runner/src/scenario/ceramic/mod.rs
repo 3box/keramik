@@ -180,6 +180,9 @@ impl From<Scenario> for CeramicScenarioParameters {
             | Scenario::CASBenchmark => {
                 panic!("Not supported for non ceramic scenarios")
             }
+            | Scenario::CASStatusBenchmark => {
+                panic!("Not supported for non ceramic scenarios")
+            }
             Scenario::CeramicAnchoringBenchmark => Self {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::Shared,

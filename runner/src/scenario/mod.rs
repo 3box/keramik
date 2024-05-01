@@ -29,8 +29,3 @@ pub(crate) fn is_goose_lead_user() -> bool {
 pub(crate) fn is_goose_global_leader(lead_user: bool) -> bool {
     is_goose_lead_worker() && lead_user
 }
-
-/// Reset the lead user flag so another process can act as the lead user in the future
-pub(crate) fn reset_goose_lead_user() {
-    FIRST_USER.store(true, std::sync::atomic::Ordering::SeqCst);
-}

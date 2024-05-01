@@ -1027,7 +1027,8 @@ async fn apply_pod_monitor(
 ) -> Result<(), Error> {
     // Create the pod monitor CR only if the CRD already exists
     let crds: Api<CustomResourceDefinition> = Api::all(cx.k_client.clone());
-    let crd = crds.get(PodMonitor::crd_name()).await;
+    let crd_name = PodMonitor::crd_name();
+    let crd = crds.get(crd_name).await;
     if crd.is_ok() {
         // Instantiate the pod monitor CR if it doesn't already exist
         let ns = "keramik-".to_owned() + &network.name_any();
@@ -1060,8 +1061,10 @@ async fn apply_pod_monitor(
         }
     } else {
         warn!(
-            "{} pod monitor instance requested but CRD not installed",
-            monitor_name
+            "{} pod monitor instance requested but CRD {} not found: {}",
+            monitor_name,
+            crd_name,
+            crd.unwrap_err()
         );
     }
     Ok(())

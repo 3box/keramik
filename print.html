@@ -252,8 +252,7 @@ If you are running locally, be patient as the first time you setup a network you
 <li><code>ceramic-write-only</code> - A simulation that only performs updates on two different streams</li>
 <li><code>ceramic-new-streams</code> - A simulation that only creates new streams</li>
 <li><code>ceramic-model-reuse</code> - A simulation that reuses the same model and queries instances across workers</li>
-<li><code>recon-event-key-sync</code> - A simulation that creates event keys for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any.</li>
-<li><code>recon-event-sync</code> - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any. Choosing between recon scenarios depends on what version of rust-ceramic you have. Some versions support keys only, some support key/value (maybe we'll support both someday). If you're not sure, try this one first.</li>
+<li><code>recon-event-sync</code> - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any.</li>
 </ul>
 <p>Using one of these scenarios, we can then define the configuration for that scenario:</p>
 <pre><code class="language-yaml"># basic.yaml

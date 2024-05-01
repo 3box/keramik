@@ -158,6 +158,7 @@ spec:
   replicas: 2
   monitoring:
     namespaced: true
+    podMonitor: true
 </code></pre>
 <p>To view the metrics and traces port-forward the services:</p>
 <pre><code>kubectl port-forward prometheus-0 9090
@@ -176,6 +177,13 @@ This is typically a collection of metrics per simulation run and is much lighter
 <blockquote>
 <p>NOTE: The prometheus-0 pod will scrape all metrics so you can easily inspect all activity on the network.</p>
 </blockquote>
+<h2 id="pod-monitoring"><a class="header" href="#pod-monitoring">Pod Monitoring</a></h2>
+<p>This option expects the <code>PodMonitor</code> custom resource definition to already be installed in the network namespace.</p>
+<p>If <code>podMonitor</code> is enabled, the operator will create <code>podmonitors.monitoring.coreos.com</code> resources for collecting the metrics from the pods in the network.</p>
+<p>If you're using something like the grafana cloud agent, or prometheus-operator, the <code>podmonitors.monitoring.coreos.com</code> will be installed already.</p>
+<p>You can install the CRD directly from the operator:</p>
+<pre><code>    kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+</code></pre>
 
                     </main>
 

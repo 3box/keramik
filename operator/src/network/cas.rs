@@ -30,8 +30,9 @@ use crate::{
         ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
         node_affinity::NodeAffinityConfig,
         resource_limits::ResourceLimitsConfig,
-        CasSpec,
+        CasApiSpec, CasSpec,
     },
+    utils::override_env_vars,
 };
 
 const CAS_IPFS_INFO_SUFFIX: &str = "cas";
@@ -44,6 +45,18 @@ pub struct CasConfig {
     pub ganache_resource_limits: ResourceLimitsConfig,
     pub postgres_resource_limits: ResourceLimitsConfig,
     pub localstack_resource_limits: ResourceLimitsConfig,
+    pub cas_api: CasApiConfig,
+}
+
+#[derive(Default)]
+pub struct CasApiConfig {
+    pub env: Option<BTreeMap<String, String>>,
+}
+
+impl From<CasApiSpec> for CasApiConfig {
+    fn from(value: CasApiSpec) -> Self {
+        Self { env: value.env }
+    }
 }
 
 impl CasConfig {
@@ -89,6 +102,7 @@ impl Default for CasConfig {
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            cas_api: Default::default(),
         }
     }
 }
@@ -125,6 +139,7 @@ impl From<CasSpec> for CasConfig {
                 value.localstack_resource_limits,
                 default.localstack_resource_limits,
             ),
+            cas_api: value.cas_api.map(Into::into).unwrap_or(default.cas_api),
         }
     }
 }
@@ -292,6 +307,9 @@ pub fn cas_stateful_set_spec(
     .concat();
 
     datadog.inject_env(&mut cas_api_env);
+
+    // Apply the CAS API env overrides, if specified.
+    override_env_vars(&mut cas_api_env, config.cas_api.env.clone());
 
     StatefulSetSpec {
         replicas: Some(1),

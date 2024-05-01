@@ -31,6 +31,7 @@ use crate::{
         resource_limits::ResourceLimitsConfig,
         CeramicSpec, NetworkSpec, NetworkType,
     },
+    utils::override_env_vars,
 };
 
 use super::debug_mode_security_context;
@@ -400,22 +401,8 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
         })
     }
 
-    if let Some(extra_env) = &bundle.config.env {
-        extra_env.iter().for_each(|(key, value)| {
-            if let Some((pos, _)) = ceramic_env
-                .iter()
-                .enumerate()
-                .find(|(_, var)| &var.name == key)
-            {
-                ceramic_env.swap_remove(pos);
-            }
-            ceramic_env.push(EnvVar {
-                name: key.to_string(),
-                value: Some(value.to_string()),
-                ..Default::default()
-            })
-        });
-    }
+    // Apply env overrides, if specified.
+    override_env_vars(&mut ceramic_env, bundle.config.env.clone());
 
     let mut init_env = vec![EnvVar {
         name: "CERAMIC_ADMIN_PRIVATE_KEY".to_owned(),

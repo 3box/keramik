@@ -12,9 +12,13 @@ const IPFS_CONTAINER_NAME: &str = "ipfs";
 pub const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
 const IPFS_SERVICE_PORT: i32 = 5001;
 
-use crate::network::{
-    ceramic::NetworkConfig, controller::NETWORK_DEV_MODE_RESOURCES,
-    resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec, RustIpfsSpec, NETWORK_LOCAL_ID,
+use crate::{
+    network::{
+        ceramic::NetworkConfig, controller::NETWORK_DEV_MODE_RESOURCES,
+        resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec, RustIpfsSpec,
+        NETWORK_LOCAL_ID,
+    },
+    utils::override_env_vars,
 };
 
 use super::debug_mode_security_context;
@@ -197,20 +201,9 @@ impl RustIpfsConfig {
                 ..Default::default()
             })
         }
-        if let Some(extra_env) = &self.env {
-            extra_env.iter().for_each(|(key, value)| {
-                if let Some((pos, _)) = env.iter().enumerate().find(|(_, var)| &var.name == key) {
-                    env.swap_remove(pos);
-                }
-                env.push(EnvVar {
-                    name: key.to_string(),
-                    value: Some(value.to_string()),
-                    ..Default::default()
-                })
-            });
-        }
-        // Sort env vars so we can have stable tests
-        env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+
+        // Apply env overrides, if specified.
+        override_env_vars(&mut env, self.env.clone());
 
         // Construct the set of ports
         let mut ports = vec![

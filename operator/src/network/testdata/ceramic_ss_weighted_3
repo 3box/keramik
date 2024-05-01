@@ -220,40 +220,40 @@ Request {
               {
                 "env": [
                   {
+                    "name": "RUST_LOG",
+                    "value": "info,ceramic_one=debug,multipart=error"
+                  },
+                  {
                     "name": "CERAMIC_ONE_BIND_ADDRESS",
                     "value": "0.0.0.0:5001"
-                  },
-                  {
-                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
-                    "value": "1"
-                  },
-                  {
-                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
-                    "value": "6"
-                  },
-                  {
-                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-                    "value": "0"
                   },
                   {
                     "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
                     "value": "0.0.0.0:9465"
                   },
                   {
-                    "name": "CERAMIC_ONE_NETWORK",
-                    "value": "local"
+                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+                    "value": "/ip4/0.0.0.0/tcp/4001"
                   },
                   {
                     "name": "CERAMIC_ONE_STORE_DIR",
                     "value": "/data/ipfs"
                   },
                   {
-                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-                    "value": "/ip4/0.0.0.0/tcp/4001"
+                    "name": "CERAMIC_ONE_NETWORK",
+                    "value": "local"
                   },
                   {
-                    "name": "RUST_LOG",
-                    "value": "info,ceramic_one=debug,multipart=error"
+                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+                    "value": "0"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+                    "value": "6"
+                  },
+                  {
+                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+                    "value": "1"
                   }
                 ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",

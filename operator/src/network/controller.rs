@@ -1092,6 +1092,7 @@ mod tests {
         },
     };
 
+    use crate::network::CasApiSpec;
     use expect_test::{expect, expect_file};
     use k8s_openapi::{
         api::{
@@ -2269,40 +2270,40 @@ mod tests {
                            {
             -                "env": [
             -                  {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
-            -                    "value": "1"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
-            -                    "value": "6"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-            -                    "value": "0"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
             -                    "value": "0.0.0.0:9465"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_NETWORK",
-            -                    "value": "local"
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
             -                  },
             -                  {
-            -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2398,40 +2399,40 @@ mod tests {
                            {
             -                "env": [
             -                  {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
-            -                    "value": "1"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
-            -                    "value": "6"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-            -                    "value": "0"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
             -                    "value": "0.0.0.0:9465"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_NETWORK",
-            -                    "value": "local"
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
             -                  },
             -                  {
-            -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2546,40 +2547,40 @@ mod tests {
                            {
             -                "env": [
             -                  {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
-            -                    "value": "1"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
-            -                    "value": "6"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-            -                    "value": "0"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
             -                    "value": "0.0.0.0:9465"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_NETWORK",
-            -                    "value": "local"
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
             -                  },
             -                  {
-            -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -2677,10 +2678,30 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -236,6 +236,10 @@
-                                 "value": "0"
+            @@ -220,20 +220,32 @@
+                           {
+                             "env": [
+                               {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,multipart=error"
+            +                    "name": "CERAMIC_ONE_BIND_ADDRESS",
+            +                    "value": "0.0.0.0:5001"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            +                    "value": "1"
                                },
                                {
+            -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
+            -                    "value": "0.0.0.0:5001"
+            +                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            +                    "value": "6"
+                               },
+                               {
+            +                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            +                    "value": "0"
+            +                  },
+            +                  {
             +                    "name": "CERAMIC_ONE_METRICS",
             +                    "value": "false"
             +                  },
@@ -2688,20 +2709,40 @@ mod tests {
                                  "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
                                  "value": "0.0.0.0:9465"
                                },
-            @@ -252,11 +256,19 @@
-                                 "value": "/ip4/0.0.0.0/tcp/4001"
+                               {
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            +                    "name": "CERAMIC_ONE_NETWORK",
+            +                    "value": "local"
                                },
                                {
+                                 "name": "CERAMIC_ONE_STORE_DIR",
+            @@ -240,23 +252,23 @@
+                                 "value": "/data/ipfs"
+                               },
+                               {
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
+            +                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            +                    "value": "/ip4/0.0.0.0/tcp/4001"
+                               },
+                               {
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
             +                    "name": "ENV_KEY_A",
             +                    "value": "ENV_VALUE_A"
-            +                  },
-            +                  {
+                               },
+                               {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
             +                    "name": "ENV_KEY_B",
             +                    "value": "ENV_VALUE_B"
-            +                  },
-            +                  {
-                                 "name": "RUST_LOG",
-                                 "value": "info,ceramic_one=debug,multipart=error"
+                               },
+                               {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
+            +                    "name": "RUST_LOG",
+            +                    "value": "info,ceramic_one=debug,multipart=error"
                                }
                              ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -3271,7 +3312,7 @@ mod tests {
             +                    "value": "dev-unstable"
                                },
                                {
-                                 "name": "CERAMIC_ONE_STORE_DIR",
+                                 "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
             @@ -315,15 +311,15 @@
                                },
                                {
@@ -3742,23 +3783,175 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -102,6 +102,10 @@
+            @@ -46,16 +46,28 @@
+                             ],
+                             "env": [
                                {
-                                 "name": "CERAMIC_NETWORK_TOPIC",
-                                 "value": "/ceramic/local-0"
+            +                    "name": "CAS_API_URL",
+            +                    "value": "http://cas:8081"
             +                  },
             +                  {
+            +                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
+            +                    "value": ".*"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_IPFS_HOST",
+            +                    "value": "http://localhost:5001"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_LOG_LEVEL",
+            +                    "value": "2"
+            +                  },
+            +                  {
+                                 "name": "CERAMIC_NETWORK",
+                                 "value": "local"
+                               },
+                               {
+            -                    "name": "ETH_RPC_URL",
+            -                    "value": "http://ganache:8545"
+            -                  },
+            -                  {
+            -                    "name": "CAS_API_URL",
+            -                    "value": "http://cas:8081"
+            +                    "name": "CERAMIC_NETWORK_TOPIC",
+            +                    "value": "/ceramic/local-0"
+                               },
+                               {
+                                 "name": "CERAMIC_SQLITE_PATH",
+            @@ -66,16 +78,8 @@
+                                 "value": "/ceramic-data/statestore"
+                               },
+                               {
+            -                    "name": "CERAMIC_IPFS_HOST",
+            -                    "value": "http://localhost:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
+            -                    "value": ".*"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_LOG_LEVEL",
+            -                    "value": "2"
+            +                    "name": "ETH_RPC_URL",
+            +                    "value": "http://ganache:8545"
+                               },
+                               {
+                                 "name": "POSTGRES_DB",
+            @@ -82,26 +86,26 @@
+                                 "value": "ceramic"
+                               },
+                               {
+            -                    "name": "POSTGRES_USER",
+            +                    "name": "POSTGRES_PASSWORD",
+                                 "valueFrom": {
+                                   "secretKeyRef": {
+            -                        "key": "username",
+            +                        "key": "password",
+                                     "name": "ceramic-postgres-auth"
+                                   }
+                                 }
+                               },
+                               {
+            -                    "name": "POSTGRES_PASSWORD",
+            +                    "name": "POSTGRES_USER",
+                                 "valueFrom": {
+                                   "secretKeyRef": {
+            -                        "key": "password",
+            +                        "key": "username",
+                                     "name": "ceramic-postgres-auth"
+                                   }
+                                 }
+                               },
+                               {
+            -                    "name": "CERAMIC_NETWORK_TOPIC",
+            -                    "value": "/ceramic/local-0"
             +                    "name": "SOME_ENV_VAR",
             +                    "value": "SOME_ENV_VALUE"
                                }
                              ],
                              "image": "ceramicnetwork/composedb:latest",
-            @@ -370,6 +374,10 @@
+            @@ -314,16 +318,28 @@
+                                 }
+                               },
                                {
-                                 "name": "CERAMIC_NETWORK_TOPIC",
-                                 "value": "/ceramic/local-0"
+            +                    "name": "CAS_API_URL",
+            +                    "value": "http://cas:8081"
             +                  },
             +                  {
+            +                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
+            +                    "value": ".*"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_IPFS_HOST",
+            +                    "value": "http://localhost:5001"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_LOG_LEVEL",
+            +                    "value": "2"
+            +                  },
+            +                  {
+                                 "name": "CERAMIC_NETWORK",
+                                 "value": "local"
+                               },
+                               {
+            -                    "name": "ETH_RPC_URL",
+            -                    "value": "http://ganache:8545"
+            -                  },
+            -                  {
+            -                    "name": "CAS_API_URL",
+            -                    "value": "http://cas:8081"
+            +                    "name": "CERAMIC_NETWORK_TOPIC",
+            +                    "value": "/ceramic/local-0"
+                               },
+                               {
+                                 "name": "CERAMIC_SQLITE_PATH",
+            @@ -334,16 +350,8 @@
+                                 "value": "/ceramic-data/statestore"
+                               },
+                               {
+            -                    "name": "CERAMIC_IPFS_HOST",
+            -                    "value": "http://localhost:5001"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
+            -                    "value": ".*"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_LOG_LEVEL",
+            -                    "value": "2"
+            +                    "name": "ETH_RPC_URL",
+            +                    "value": "http://ganache:8545"
+                               },
+                               {
+                                 "name": "POSTGRES_DB",
+            @@ -350,26 +358,26 @@
+                                 "value": "ceramic"
+                               },
+                               {
+            -                    "name": "POSTGRES_USER",
+            +                    "name": "POSTGRES_PASSWORD",
+                                 "valueFrom": {
+                                   "secretKeyRef": {
+            -                        "key": "username",
+            +                        "key": "password",
+                                     "name": "ceramic-postgres-auth"
+                                   }
+                                 }
+                               },
+                               {
+            -                    "name": "POSTGRES_PASSWORD",
+            +                    "name": "POSTGRES_USER",
+                                 "valueFrom": {
+                                   "secretKeyRef": {
+            -                        "key": "password",
+            +                        "key": "username",
+                                     "name": "ceramic-postgres-auth"
+                                   }
+                                 }
+                               },
+                               {
+            -                    "name": "CERAMIC_NETWORK_TOPIC",
+            -                    "value": "/ceramic/local-0"
             +                    "name": "SOME_ENV_VAR",
             +                    "value": "SOME_ENV_VALUE"
                                }
@@ -4036,40 +4229,40 @@ mod tests {
                            {
             -                "env": [
             -                  {
+            -                    "name": "RUST_LOG",
+            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
             -                    "value": "0.0.0.0:5001"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
-            -                    "value": "1"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
-            -                    "value": "6"
-            -                  },
-            -                  {
-            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
-            -                    "value": "0"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
             -                    "value": "0.0.0.0:9465"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_NETWORK",
-            -                    "value": "local"
+            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            -                    "value": "/ip4/0.0.0.0/tcp/4001"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
             -                  {
-            -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "name": "CERAMIC_ONE_NETWORK",
+            -                    "value": "local"
             -                  },
             -                  {
-            -                    "name": "RUST_LOG",
-            -                    "value": "info,ceramic_one=debug,multipart=error"
+            -                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            -                    "value": "0"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            -                    "value": "6"
+            -                  },
+            -                  {
+            -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            -                    "value": "1"
             -                  }
             -                ],
             -                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
@@ -4356,17 +4549,17 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/config",
-            @@ -252,6 +259,10 @@
-                                 "value": "/ip4/0.0.0.0/tcp/4001"
-                               },
+            @@ -254,6 +261,10 @@
                                {
-            +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
-            +                    "value": "true"
+                                 "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+                                 "value": "1"
             +                  },
             +                  {
-                                 "name": "RUST_LOG",
-                                 "value": "info,ceramic_one=debug,multipart=error"
+            +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
+            +                    "value": "true"
                                }
+                             ],
+                             "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
             @@ -274,6 +285,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
@@ -4397,17 +4590,17 @@ mod tests {
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -69,6 +69,10 @@
-                                 "value": "/ip4/0.0.0.0/tcp/4001"
-                               },
+            @@ -71,6 +71,10 @@
                                {
-            +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
-            +                    "value": "true"
+                                 "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+                                 "value": "1"
             +                  },
             +                  {
-                                 "name": "RUST_LOG",
-                                 "value": "info,ceramic_one=debug,multipart=error"
+            +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
+            +                    "value": "true"
                                }
+                             ],
+                             "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
             @@ -91,6 +95,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
@@ -4434,6 +4627,175 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/data/ipfs",
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    async fn cas_api_env_override() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            cas: Some(CasSpec {
+                cas_api: Some(CasApiSpec {
+                    env: Some(BTreeMap::from_iter([
+                        ("ENV_KEY_A".to_string(), "ENV_VALUE_A".to_string()),
+                        ("ENV_KEY_B".to_string(), "ENV_VALUE_B".to_string()),
+                        // Override one existing var
+                        ("APP_PORT".to_string(), "8080".to_string()),
+                    ])),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.cas_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -36,8 +36,28 @@
+                           {
+                             "env": [
+                               {
+            -                    "name": "DB_NAME",
+            -                    "value": "anchor_db"
+            +                    "name": "APP_MODE",
+            +                    "value": "server"
+            +                  },
+            +                  {
+            +                    "name": "APP_PORT",
+            +                    "value": "8080"
+            +                  },
+            +                  {
+            +                    "name": "AWS_ACCESS_KEY_ID",
+            +                    "value": "."
+            +                  },
+            +                  {
+            +                    "name": "AWS_ACCOUNT_ID",
+            +                    "value": "000000000000"
+            +                  },
+            +                  {
+            +                    "name": "AWS_REGION",
+            +                    "value": "us-east-1"
+            +                  },
+            +                  {
+            +                    "name": "AWS_SECRET_ACCESS_KEY",
+            +                    "value": "."
+                               },
+                               {
+                                 "name": "DB_HOST",
+            @@ -44,42 +64,38 @@
+                                 "value": "cas-postgres"
+                               },
+                               {
+            -                    "name": "DB_USERNAME",
+            +                    "name": "DB_NAME",
+            +                    "value": "anchor_db"
+            +                  },
+            +                  {
+            +                    "name": "DB_PASSWORD",
+                                 "valueFrom": {
+                                   "secretKeyRef": {
+            -                        "key": "username",
+            +                        "key": "password",
+                                     "name": "postgres-auth"
+                                   }
+                                 }
+                               },
+                               {
+            -                    "name": "DB_PASSWORD",
+            +                    "name": "DB_USERNAME",
+                                 "valueFrom": {
+                                   "secretKeyRef": {
+            -                        "key": "password",
+            +                        "key": "username",
+                                     "name": "postgres-auth"
+                                   }
+                                 }
+                               },
+                               {
+            -                    "name": "AWS_ACCOUNT_ID",
+            -                    "value": "000000000000"
+            +                    "name": "ENV_KEY_A",
+            +                    "value": "ENV_VALUE_A"
+                               },
+                               {
+            -                    "name": "AWS_REGION",
+            -                    "value": "us-east-1"
+            -                  },
+            -                  {
+            -                    "name": "AWS_ACCESS_KEY_ID",
+            -                    "value": "."
+            +                    "name": "ENV_KEY_B",
+            +                    "value": "ENV_VALUE_B"
+                               },
+                               {
+            -                    "name": "AWS_SECRET_ACCESS_KEY",
+            -                    "value": "."
+            -                  },
+            -                  {
+            -                    "name": "SQS_QUEUE_URL",
+            -                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
+            +                    "name": "ETH_CONTRACT_ADDRESS",
+            +                    "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
+                               },
+                               {
+                                 "name": "ETH_GAS_LIMIT",
+            @@ -98,20 +114,20 @@
+                                 "value": "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9"
+                               },
+                               {
+            -                    "name": "ETH_CONTRACT_ADDRESS",
+            -                    "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
+            +                    "name": "LOG_LEVEL",
+            +                    "value": "debug"
+                               },
+                               {
+            -                    "name": "NODE_ENV",
+            -                    "value": "dev"
+            +                    "name": "MERKLE_CAR_STORAGE_MODE",
+            +                    "value": "s3"
+                               },
+                               {
+            -                    "name": "LOG_LEVEL",
+            -                    "value": "debug"
+            +                    "name": "METRICS_PORT",
+            +                    "value": "9464"
+                               },
+                               {
+            -                    "name": "MERKLE_CAR_STORAGE_MODE",
+            -                    "value": "s3"
+            +                    "name": "NODE_ENV",
+            +                    "value": "dev"
+                               },
+                               {
+                                 "name": "S3_BUCKET_NAME",
+            @@ -122,16 +138,8 @@
+                                 "value": "http://localstack:4566"
+                               },
+                               {
+            -                    "name": "APP_MODE",
+            -                    "value": "server"
+            -                  },
+            -                  {
+            -                    "name": "APP_PORT",
+            -                    "value": "8081"
+            -                  },
+            -                  {
+            -                    "name": "METRICS_PORT",
+            -                    "value": "9464"
+            +                    "name": "SQS_QUEUE_URL",
+            +                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
+                               }
+                             ],
+                             "image": "ceramicnetwork/ceramic-anchor-service:latest",
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

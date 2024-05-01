@@ -402,7 +402,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
     }
 
     // Apply env overrides, if specified.
-    override_env_vars(&mut ceramic_env, bundle.config.env.clone());
+    override_env_vars(&mut ceramic_env, &bundle.config.env);
 
     let mut init_env = vec![EnvVar {
         name: "CERAMIC_ADMIN_PRIVATE_KEY".to_owned(),

@@ -203,7 +203,7 @@ impl RustIpfsConfig {
         }
 
         // Apply env overrides, if specified.
-        override_env_vars(&mut env, self.env.clone());
+        override_env_vars(&mut env, &self.env);
 
         // Construct the set of ports
         let mut ports = vec![

@@ -4642,7 +4642,7 @@ mod tests {
         // Setup network spec and status
         let network = Network::test().with_spec(NetworkSpec {
             cas: Some(CasSpec {
-                cas_api: Some(CasApiSpec {
+                api: Some(CasApiSpec {
                     env: Some(BTreeMap::from_iter([
                         ("ENV_KEY_A".to_string(), "ENV_VALUE_A".to_string()),
                         ("ENV_KEY_B".to_string(), "ENV_VALUE_B".to_string()),

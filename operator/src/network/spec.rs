@@ -234,7 +234,7 @@ pub struct CasSpec {
     /// Resource limits for the LocalStack pod, applies to both requests and limits.
     pub localstack_resource_limits: Option<ResourceLimitsSpec>,
     /// Configuration for the CAS API
-    pub cas_api: Option<CasApiSpec>,
+    pub api: Option<CasApiSpec>,
 }
 
 /// Describes how the CAS API is configured.

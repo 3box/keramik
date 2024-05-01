@@ -45,7 +45,7 @@ pub struct CasConfig {
     pub ganache_resource_limits: ResourceLimitsConfig,
     pub postgres_resource_limits: ResourceLimitsConfig,
     pub localstack_resource_limits: ResourceLimitsConfig,
-    pub cas_api: CasApiConfig,
+    pub api: CasApiConfig,
 }
 
 #[derive(Default)]
@@ -102,7 +102,7 @@ impl Default for CasConfig {
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
-            cas_api: Default::default(),
+            api: Default::default(),
         }
     }
 }
@@ -139,7 +139,7 @@ impl From<CasSpec> for CasConfig {
                 value.localstack_resource_limits,
                 default.localstack_resource_limits,
             ),
-            cas_api: value.cas_api.map(Into::into).unwrap_or(default.cas_api),
+            api: value.api.map(Into::into).unwrap_or(default.api),
         }
     }
 }
@@ -309,7 +309,7 @@ pub fn cas_stateful_set_spec(
     datadog.inject_env(&mut cas_api_env);
 
     // Apply the CAS API env overrides, if specified.
-    override_env_vars(&mut cas_api_env, config.cas_api.env.clone());
+    override_env_vars(&mut cas_api_env, &config.api.env);
 
     StatefulSetSpec {
         replicas: Some(1),

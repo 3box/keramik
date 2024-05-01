@@ -154,6 +154,25 @@ spec:
       memory: "1Gi"
 ```
 
+# CAS API Configuration
+
+The CAS API environment variables can be set or overridden through the network configuration.
+
+```yaml
+# network configuration
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 0
+  cas:
+    api:
+      env:
+        APP_PORT: "8080"
+```
+
 # Enabling Recon
 
 You can also use Recon for reconciliation by setting 'CERAMIC_ONE_RECON' env variable to true. 

@@ -233,6 +233,17 @@ pub struct CasSpec {
     pub postgres_resource_limits: Option<ResourceLimitsSpec>,
     /// Resource limits for the LocalStack pod, applies to both requests and limits.
     pub localstack_resource_limits: Option<ResourceLimitsSpec>,
+    /// Configuration for the CAS API
+    pub api: Option<CasApiSpec>,
+}
+
+/// Describes how the CAS API is configured.
+#[derive(Default, Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct CasApiSpec {
+    /// Extra env values to pass to the image.
+    /// CAUTION: Any env vars specified in this set will override any predefined values.
+    pub env: Option<BTreeMap<String, String>>,
 }
 
 /// Describes if and how to configure datadog telemetry

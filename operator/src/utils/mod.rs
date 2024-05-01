@@ -10,7 +10,7 @@ use k8s_openapi::{
     api::{
         apps::v1::{StatefulSet, StatefulSetSpec, StatefulSetStatus},
         batch::v1::{Job, JobSpec, JobStatus},
-        core::v1::{ConfigMap, Service, ServiceAccount, ServiceSpec, ServiceStatus},
+        core::v1::{ConfigMap, EnvVar, Service, ServiceAccount, ServiceSpec, ServiceStatus},
         rbac::v1::{ClusterRole, ClusterRoleBinding},
     },
     apimachinery::pkg::apis::meta::v1::OwnerReference,
@@ -317,4 +317,22 @@ pub fn generate_random_secret(
     let mut rng = cx.rng.lock().expect("should be able to acquire lock");
     rng.fill_bytes(&mut secret_bytes);
     hex::encode(secret_bytes)
+}
+
+/// Apply override env vars to an existing env var list
+pub fn override_env_vars(env: &mut Vec<EnvVar>, overrides: &Option<BTreeMap<String, String>>) {
+    if let Some(override_env) = &overrides {
+        override_env.iter().for_each(|(key, value)| {
+            if let Some((pos, _)) = env.iter().enumerate().find(|(_, var)| &var.name == key) {
+                env.swap_remove(pos);
+            }
+            env.push(EnvVar {
+                name: key.to_string(),
+                value: Some(value.to_string()),
+                ..Default::default()
+            })
+        });
+        // Sort env vars so we can have stable tests
+        env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+    }
 }

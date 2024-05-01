@@ -1,0 +1,33 @@
+Request {
+    method: "POST",
+    uri: "/apis/monitoring.coreos.com/v1/namespaces/keramik-test/podmonitors?",
+    headers: {
+        "content-type": "application/json",
+    },
+    body: {
+      "apiVersion": "monitoring.coreos.com/v1",
+      "kind": "PodMonitor",
+      "metadata": {
+        "name": "ceramic"
+      },
+      "spec": {
+        "podMetricsEndpoints": [
+          {
+            "interval": "10s",
+            "path": "/metrics",
+            "targetPort": 9464
+          }
+        ],
+        "podTargetLabels": [
+          "affinity",
+          "scenario",
+          "simulation"
+        ],
+        "selector": {
+          "matchLabels": {
+            "app": "ceramic"
+          }
+        }
+      }
+    },
+}

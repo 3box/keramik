@@ -7,11 +7,14 @@ use k8s_openapi::api::{
     batch::v1::Job,
     core::v1::{Pod, Secret, Service},
 };
-use kube::core::{ListMeta, ObjectList, TypeMeta};
+use kube::{
+    core::{ListMeta, ObjectList, TypeMeta},
+    CustomResourceExt,
+};
 
 use crate::{
     labels::managed_labels,
-    network::{Network, NetworkSpec, NetworkStatus},
+    network::{Network, NetworkSpec, NetworkStatus, PodMonitor, PodMonitorCrd},
     utils::test::{ApiServerVerifier, WithStatus},
 };
 
@@ -56,6 +59,11 @@ pub struct Stub {
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
     pub monitoring: Vec<ExpectFile>,
+    pub pod_monitor: Vec<(
+        (ExpectFile, bool),
+        Option<(ExpectFile, bool)>,
+        Option<ExpectFile>,
+    )>,
     pub cas_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
     pub ceramic_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret),
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
@@ -95,6 +103,7 @@ impl Default for Stub {
             namespace: expect_file!["./testdata/default_stubs/namespace"].into(),
             status: expect_file!["./testdata/default_stubs/status"].into(),
             monitoring: vec![],
+            pod_monitor: vec![],
             cas_postgres_auth_secret: (
                 expect_file!["./testdata/default_stubs/postgres_auth_secret"].into(),
                 k8s_openapi::api::core::v1::Secret {
@@ -217,6 +226,37 @@ impl Stub {
             .handle_apply(self.namespace)
             .await
             .expect("namespace should apply");
+        for ((crd_get, crd_exists), monitor_get, monitor_post) in self.pod_monitor {
+            let crd = if crd_exists {
+                Some(PodMonitor::crd())
+            } else {
+                None
+            };
+            fakeserver
+                .handle_request_response(crd_get, crd.as_ref())
+                .await
+                .expect("pod monitor crd should fetch");
+            if let Some((monitor_get, monitor_exists)) = monitor_get {
+                let monitor = if monitor_exists {
+                    Some(PodMonitor::new("test", PodMonitorCrd::default()))
+                } else {
+                    None
+                };
+                fakeserver
+                    .handle_request_response(monitor_get, monitor.as_ref())
+                    .await
+                    .expect("pod monitor should fetch");
+            }
+            if let Some(monitor_post) = monitor_post {
+                fakeserver
+                    .handle_request_response(
+                        monitor_post,
+                        Some(&PodMonitor::new("test", PodMonitorCrd::default())),
+                    )
+                    .await
+                    .expect("pod monitor should create");
+            }
+        }
         for otel in self.monitoring {
             fakeserver
                 .handle_apply(otel)

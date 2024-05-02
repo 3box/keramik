@@ -217,7 +217,6 @@ type MetricsCollector = Box<dyn MetricsCollection + Send + Sync>;
 trait MetricsCollection: std::fmt::Debug {
     /// Collects a counter metric from the given host. None if metric not found.
     async fn collect_counter(&self, addr: Url, metric_name: &str) -> Result<Option<u64>>;
-    fn boxed(&self) -> MetricsCollector;
 }
 
 #[derive(Clone, Debug)]
@@ -250,9 +249,6 @@ impl MetricsCollection for PromMetricCollector {
             warn!("Failed to find metric {} for host: {}", metric_name, addr);
             Ok(None)
         }
-    }
-    fn boxed(&self) -> MetricsCollector {
-        Box::new(self.clone())
     }
 }
 
@@ -881,24 +877,24 @@ impl ScenarioState {
             config.manager = true;
             config.manager_bind_port = 5115;
             config.expect_workers = Some(self.topo.total_workers);
-            config.startup_time = "10s".to_owned();
-            config.run_time = self.run_time.clone();
+            config.startup_time = "10s".to_string();
+            config.run_time = self.run_time.to_string();
             config
         } else {
             let mut config = GooseConfiguration::default();
             // we could set `config.verbose` which is for stdout, but for now we just use files as it doesn't seem to do anything on workers
             if let Some(ref log_level) = self.log_level {
                 config.log_level = log_level.as_goose_log_level();
-                config.scenario_log = "scenario.log".to_owned();
-                config.transaction_log = "transaction.log".to_owned();
-                config.request_log = "request.log".to_owned();
-                config.error_log = "error.log".to_owned();
+                config.scenario_log = "scenario.log".to_string();
+                config.transaction_log = "transaction.log".to_string();
+                config.request_log = "request.log".to_string();
+                config.error_log = "error.log".to_string();
             }
             config.worker = true;
             config.host = self.target_peer_addr()?;
             // We are leveraging k8s dns search path so we do not have to specify the fully qualified
             // domain name explicitly.
-            config.manager_host = "manager.goose".to_owned();
+            config.manager_host = "manager.goose".to_string();
             config.manager_port = 5115;
             if let Some(throttle_requests) = self.throttle_requests {
                 config.throttle_requests = throttle_requests
@@ -1276,9 +1272,6 @@ mod test {
             tracing::debug!(?self.host_queries, "collecting metric {:?} for host {} got {:?}", metric_name, host, res);
             Ok(res)
         }
-        fn boxed(&self) -> MetricsCollector {
-            Box::new(self.clone())
-        }
     }
 
     fn get_opts(scenario: Scenario, manager: bool, target_request_rate: Option<usize>) -> Opts {
@@ -1328,9 +1321,10 @@ mod test {
 
         let peers = get_peers();
         let metrics_collector = MockMetricsCollector::new(metric_start_value, metric_end_value);
-        let mut state = ScenarioState::try_from_opts(opts, metrics_collector.boxed(), Some(peers))
-            .await
-            .unwrap();
+        let mut state =
+            ScenarioState::try_from_opts(opts, Box::new(metrics_collector), Some(peers))
+                .await
+                .unwrap();
 
         state.collect_before_metrics().await.unwrap();
         state.validate_recon_scenario_success(run_time).await.0

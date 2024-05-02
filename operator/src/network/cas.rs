@@ -217,7 +217,7 @@ pub fn cas_stateful_set_spec(
         },
         EnvVar {
             name: "SQS_QUEUE_URL".to_owned(),
-            value: Some("http://localstack:4566/000000000000/cas-anchor-dev-".to_owned()),
+            value: Some("".to_owned()),
             ..Default::default()
         },
     ];
@@ -267,7 +267,7 @@ pub fn cas_stateful_set_spec(
             },
             EnvVar {
                 name: "MERKLE_CAR_STORAGE_MODE".to_owned(),
-                value: Some("s3".to_owned()),
+                value: Some("disabled".to_owned()),
                 ..Default::default()
             },
             EnvVar {

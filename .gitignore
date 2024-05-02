@@ -12,3 +12,8 @@ __pycache__
 # allow a sample network in the repo
 !local-scripts/small.yaml
 !local-scripts/kind.yaml
+
+
+# my testing do not commit
+results/
+grafana-local/

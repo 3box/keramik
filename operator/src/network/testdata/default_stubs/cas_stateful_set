@@ -36,21 +36,36 @@ Request {
               {
                 "env": [
                   {
-                    "name": "DB_NAME",
-                    "value": "anchor_db"
+                    "name": "APP_MODE",
+                    "value": "server"
+                  },
+                  {
+                    "name": "APP_PORT",
+                    "value": "8081"
+                  },
+                  {
+                    "name": "AWS_ACCESS_KEY_ID",
+                    "value": "."
+                  },
+                  {
+                    "name": "AWS_ACCOUNT_ID",
+                    "value": "000000000000"
+                  },
+                  {
+                    "name": "AWS_REGION",
+                    "value": "us-east-1"
+                  },
+                  {
+                    "name": "AWS_SECRET_ACCESS_KEY",
+                    "value": "."
                   },
                   {
                     "name": "DB_HOST",
                     "value": "cas-postgres"
                   },
                   {
-                    "name": "DB_USERNAME",
-                    "valueFrom": {
-                      "secretKeyRef": {
-                        "key": "username",
-                        "name": "postgres-auth"
-                      }
-                    }
+                    "name": "DB_NAME",
+                    "value": "anchor_db"
                   },
                   {
                     "name": "DB_PASSWORD",
@@ -62,24 +77,17 @@ Request {
                     }
                   },
                   {
-                    "name": "AWS_ACCOUNT_ID",
-                    "value": "000000000000"
+                    "name": "DB_USERNAME",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "postgres-auth"
+                      }
+                    }
                   },
                   {
-                    "name": "AWS_REGION",
-                    "value": "us-east-1"
-                  },
-                  {
-                    "name": "AWS_ACCESS_KEY_ID",
-                    "value": "."
-                  },
-                  {
-                    "name": "AWS_SECRET_ACCESS_KEY",
-                    "value": "."
-                  },
-                  {
-                    "name": "SQS_QUEUE_URL",
-                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
+                    "name": "ETH_CONTRACT_ADDRESS",
+                    "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
                   },
                   {
                     "name": "ETH_GAS_LIMIT",
@@ -98,20 +106,20 @@ Request {
                     "value": "0x06dd0990d19001c57eeea6d32e8fdeee40d3945962caf18c18c3930baa5a6ec9"
                   },
                   {
-                    "name": "ETH_CONTRACT_ADDRESS",
-                    "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
-                  },
-                  {
-                    "name": "NODE_ENV",
-                    "value": "dev"
-                  },
-                  {
                     "name": "LOG_LEVEL",
                     "value": "debug"
                   },
                   {
                     "name": "MERKLE_CAR_STORAGE_MODE",
                     "value": "s3"
+                  },
+                  {
+                    "name": "METRICS_PORT",
+                    "value": "9464"
+                  },
+                  {
+                    "name": "NODE_ENV",
+                    "value": "dev"
                   },
                   {
                     "name": "S3_BUCKET_NAME",
@@ -122,16 +130,8 @@ Request {
                     "value": "http://localstack:4566"
                   },
                   {
-                    "name": "APP_MODE",
-                    "value": "server"
-                  },
-                  {
-                    "name": "APP_PORT",
-                    "value": "8081"
-                  },
-                  {
-                    "name": "METRICS_PORT",
-                    "value": "9464"
+                    "name": "SQS_QUEUE_URL",
+                    "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
                   }
                 ],
                 "image": "ceramicnetwork/ceramic-anchor-service:latest",

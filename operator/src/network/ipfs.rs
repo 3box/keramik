@@ -18,7 +18,7 @@ use crate::{
         resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec, RustIpfsSpec,
         NETWORK_LOCAL_ID,
     },
-    utils::override_env_vars,
+    utils::override_and_sort_env_vars,
 };
 
 use super::debug_mode_security_context;
@@ -203,7 +203,7 @@ impl RustIpfsConfig {
         }
 
         // Apply env overrides, if specified.
-        override_env_vars(&mut env, &self.env);
+        override_and_sort_env_vars(&mut env, &self.env);
 
         // Construct the set of ports
         let mut ports = vec![

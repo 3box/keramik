@@ -32,7 +32,7 @@ use crate::{
         resource_limits::ResourceLimitsConfig,
         CasApiSpec, CasSpec,
     },
-    utils::override_env_vars,
+    utils::override_and_sort_env_vars,
 };
 
 const CAS_IPFS_INFO_SUFFIX: &str = "cas";
@@ -309,7 +309,7 @@ pub fn cas_stateful_set_spec(
     datadog.inject_env(&mut cas_api_env);
 
     // Apply the CAS API env overrides, if specified.
-    override_env_vars(&mut cas_api_env, &config.api.env);
+    override_and_sort_env_vars(&mut cas_api_env, &config.api.env);
 
     StatefulSetSpec {
         replicas: Some(1),

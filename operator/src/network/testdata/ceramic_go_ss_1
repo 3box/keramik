@@ -46,16 +46,28 @@ Request {
                 ],
                 "env": [
                   {
+                    "name": "CAS_API_URL",
+                    "value": "http://cas:8081"
+                  },
+                  {
+                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
+                    "value": ".*"
+                  },
+                  {
+                    "name": "CERAMIC_IPFS_HOST",
+                    "value": "http://localhost:5001"
+                  },
+                  {
+                    "name": "CERAMIC_LOG_LEVEL",
+                    "value": "2"
+                  },
+                  {
                     "name": "CERAMIC_NETWORK",
                     "value": "local"
                   },
                   {
-                    "name": "ETH_RPC_URL",
-                    "value": "http://ganache:8545"
-                  },
-                  {
-                    "name": "CAS_API_URL",
-                    "value": "http://cas:8081"
+                    "name": "CERAMIC_NETWORK_TOPIC",
+                    "value": "/ceramic/local-0"
                   },
                   {
                     "name": "CERAMIC_SQLITE_PATH",
@@ -66,29 +78,12 @@ Request {
                     "value": "/ceramic-data/statestore"
                   },
                   {
-                    "name": "CERAMIC_IPFS_HOST",
-                    "value": "http://localhost:5001"
-                  },
-                  {
-                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
-                    "value": ".*"
-                  },
-                  {
-                    "name": "CERAMIC_LOG_LEVEL",
-                    "value": "2"
+                    "name": "ETH_RPC_URL",
+                    "value": "http://ganache:8545"
                   },
                   {
                     "name": "POSTGRES_DB",
                     "value": "ceramic"
-                  },
-                  {
-                    "name": "POSTGRES_USER",
-                    "valueFrom": {
-                      "secretKeyRef": {
-                        "key": "username",
-                        "name": "ceramic-postgres-auth"
-                      }
-                    }
                   },
                   {
                     "name": "POSTGRES_PASSWORD",
@@ -100,8 +95,13 @@ Request {
                     }
                   },
                   {
-                    "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-0"
+                    "name": "POSTGRES_USER",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "ceramic-postgres-auth"
+                      }
+                    }
                   }
                 ],
                 "image": "ceramicnetwork/composedb:latest",
@@ -281,16 +281,28 @@ Request {
                     }
                   },
                   {
+                    "name": "CAS_API_URL",
+                    "value": "http://cas:8081"
+                  },
+                  {
+                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
+                    "value": ".*"
+                  },
+                  {
+                    "name": "CERAMIC_IPFS_HOST",
+                    "value": "http://localhost:5001"
+                  },
+                  {
+                    "name": "CERAMIC_LOG_LEVEL",
+                    "value": "2"
+                  },
+                  {
                     "name": "CERAMIC_NETWORK",
                     "value": "local"
                   },
                   {
-                    "name": "ETH_RPC_URL",
-                    "value": "http://ganache:8545"
-                  },
-                  {
-                    "name": "CAS_API_URL",
-                    "value": "http://cas:8081"
+                    "name": "CERAMIC_NETWORK_TOPIC",
+                    "value": "/ceramic/local-0"
                   },
                   {
                     "name": "CERAMIC_SQLITE_PATH",
@@ -301,29 +313,12 @@ Request {
                     "value": "/ceramic-data/statestore"
                   },
                   {
-                    "name": "CERAMIC_IPFS_HOST",
-                    "value": "http://localhost:5001"
-                  },
-                  {
-                    "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
-                    "value": ".*"
-                  },
-                  {
-                    "name": "CERAMIC_LOG_LEVEL",
-                    "value": "2"
+                    "name": "ETH_RPC_URL",
+                    "value": "http://ganache:8545"
                   },
                   {
                     "name": "POSTGRES_DB",
                     "value": "ceramic"
-                  },
-                  {
-                    "name": "POSTGRES_USER",
-                    "valueFrom": {
-                      "secretKeyRef": {
-                        "key": "username",
-                        "name": "ceramic-postgres-auth"
-                      }
-                    }
                   },
                   {
                     "name": "POSTGRES_PASSWORD",
@@ -335,8 +330,13 @@ Request {
                     }
                   },
                   {
-                    "name": "CERAMIC_NETWORK_TOPIC",
-                    "value": "/ceramic/local-0"
+                    "name": "POSTGRES_USER",
+                    "valueFrom": {
+                      "secretKeyRef": {
+                        "key": "username",
+                        "name": "ceramic-postgres-auth"
+                      }
+                    }
                   }
                 ],
                 "image": "ceramicnetwork/composedb-cli:latest",

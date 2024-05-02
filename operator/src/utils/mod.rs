@@ -320,7 +320,10 @@ pub fn generate_random_secret(
 }
 
 /// Apply override env vars to an existing env var list
-pub fn override_env_vars(env: &mut Vec<EnvVar>, overrides: &Option<BTreeMap<String, String>>) {
+pub fn override_and_sort_env_vars(
+    env: &mut Vec<EnvVar>,
+    overrides: &Option<BTreeMap<String, String>>,
+) {
     if let Some(override_env) = &overrides {
         override_env.iter().for_each(|(key, value)| {
             if let Some((pos, _)) = env.iter().enumerate().find(|(_, var)| &var.name == key) {
@@ -332,7 +335,7 @@ pub fn override_env_vars(env: &mut Vec<EnvVar>, overrides: &Option<BTreeMap<Stri
                 ..Default::default()
             })
         });
-        // Sort env vars so we can have stable tests
-        env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
     }
+    // Sort env vars so we can have stable tests
+    env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 }

@@ -153,7 +153,7 @@ pub enum Scenario {
     /// New Streams Ceramic Scenario. Only creates new model instance documents rather than updating anything.
     CeramicNewStreams,
     /// Scenario that creates new model instance documents that are about 1kb in size and verifies that they sync
-    /// to the other nodes. This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    /// to the other nodes. This is a benchmark scenario for e2e testing, similar to the recon event sync scenario,
     /// but covering using js-ceramic rather than talking directly to the ipfs API.
     CeramicNewStreamsBenchmark,
     /// Simple Query Scenario. Creates multiple MIDs for a model and then queries the model instance documents,
@@ -162,14 +162,17 @@ pub enum Scenario {
     /// Nodes subscribe to same model. One node generates new events, recon syncs event keys and data to peers.
     ReconEventSync,
     // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
-    // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    // This is a benchmark scenario for e2e testing, similar to the recon event sync scenario,
     // but covering using js-ceramic rather than talking directly to the ipfs API.
     CeramicAnchoringBenchmark,
-
     // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
-    // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
+    // This is a benchmark scenario for e2e testing, similar to the recon event sync scenario,
     // but covering using js-ceramic rather than talking directly to the ipfs API.
     CASBenchmark,
+    // Scenario that creates model instance documents and verifies that they have been emitted by the data feed at
+    // the desired rate. This is a benchmark scenario for e2e testing, similar to the recon event sync or CAS benchmark 
+    // scenario, but covering using js-ceramic rather than talking directly to the ipfs API. TODO Check this last part after its done
+    DataFeedBenchmark,
 }
 
 impl Scenario {
@@ -185,6 +188,7 @@ impl Scenario {
             Scenario::ReconEventSync => "recon_event_sync",
             Scenario::CeramicAnchoringBenchmark => "ceramic_anchoring_benchmark",
             Scenario::CASBenchmark => "cas_benchmark",
+            Scenario::DataFeedBenchmark => "data_feed_benchmark",
         }
     }
 
@@ -198,6 +202,7 @@ impl Scenario {
             | Self::CeramicNewStreamsBenchmark
             | Self::CeramicQuery
             | Self::CASBenchmark
+            | Self::DataFeedBenchmark //TODO check if something else needs to be done here
             | Self::CeramicModelReuse => Ok(peer
                 .ceramic_addr()
                 .ok_or_else(|| {
@@ -435,6 +440,7 @@ impl ScenarioState {
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::CASBenchmark => ceramic::anchor::cas_benchmark().await?,
+            Scenario::DataFeedBenchmark => ceramic::data_feed::data_feed_benchmark().await?,// TODO
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -501,6 +507,7 @@ impl ScenarioState {
                 | Scenario::CeramicNewStreams
                 | Scenario::CeramicQuery
                 | Scenario::CASBenchmark
+                | Scenario::DataFeedBenchmark //TODO check here
                 | Scenario::CeramicModelReuse => Ok(()),
                 Scenario::CeramicAnchoringBenchmark | Scenario::CeramicNewStreamsBenchmark => {
                     // we collect things in the scenario and use redis to decide success/failure of the test
@@ -628,6 +635,9 @@ impl ScenarioState {
                     .await
                     .unwrap();
                 (CommandResult::Success, None)
+            }
+            Scenario::DataFeedBenchmark => {
+                //TODO
             }
         }
     }
@@ -847,6 +857,9 @@ impl ScenarioState {
                     );
                     (CommandResult::Failure(anyhow!(errors.join("\n"))), peer_rps)
                 }
+            }
+            Scenario::DataFeedBenchmark => {
+                //TODO
             }
         }
     }

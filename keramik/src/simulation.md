@@ -2,12 +2,13 @@
 
 To run a simulation, first define a simulation. Available simulation types are
 
-- `ipfs-rpc` - A simple simulation that writes and reads to IPFS
-- `ceramic-simple` - A simple simulation that writes and reads events to two different streams, a small and large model
-- `ceramic-write-only` - A simulation that only performs updates on two different streams
-- `ceramic-new-streams` - A simulation that only creates new streams
-- `ceramic-model-reuse` - A simulation that reuses the same model and queries instances across workers
+- `ipfs-rpc` - A simple simulation that writes and reads to IPFS.
+- `ceramic-simple` - A simple simulation that writes and reads events to two different streams, a small and large model.
+- `ceramic-write-only` - A simulation that only performs updates on two different streams.
+- `ceramic-new-streams` - A simulation that only creates new streams.
+- `ceramic-model-reuse` - A simulation that reuses the same model and queries instances across workers.
 - `recon-event-sync` - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any.
+- `data-feed-benchmark` - A simulation that is a WIP.
 
 Using one of these scenarios, we can then define the configuration for that scenario:
 

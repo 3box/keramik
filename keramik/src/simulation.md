@@ -49,7 +49,7 @@ Name:         nc-small
 ```
 
 
-Once ready, apply this simulation defintion to the k8s cluster:
+Once ready, apply this simulation definition to the k8s cluster:
 
 ```shell
 kubectl apply -f basic.yaml

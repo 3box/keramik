@@ -78,7 +78,10 @@ impl RandomModelInstance for LargeModel {
         Self {
             creator: "keramik".to_string(),
             name: format!("keramik-large-model-{}", name),
-            description: Alphanumeric.sample_string(&mut rand::thread_rng(), 1000),
+            description: (0..1_000)
+                .map(|_| rng.gen::<char>())
+                .filter(|c| *c != '\u{0000}')
+                .collect(),
             tpe: rng.gen_range(0..100),
         }
     }

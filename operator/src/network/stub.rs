@@ -42,6 +42,12 @@ impl WithStatus for Network {
     }
 }
 
+type PodMonitorStub = (
+    (ExpectFile, bool),
+    Option<(ExpectFile, bool)>,
+    Option<ExpectFile>,
+);
+
 /// Stub of expected requests during reconciliation.
 ///
 /// ```no_run
@@ -59,11 +65,7 @@ pub struct Stub {
     pub namespace: ExpectPatch<ExpectFile>,
     pub status: ExpectPatch<ExpectFile>,
     pub monitoring: Vec<ExpectFile>,
-    pub pod_monitor: Vec<(
-        (ExpectFile, bool),
-        Option<(ExpectFile, bool)>,
-        Option<ExpectFile>,
-    )>,
+    pub pod_monitor: Vec<PodMonitorStub>,
     pub cas_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
     pub ceramic_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret),
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),

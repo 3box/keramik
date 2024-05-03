@@ -74,11 +74,14 @@ impl LargeModel {
 impl RandomModelInstance for LargeModel {
     fn random() -> Self {
         let mut rng = thread_rng();
-        let name: String = (1..100).map(|_| rng.gen::<char>()).collect();
+        let name = Alphanumeric.sample_string(&mut rand::thread_rng(), 100);
         Self {
             creator: "keramik".to_string(),
             name: format!("keramik-large-model-{}", name),
-            description: (1..1_000).map(|_| rng.gen::<char>()).collect(),
+            description: (0..1_000)
+                .map(|_| rng.gen::<char>())
+                .filter(|c| *c != '\u{0000}')
+                .collect(),
             tpe: rng.gen_range(0..100),
         }
     }

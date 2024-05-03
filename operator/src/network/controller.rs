@@ -4459,7 +4459,6 @@ mod tests {
                         // Override one existing var
                         ("APP_PORT".to_string(), "8080".to_string()),
                     ])),
-                    ..Default::default()
                 }),
                 ..Default::default()
             }),

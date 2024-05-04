@@ -52,14 +52,14 @@ pub struct Opts {
     target_peer: usize,
 
     /// Path to file containing the list of peers.
-    /// File should contian JSON encoding of Vec<Peer>.
+    /// File should contain JSON encoding of Vec<Peer>.
     #[arg(long, env = "SIMULATE_PEERS_PATH")]
     peers: PathBuf,
 
     /// Number of users to simulate on each node. The total number of users
     /// running the test scenario will be this value * N nodes.
     ///
-    /// Implmentation details: A user corresponds to a tokio task responsible
+    /// Implementation details: A user corresponds to a tokio task responsible
     /// for making requests. They should have low memory overhead, so you can
     /// create many users and then use `throttle_requests` to constrain the overall
     /// throughput on the node (specifically the HTTP requests made).

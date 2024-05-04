@@ -777,7 +777,8 @@ impl ScenarioState {
             | Scenario::CeramicModelReuse
             | Scenario::CeramicAnchoringBenchmark
             | Scenario::CASBenchmark
-            | Scenario::CeramicNewStreamsBenchmark => (CommandResult::Success, None),
+            | Scenario::CeramicNewStreamsBenchmark
+            | Scenario::DataFeedBenchmark => (CommandResult::Success, None),
             Scenario::ReconEventSync => {
                 let default_rate = 300;
                 let metric_name = EVENT_SYNC_METRIC_NAME;
@@ -857,9 +858,6 @@ impl ScenarioState {
                     );
                     (CommandResult::Failure(anyhow!(errors.join("\n"))), peer_rps)
                 }
-            }
-            Scenario::DataFeedBenchmark => {
-                //TODO
             }
         }
     }

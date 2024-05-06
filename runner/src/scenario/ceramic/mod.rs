@@ -111,6 +111,8 @@ pub enum ReuseType {
     PerNode,
     /// Reuse the same model or model instance document for all users
     Shared,
+    /// Create a new model for lead worker (id - 0) and let other workers subscribe to that model
+    LeadWorkerSubscriber,
 }
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]

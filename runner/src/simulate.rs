@@ -166,9 +166,8 @@ pub enum Scenario {
     // but covering using js-ceramic rather than talking directly to the ipfs API.
     CeramicAnchoringBenchmark,
 
-    // Scenario that creates model instance documents and verifies that they have been anchored at the desired rate.
-    // This is a benchmark scenario for e2e testing, simliar to the recon event sync scenario,
-    // but covering using js-ceramic rather than talking directly to the ipfs API.
+    // Scenario that creates anchor requests to Ceramic Anchor Service directly, there is no verification.
+    // Dashboards should be used to verify the rate of anchor requests and health of the service.
     CASBenchmark,
 }
 

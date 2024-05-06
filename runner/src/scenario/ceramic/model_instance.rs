@@ -1,4 +1,4 @@
-use std::{str::FromStr, sync::Arc, time::Duration};
+use std::{collections::HashSet, str::FromStr, sync::Arc, time::Duration};
 
 use ceramic_http_client::{
     api::{self, Pagination, StreamsResponse, StreamsResponseOrError},
@@ -14,7 +14,7 @@ use crate::{
     scenario::{
         ceramic::{
             models::{self, RandomModelInstance},
-            CeramicClient, Credentials,
+            CeramicClient, Credentials, ReuseType,
         },
         get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
     },
@@ -22,18 +22,11 @@ use crate::{
 
 use super::CeramicScenarioParameters;
 
+const MODEL_DISCOVERY_KEY: &str = "scenario_model_stream_ids";
 const SMALL_MODEL_ID_KEY: &str = "small_model_reuse_model_id";
 const LARGE_MODEL_ID_KEY: &str = "large_model_reuse_model_id";
 const SMALL_MID_ID_KEY: &str = "small_model_reuse_mid_id";
 const LARGE_MID_ID_KEY: &str = "large_model_reuse_mid_id";
-
-pub(crate) async fn set_key_to_stream_id(
-    conn: &mut redis::aio::Connection,
-    key: &str,
-    stream_id: &StreamId,
-) {
-    let _: () = conn.set(key, stream_id.to_string()).await.unwrap();
-}
 
 pub(crate) async fn loop_until_key_value_set(
     conn: &mut redis::aio::Connection,
@@ -157,7 +150,7 @@ impl CeramicModelInstanceTestUser {
                 Self::generate_list_models(user, &config.admin_cli, &config.redis_cli, true, None)
                     .await?
             }
-            super::ReuseType::Shared => {
+            ReuseType::Shared => {
                 let (small, large) = Self::generate_list_models(
                     user,
                     &config.admin_cli,
@@ -167,11 +160,10 @@ impl CeramicModelInstanceTestUser {
                 )
                 .await?;
                 // js ceramic subscribes to the meta model, so we'll get all models created synced to us. we just need to make sure they sync before starting
-                Self::ensure_model_exists(user, &config.user_cli, &small).await?;
-                Self::ensure_model_exists(user, &config.user_cli, &large).await?;
+                Self::ensure_models_exist(user, &config.user_cli, &[&small, &large]).await?;
                 (small, large)
             }
-            crate::scenario::ceramic::ReuseType::PerNode => {
+            ReuseType::PerNode => {
                 // we need to adjust the redis key when we want to avoid overwriting the same key from different nodes. usually we want to share (empty),
                 // but in this case we want to only share for a single worker (all users)
                 Self::generate_list_models(
@@ -209,7 +201,7 @@ impl CeramicModelInstanceTestUser {
             .params
             .model_instance_reuse
         {
-            super::ReuseType::PerUser => {
+            ReuseType::PerUser => {
                 Self::generate_mids(
                     user,
                     &config.user_cli,
@@ -222,7 +214,7 @@ impl CeramicModelInstanceTestUser {
                 )
                 .await?
             }
-            super::ReuseType::PerNode => {
+            ReuseType::PerNode => {
                 Self::generate_mids(
                     user,
                     &config.user_cli,
@@ -235,7 +227,7 @@ impl CeramicModelInstanceTestUser {
                 )
                 .await?
             }
-            super::ReuseType::Shared => {
+            ReuseType::Shared => {
                 if config.params.number_of_documents != 1 {
                     warn!("Shared model instance reuse only supports 1 document per model currently. Only using the first document for each model.");
                 }
@@ -253,6 +245,14 @@ impl CeramicModelInstanceTestUser {
             }
         };
 
+        if config.params.subscribe_to_all_models {
+            let mut conn = config.redis_cli.get_async_connection().await.unwrap();
+            let all_models: HashSet<String> = conn.smembers(MODEL_DISCOVERY_KEY).await.unwrap();
+            for model in all_models {
+                let model_id = StreamId::from_str(&model).unwrap();
+                Self::subscribe_to_model(user, &model_id).await?;
+            }
+        }
         let resp = Self {
             config,
             user_info: GooseUserInfo {
@@ -324,8 +324,25 @@ impl CeramicModelInstanceTestUser {
             let large_model_id =
                 ModelInstanceRequests::setup_model(user, admin_cli, large_model, "large").await?;
 
-            let _ = set_key_to_stream_id(&mut conn, &small_key, &small_model_id).await;
-            let _ = set_key_to_stream_id(&mut conn, &large_key, &large_model_id).await;
+            let _: () = conn
+                .set(&small_key, small_model_id.to_string())
+                .await
+                .unwrap();
+            let _: () = conn
+                .set(&large_key, large_model_id.to_string())
+                .await
+                .unwrap();
+
+            // all models created will be in this set so we can retrieve and subscribe to them later on all nodes
+            // for certain scenarios we need to know the specific type so we put those in their own key for now
+            let _: () = conn
+                .sadd(MODEL_DISCOVERY_KEY, small_model_id.to_string())
+                .await
+                .unwrap();
+            let _: () = conn
+                .sadd(MODEL_DISCOVERY_KEY, large_model_id.to_string())
+                .await
+                .unwrap();
 
             Ok((small_model_id, large_model_id))
         } else {
@@ -351,41 +368,52 @@ impl CeramicModelInstanceTestUser {
         Ok(())
     }
 
-    async fn ensure_model_exists(
+    async fn ensure_models_exist(
         user: &mut GooseUser,
         cli: &CeramicClient,
-        model_id: &StreamId,
+        model_ids: &[&StreamId],
     ) -> anyhow::Result<()> {
         let now = std::time::SystemTime::now();
-        loop {
-            match ModelInstanceRequests::get_stream_int(
-                user,
-                cli,
-                model_id,
-                "ensure_model_exists",
-                false,
-            )
-            .await
-            {
-                Ok((r, _)) => {
-                    info!("got response: {:?}", r);
-                    if r.resolve("ensure_model_exists").is_ok() {
-                        info!(
-                            "model {} exists after {} seconds",
-                            model_id,
-                            now.elapsed().unwrap().as_secs()
-                        );
-                        break;
+        let required = model_ids.len();
+        let mut found = HashSet::new();
+        'outer: loop {
+            for model_id in model_ids {
+                if found.len() >= required {
+                    break 'outer;
+                }
+                if found.contains(&model_id.to_string()) {
+                    continue;
+                }
+                match ModelInstanceRequests::get_stream_int(
+                    user,
+                    cli,
+                    model_id,
+                    "ensure_model_exists",
+                    false,
+                )
+                .await
+                {
+                    Ok((r, _)) => {
+                        info!("got response: {:?}", r);
+                        if r.resolve("ensure_model_exists").is_ok() {
+                            info!(
+                                "model {} exists after {} seconds",
+                                model_id,
+                                now.elapsed().unwrap().as_secs()
+                            );
+                            found.insert(model_id.to_string());
+                            continue;
+                        }
+                    }
+                    Err(e) => {
+                        info!("failed to get model: {:?}", e);
                     }
                 }
-                Err(e) => {
-                    info!("failed to get model: {:?}", e);
+                if now.elapsed().unwrap() > Duration::from_secs(60) {
+                    anyhow::bail!("timed out waiting for model to exist: {}", model_id);
                 }
+                tokio::time::sleep(Duration::from_millis(100)).await;
             }
-            if now.elapsed().unwrap() > Duration::from_secs(60) {
-                anyhow::bail!("timed out waiting for model to exist: {}", model_id);
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
         }
         Ok(())
     }
@@ -445,10 +473,14 @@ impl CeramicModelInstanceTestUser {
                 .await?;
                 // we only support one shared ID for now, so just add the first one we create
                 if i == 0 {
-                    let _ =
-                        set_key_to_stream_id(&mut conn, &small_key, &small_model_instance_id).await;
-                    let _ =
-                        set_key_to_stream_id(&mut conn, &large_key, &large_model_instance_id).await;
+                    let _: () = conn
+                        .set(&small_key, small_model_instance_id.to_string())
+                        .await
+                        .unwrap();
+                    let _: () = conn
+                        .set(&large_key, large_model_instance_id.to_string())
+                        .await
+                        .unwrap();
                 }
                 small_model_instance_ids.push(small_model_instance_id);
                 large_model_instance_ids.push(large_model_instance_id);

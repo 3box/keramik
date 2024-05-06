@@ -1,4 +1,4 @@
-use crate::scenario::ceramic::model_instance::{loop_until_key_value_set, set_key_to_stream_id};
+use crate::scenario::ceramic::model_instance::loop_until_key_value_set;
 use crate::scenario::{
     get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
 };
@@ -9,6 +9,7 @@ use libipld::cid;
 use multihash::{Code, MultihashDigest};
 use rand::rngs::ThreadRng;
 use rand::Rng;
+use redis::AsyncCommands;
 use std::sync::atomic::AtomicU64;
 use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument};
@@ -82,9 +83,8 @@ async fn setup(
             r#type: StreamIdType::Model,
             cid: random_cid(),
         };
-        set_key_to_stream_id(&mut conn, MODEL_ID_KEY, &model_id).await;
-
         // TODO: set a real model
+        let _: () = conn.set(MODEL_ID_KEY, model_id.to_string()).await.unwrap();
 
         model_id
     } else {

@@ -116,15 +116,21 @@ pub enum ReuseType {
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 #[serde(rename_all = "camelCase")]
 pub struct CeramicScenarioParameters {
+    /// What type of DID signing to use. `UserDidKey` cannot be combined with `model_instance_reuse: Shared`
     pub did_type: DidType,
     /// Whether models should be shared or independent
     pub model_reuse: ReuseType,
-    /// How many model instance documents to create in advance for each model.
+    /// Whether MIDs should be shared (and updated simultaneously) or independent
     pub model_instance_reuse: ReuseType,
+    /// How many model instance documents to create in advance for each model
     pub number_of_documents: usize,
 
-    // If the modelInstanceDocuments should be stored in redis
+    // If the MIDs should be stored in redis to use for later validation
     pub store_mids: bool,
+
+    /// Whether to subscribe to all models created by the scenario on all nodes. This will increase sync load,
+    /// particularly for scenarios like `CeramicNewStreams` where many MIDs are created on different nodes.
+    pub subscribe_to_all_models: bool,
 }
 
 impl From<Scenario> for CeramicScenarioParameters {
@@ -138,6 +144,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
                 store_mids: false,
+                subscribe_to_all_models: true,
             },
             Scenario::CeramicModelReuse => Self {
                 did_type: DidType::UserDidKey,
@@ -145,6 +152,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
                 store_mids: false,
+                subscribe_to_all_models: true,
             },
             Scenario::CeramicWriteOnly => Self {
                 did_type: DidType::UserDidKey,
@@ -152,6 +160,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 1,
                 store_mids: false,
+                subscribe_to_all_models: true,
             },
             Scenario::CeramicNewStreams => Self {
                 did_type: DidType::UserDidKey,
@@ -159,6 +168,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 0,
                 store_mids: false,
+                subscribe_to_all_models: true,
             },
             Scenario::ReconEventSync | Scenario::CeramicNewStreamsBenchmark => Self {
                 did_type: DidType::UserDidKey,
@@ -166,6 +176,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 0,
                 store_mids: false,
+                subscribe_to_all_models: true,
             },
             Scenario::CeramicQuery => Self {
                 did_type: DidType::Shared,
@@ -173,6 +184,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 3,
                 store_mids: false,
+                subscribe_to_all_models: true,
             },
             Scenario::IpfsRpc | Scenario::CASBenchmark => {
                 panic!("Not supported for non ceramic scenarios")
@@ -183,6 +195,7 @@ impl From<Scenario> for CeramicScenarioParameters {
                 model_instance_reuse: ReuseType::PerUser,
                 number_of_documents: 0,
                 store_mids: true,
+                subscribe_to_all_models: true,
             },
         }
     }

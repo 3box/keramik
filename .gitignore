@@ -9,6 +9,10 @@ target/
 *.idea
 __pycache__
 
-# allow a sample network in the repo
+# allow a sample network and grafana scripts in the repo
 !local-scripts/small.yaml
 !local-scripts/kind.yaml
+!local-scripts/grafana-local/*.yaml
+
+# my testing do not commit
+results/

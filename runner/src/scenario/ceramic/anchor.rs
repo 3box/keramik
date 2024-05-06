@@ -123,6 +123,57 @@ pub async fn create_anchor_request_on_cas(
     Ok(())
 }
 
+pub async fn create_anchor_request_on_cas_direct(
+    conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,
+) -> anyhow::Result<()> {
+    let cas_service_url = std::env::var("CAS_SERVICE_URL")
+        .unwrap_or_else(|_| "https://cas-dev-direct.3boxlabs.com".to_string());
+    let node_controller = std::env::var("node_controller")
+        .unwrap_or_else(|_| "did:key:z6Mkh3pajt5brscshuDrCCber9nC9Ujpi7EcECveKtJPMEPo".to_string());
+    let (stream_id, genesis_cid, genesis_block) = create_stream(StreamIdType::Tile).unwrap();
+    let (root_cid, car_bytes) = stream_tip_car(
+        stream_id.clone(),
+        genesis_cid,
+        genesis_block.clone(),
+        genesis_cid,
+        genesis_block,
+    )
+    .await
+    .unwrap();
+    let auth_header = auth_header(cas_service_url.clone(), node_controller.clone(), root_cid)
+        .await
+        .unwrap();
+    let cas_create_request_url = cas_service_url.clone() + "/api/v0/requests";
+    let client = reqwest::Client::new();
+    let response = client.post(&cas_create_request_url)
+        .header("Authorization", auth_header)
+        .header("Content-Type", "application/vnd.ipld.car")
+        .body(car_bytes)
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        let mut conn_lock = conn.lock().await;
+        let _: () = conn_lock
+            .sadd("anchor_requests", stream_id.to_string())
+            .await
+            .unwrap();
+        let _: () = conn_lock
+            .sadd("anchor_requests_commits", genesis_cid.to_string())
+            .await
+            .unwrap();
+    } else {
+        return Err(anyhow::Error::new(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "Failed to create anchor request",
+        )));
+    }
+
+    Ok(())
+    
+
+}
+
 pub async fn fetch_anchor_request_status(
     user: &mut GooseUser,
     conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,

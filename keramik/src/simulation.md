@@ -8,7 +8,7 @@ To run a simulation, first define a simulation. Available simulation types are
 - `ceramic-new-streams` - A simulation that only creates new streams.
 - `ceramic-model-reuse` - A simulation that reuses the same model and queries instances across workers.
 - `recon-event-sync` - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any.
-- `data-feed-benchmark` - A simulation that is a WIP.
+- `data-feed-benchmark` - A simulation that creates new streams events and verify feed rate of processing them.
 
 Using one of these scenarios, we can then define the configuration for that scenario:
 

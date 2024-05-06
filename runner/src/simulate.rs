@@ -202,7 +202,7 @@ impl Scenario {
             | Self::CeramicNewStreamsBenchmark
             | Self::CeramicQuery
             | Self::CASBenchmark
-            | Self::DataFeedBenchmark //TODO check if something else needs to be done here
+            | Self::DataFeedBenchmark
             | Self::CeramicModelReuse => Ok(peer
                 .ceramic_addr()
                 .ok_or_else(|| {
@@ -440,7 +440,7 @@ impl ScenarioState {
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
             Scenario::CASBenchmark => ceramic::anchor::cas_benchmark().await?,
-            Scenario::DataFeedBenchmark => ceramic::data_feed::data_feed_benchmark().await?,// TODO
+            Scenario::DataFeedBenchmark => ceramic::data_feed::data_feed_benchmark().await?,
         };
         self.collect_before_metrics().await?;
         Ok(scenario)

@@ -638,6 +638,7 @@ impl ScenarioState {
             }
             Scenario::DataFeedBenchmark => {
                 //TODO
+                (CommandResult::Success, None)
             }
         }
     }

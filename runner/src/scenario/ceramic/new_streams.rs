@@ -203,7 +203,7 @@ pub async fn benchmark_scenario(
         .register_transaction(after_metrics))
 }
 
-async fn instantiate_small_model(
+pub(crate) async fn instantiate_small_model(
     user: &mut GooseUser,
     store_in_redis: bool,
     conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,

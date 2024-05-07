@@ -6,6 +6,7 @@ pub mod query;
 pub mod simple;
 pub mod util;
 pub mod write_only;
+pub mod data_feed;
 
 use ceramic_core::ssi::did::{DIDMethod, DocumentBuilder, Source};
 use ceramic_core::ssi::jwk::{self, Base64urlUInt, Params, JWK};
@@ -177,7 +178,7 @@ impl From<Scenario> for CeramicScenarioParameters {
             Scenario::IpfsRpc | Scenario::CASBenchmark => {
                 panic!("Not supported for non ceramic scenarios")
             }
-            Scenario::CeramicAnchoringBenchmark => Self {
+            Scenario::CeramicAnchoringBenchmark | Scenario::DataFeedBenchmark => Self {
                 did_type: DidType::UserDidKey,
                 model_reuse: ReuseType::Shared,
                 model_instance_reuse: ReuseType::PerUser,

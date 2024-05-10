@@ -47,10 +47,10 @@ impl IpfsRpcClient for HttpRpcClient {
             addresses: Vec<String>,
         }
         let data: Response = resp.json().await?;
-
-        let p2p_proto = Protocol::P2p(Multihash::from_bytes(
-            &multibase::Base::Base58Btc.decode(data.id.clone())?,
-        )?);
+        let hash = Multihash::from_bytes(&multibase::Base::Base58Btc.decode(data.id.clone())?)?;
+        let peer_id = libp2p_identity::PeerId::from_multihash(hash)
+            .map_err(|e| anyhow!("failed to build multiash: {:?}", e))?;
+        let p2p_proto = Protocol::P2p(peer_id);
         // We expect to find at least one non loop back address
         let p2p_addrs = data
             .addresses

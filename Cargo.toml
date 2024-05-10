@@ -13,9 +13,11 @@ env_logger = "0.10.0"
 expect-patch = { path = "./expect-patch/" }
 hex = "0.4.3"
 keramik-common = { path = "./common/", default-features = false }
-multiaddr = "0.17"
+multiaddr = "0.18"
 multibase = "0.9.1"
-multihash = "0.18"
+multihash = { version = "0.19" }
+multihash-codetable = { version = "0.1", features = ["sha2", "sha3"] }
+# multihash-derive = { version = "0.9" }
 opentelemetry = { version = "0.21", features = ["metrics", "trace"] }
 opentelemetry-otlp = { version = "0.14", features = [
     "metrics",

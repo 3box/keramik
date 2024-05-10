@@ -17,13 +17,17 @@ did-method-key = "0.2"
 goose = { version = "0.16", features = ["gaggle"] }
 hex.workspace = true
 keramik-common = { workspace = true, features = ["telemetry", "tokio-console"] }
-libipld = { version = "0.16.0", features = ["serde-codec"] }
+ipld-core = "0.4"
+ipld-dagpb = "0.2"
 multihash.workspace = true
+multihash-codetable.workspace = true
 opentelemetry.workspace = true
 rand = "0.8.5"
 redis = { version = "0.24", features = ["tokio-comp"] }
 reqwest.workspace = true
 serde = { version = "1.0", features = ["derive"] } 
+serde_ipld_dagcbor = "0.6"
+serde_ipld_dagjson = "0.2"
 schemars.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
@@ -34,6 +38,8 @@ base64 = "0.21.5"
 uuid = { version = "1.6.1", features = ["v4"] }
 chrono = "0.4.31"
 ed25519-dalek = "2.1"
+
+unsigned-varint = "0.8" # temporary until we can use our http client updated for new c1
 
 [dev-dependencies]
 test-log = "0.2"

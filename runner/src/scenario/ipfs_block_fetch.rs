@@ -1,12 +1,14 @@
-use anyhow::Result;
-use ceramic_core::Cid;
-use goose::prelude::*;
-use libipld::prelude::Codec;
-use libipld::{ipld, json::DagJsonCodec};
-use multihash::{Code, MultihashDigest};
 use std::{sync::Arc, time::Duration};
 
+use anyhow::Result;
+use ceramic_core::{Cid, DagCborEncoded};
+use goose::prelude::*;
+use ipld_core::ipld;
+use multihash_codetable::{Code, MultihashDigest};
+
 use crate::simulate::Topology;
+
+use super::ceramic::util::DAG_CBOR_CODEC;
 
 pub fn scenario(topo: Topology) -> Result<Scenario> {
     let put: Transaction = Transaction::new(Arc::new(move |user| {
@@ -40,22 +42,22 @@ fn global_user_id(user: usize, topo: Topology) -> u64 {
 }
 
 /// Produce DAG-JSON IPLD node that contains determisiticly unique data for the user.
-fn user_data(local_user: usize, topo: Topology) -> (Cid, Vec<u8>) {
+fn user_data(local_user: usize, topo: Topology) -> (Cid, DagCborEncoded) {
     let id = global_user_id(local_user, topo);
     let data = ipld!({
         "user": id,
         "nonce": topo.nonce,
     });
 
-    let bytes = DagJsonCodec.encode(&data).unwrap();
-
-    let hash = Code::Sha2_256.digest(bytes.as_slice());
-    (Cid::new_v1(DagJsonCodec.into(), hash), bytes)
+    let bytes = DagCborEncoded::new(&data).unwrap();
+    let cid = Cid::new_v1(DAG_CBOR_CODEC, Code::Sha2_256.digest(bytes.as_ref()));
+    (cid, bytes)
 }
 
 // Generate determisitic random data and put it into IPFS
 async fn put(topo: Topology, user: &mut GooseUser) -> TransactionResult {
     let (cid, data) = user_data(user.weighted_users_index, topo);
+    let data = data.as_ref().to_vec();
     println!(
         "put id: {} user: {} nonce: {} cid: {}",
         topo.target_worker, user.weighted_users_index, topo.nonce, cid,
@@ -118,6 +120,7 @@ async fn get(mut topo: Topology, user: &mut GooseUser) -> TransactionResult {
 // Check that all written data is accounted for.
 async fn check(topo: Topology, user: &mut GooseUser) -> TransactionResult {
     let (cid, data) = user_data(user.weighted_users_index, topo);
+    let data = data.as_ref().to_vec();
     println!(
         "stop id: {} user: {} cid: {}",
         topo.target_worker, user.weighted_users_index, cid,

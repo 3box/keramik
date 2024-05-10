@@ -3,12 +3,12 @@ use crate::scenario::{
     get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
 };
 use ceramic_core::{Cid, EventId};
-use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
+use ceramic_http_client::ceramic_event::StreamId;
 use goose::prelude::*;
-use libipld::cid;
-use multihash::{Code, MultihashDigest};
+use multihash_codetable::{Code, MultihashDigest};
 use rand::rngs::ThreadRng;
 use rand::Rng;
+use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::{sync::Arc, time::Duration};
 use tracing::{info, instrument};
@@ -75,13 +75,14 @@ async fn setup(
 ) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
     let first = is_goose_global_leader(is_goose_lead_user());
+
     let model_id = if first {
         info!("creating model for event ID sync test");
         // We only need a model ID we do not need it to be a real model.
-        let model_id = StreamId {
-            r#type: StreamIdType::Model,
-            cid: random_cid(),
-        };
+        // CID version mismatch between c1 versions so we just hard code one
+        let model_id =
+            StreamId::from_str("kjzl6kcym7w8y7nzgytqayf6aro12zt0mm01n6ydjomyvvklcspx9kr6gpbwd09")
+                .unwrap();
         set_key_to_stream_id(&mut conn, MODEL_ID_KEY, &model_id).await;
 
         // TODO: set a real model
@@ -153,7 +154,7 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
     }
 }
 
-fn random_cid() -> cid::Cid {
+fn random_cid() -> Cid {
     let mut data = [0u8; 8];
     rand::Rng::fill(&mut rand::thread_rng(), &mut data);
     let hash = Code::Sha2_256.digest(data.as_slice());
@@ -169,10 +170,9 @@ fn random_event_id(sort_value: &str) -> ceramic_core::EventId {
     EventId::new(
         &ceramic_core::Network::Local(0),
         SORT_KEY,
-        sort_value,
+        sort_value.as_bytes(),
         TEST_CONTROLLER,
         &cid,
-        0,
         &cid,
     )
 }
@@ -182,7 +182,7 @@ fn random_block() -> (Cid, Vec<u8>) {
     TOTAL_BYTES_GENERATED.fetch_add(1000, std::sync::atomic::Ordering::Relaxed);
     let unique: [u8; 1000] = gen_rand_bytes(&mut rng);
 
-    let hash = ::multihash::MultihashDigest::digest(&::multihash::Code::Sha2_256, &unique);
+    let hash = MultihashDigest::digest(&multihash_codetable::Code::Sha2_256, &unique);
     (Cid::new_v1(0x00, hash), unique.to_vec())
 }
 

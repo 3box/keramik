@@ -21,3 +21,5 @@ macro_rules! goose_try {
         }
     };
 }
+
+pub(crate) const DAG_CBOR_CODEC: u64 = 0x71;

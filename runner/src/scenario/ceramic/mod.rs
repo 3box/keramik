@@ -7,9 +7,9 @@ pub mod simple;
 pub mod util;
 pub mod write_only;
 
-use ceramic_core::ssi::did::{DIDMethod, DocumentBuilder, Source};
+use ceramic_core::ssi::did::{DIDMethod, Document, DocumentBuilder, Source};
 use ceramic_core::ssi::jwk::{self, Base64urlUInt, Params, JWK};
-use ceramic_http_client::ceramic_event::{DidDocument, JwkSigner};
+use ceramic_http_client::ceramic_event::JwkSigner;
 use ceramic_http_client::CeramicHttpClient;
 
 use models::RandomModelInstance;
@@ -22,12 +22,12 @@ pub type CeramicClient = CeramicHttpClient<JwkSigner>;
 #[derive(Clone)]
 pub struct Credentials {
     pub signer: JwkSigner,
-    pub did: DidDocument,
+    pub did: Document,
 }
 
 impl Credentials {
     pub async fn from_env() -> Result<Self, anyhow::Error> {
-        let did = DidDocument::new(&std::env::var("DID_KEY").expect("DID_KEY is required"));
+        let did = Document::new(&std::env::var("DID_KEY").expect("DID_KEY is required"));
         let private_key = std::env::var("DID_PRIVATE_KEY").expect("DID_PRIVATE_KEY is required");
         let signer = JwkSigner::new(did.clone(), &private_key).await?;
         Ok(Self { signer, did })
@@ -60,12 +60,12 @@ impl Credentials {
         Ok(Self { signer, did })
     }
 
-    fn generate_did_for_jwk(key: &JWK) -> anyhow::Result<DidDocument> {
+    fn generate_did_for_jwk(key: &JWK) -> anyhow::Result<Document> {
         let did = did_method_key::DIDKey
             .generate(&Source::Key(key))
             .ok_or_else(|| anyhow::anyhow!("Failed to generate DID"))?;
 
-        let doc: DidDocument = DocumentBuilder::default()
+        let doc = DocumentBuilder::default()
             .id(did)
             .build()
             .map_err(|e| anyhow::anyhow!("failed to build DID document: {}", e))?;
@@ -74,7 +74,7 @@ impl Credentials {
     }
 
     /// Returns (Private Key, DID Document)
-    fn generate_did_and_pk() -> anyhow::Result<(String, DidDocument)> {
+    fn generate_did_and_pk() -> anyhow::Result<(String, Document)> {
         let key = jwk::JWK::generate_ed25519()?;
         let private_key = if let Params::OKP(params) = &key.params {
             let pk = params

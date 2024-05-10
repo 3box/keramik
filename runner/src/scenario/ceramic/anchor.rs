@@ -1,7 +1,4 @@
-use std::io::Write;
-
 use anyhow::Result;
-use base64::{engine::general_purpose, Engine};
 use ceramic_core::{Cid, DagCborEncoded};
 use ceramic_http_client::ceramic_event::{DidDocument, JwkSigner, Jws, StreamId};
 use chrono::Utc;
@@ -9,17 +6,14 @@ use goose::prelude::*;
 use ipld_core::ipld;
 use iroh_car::{CarHeader, CarWriter};
 use multihash_codetable::{Code, MultihashDigest};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
+
 use redis::{aio::MultiplexedConnection, AsyncCommands};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tokio::sync::Mutex;
-use unsigned_varint::encode;
 use uuid::Uuid;
 
-use crate::scenario::get_redis_client;
-
-use super::util::DAG_CBOR_CODEC;
+use crate::scenario::{get_redis_client, util::DAG_CBOR_CODEC};
 
 #[derive(Serialize, Deserialize)]
 struct CasAuthPayload {
@@ -84,7 +78,7 @@ pub async fn create_anchor_request_on_cas(
         .unwrap_or_else(|_| "https://cas-dev.3boxlabs.com".to_string());
     let node_controller = std::env::var("node_controller")
         .unwrap_or_else(|_| "did:key:z6Mkh3pajt5brscshuDrCCber9nC9Ujpi7EcECveKtJPMEPo".to_string());
-    let (stream_id, genesis_cid, genesis_block) = create_stream().unwrap();
+    let (stream_id, genesis_cid, genesis_block) = crate::scenario::util::create_stream().unwrap();
 
     let (root_cid, car_bytes) = stream_tip_car(
         stream_id.clone(),
@@ -134,47 +128,4 @@ pub async fn cas_benchmark() -> Result<Scenario, GooseError> {
     .set_name("create_anchor_request");
 
     Ok(scenario!("CeramicCasBenchmark").register_transaction(create_anchor_request))
-}
-
-/// Create a new Ceramic stream
-pub fn create_stream() -> Result<(StreamId, Cid, DagCborEncoded)> {
-    let controller: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(32)
-        .map(char::from)
-        .collect();
-
-    let genesis_commit = ipld!({
-        "header": {
-            "unique": stream_unique_header(),
-            "controllers": [controller]
-        }
-    });
-
-    let bytes = DagCborEncoded::new(&genesis_commit)?;
-    let cid = Cid::new_v1(DAG_CBOR_CODEC, Code::Sha2_256.digest(bytes.as_ref()));
-
-    let stream_id = write_stream_bytes(&cid)?;
-    let stream_id = StreamId::try_from(stream_id.as_slice())?;
-    Ok((stream_id, cid, bytes))
-}
-
-fn stream_unique_header() -> String {
-    let mut data = [0u8; 8];
-    thread_rng().fill(&mut data);
-    general_purpose::STANDARD.encode(data)
-}
-
-const STREAMID_CODEC: u64 = 206;
-
-pub fn write_stream_bytes(cid: &Cid) -> anyhow::Result<Vec<u8>> {
-    let mut writer = std::io::BufWriter::new(Vec::new());
-    let mut buf = encode::u64_buffer();
-    let v = encode::u64(STREAMID_CODEC, &mut buf);
-    writer.write_all(v)?;
-    let v = encode::u64(3, &mut buf); // Model instance doc
-    writer.write_all(v)?;
-    cid.write_bytes(&mut writer)?;
-    writer.flush()?;
-    Ok(writer.into_inner()?)
 }

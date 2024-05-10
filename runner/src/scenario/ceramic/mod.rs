@@ -4,7 +4,6 @@ mod models;
 pub mod new_streams;
 pub mod query;
 pub mod simple;
-pub mod util;
 pub mod write_only;
 
 use ceramic_core::ssi::did::{DIDMethod, Document, DocumentBuilder, Source};

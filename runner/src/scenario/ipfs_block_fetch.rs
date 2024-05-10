@@ -8,7 +8,7 @@ use multihash_codetable::{Code, MultihashDigest};
 
 use crate::simulate::Topology;
 
-use super::ceramic::util::DAG_CBOR_CODEC;
+use super::util::DAG_CBOR_CODEC;
 
 pub fn scenario(topo: Topology) -> Result<Scenario> {
     let put: Transaction = Transaction::new(Arc::new(move |user| {

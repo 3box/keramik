@@ -19,6 +19,7 @@ FROM debian:bookworm-slim as exec
 
 RUN apt-get update && apt-get install -y \
     openssl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 FROM exec as runner

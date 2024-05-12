@@ -19,10 +19,12 @@ FROM debian:bookworm-slim as exec
 
 RUN apt-get update && apt-get install -y \
     openssl \
+    ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 FROM exec as runner
 
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=builder /home/builder/keramik/keramik-runner /usr/bin
 
 ENTRYPOINT ["/usr/bin/keramik-runner"]

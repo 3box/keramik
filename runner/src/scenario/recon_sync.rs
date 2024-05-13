@@ -2,7 +2,7 @@ use std::str::FromStr;
 use std::sync::atomic::AtomicU64;
 use std::{sync::Arc, time::Duration};
 
-use ceramic_http_client::ceramic_event::StreamId;
+use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
 use goose::prelude::*;
 use tracing::{info, instrument};
 
@@ -21,6 +21,11 @@ pub(crate) const CREATE_EVENT_REQ_NAME: &str = "POST create_new_event";
 
 static NEW_EVENT_CNT: AtomicU64 = AtomicU64::new(0);
 static TOTAL_BYTES_GENERATED: AtomicU64 = AtomicU64::new(0);
+
+#[derive(Debug)]
+struct ReconCeramicModelInstanceTestUser {
+    model_id: StreamId,
+}
 
 async fn init_scenario() -> Result<Transaction, GooseError> {
     let redis_cli = get_redis_client().await?;
@@ -69,10 +74,14 @@ async fn setup(user: &mut GooseUser, redis_cli: redis::Client) -> TransactionRes
     let model_id = if first {
         info!("creating model for event ID sync test");
         // We only need a model ID we do not need it to be a real model.
-        // CID version mismatch between c1 versions so we just hard code one
-        let model_id =
-            StreamId::from_str("kjzl6kcym7w8y7nzgytqayf6aro12zt0mm01n6ydjomyvvklcspx9kr6gpbwd09")
-                .unwrap();
+        // CID version mismatch between http/c1 versions right now
+        let cid = random_cid().unwrap();
+        // could hard code an ID if we wanted the test to be different
+        let model_id = StreamId {
+            r#type: StreamIdType::Model,
+            cid,
+        };
+
         set_key_to_stream_id(&mut conn, MODEL_ID_KEY, &model_id).await;
 
         // TODO: set a real model
@@ -82,10 +91,11 @@ async fn setup(user: &mut GooseUser, redis_cli: redis::Client) -> TransactionRes
         loop_until_key_value_set(&mut conn, MODEL_ID_KEY).await
     };
 
-    tracing::debug!(%model_id, "syncing model");
+    tracing::info!(%model_id, "syncing model");
 
     let path = format!("/ceramic/interests/model/{}", model_id);
-
+    let user_data = ReconCeramicModelInstanceTestUser { model_id };
+    user.set_session_data(user_data);
     let request_builder = user
         .get_request_builder(&GooseMethod::Post, &path)?
         .timeout(Duration::from_secs(5));
@@ -107,12 +117,12 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         tokio::time::sleep(Duration::from_millis(500)).await;
         Ok(())
     } else {
-        let model_id =
-            StreamId::from_str("kjzl6kcym7w8y7nzgytqayf6aro12zt0mm01n6ydjomyvvklcspx9kr6gpbwd09")
-                .unwrap();
+        let user_data: &ReconCeramicModelInstanceTestUser = user
+            .get_session_data()
+            .expect("we are missing sync_event_id user data");
         let data = random_init_event_car(
             SORT_KEY,
-            model_id.to_vec().unwrap(),
+            user_data.model_id.to_vec().unwrap(),
             Some(TEST_CONTROLLER.to_string()),
         )
         .await
@@ -143,3 +153,15 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
 const SORT_KEY: &str = "model";
 // hard code test controller in case we want to find/prune later
 const TEST_CONTROLLER: &str = "did:key:z6MkoFUppcKEVYTS8oVidrja94UoJTatNhnhxJRKF7NYPScS";
+
+// TODO: delete. mismatch between http and c1 versions currently. in flight updates.
+fn random_cid() -> anyhow::Result<ceramic_http_client::ceramic_event::Cid> {
+    use multihash_codetable::MultihashDigest;
+
+    let mut data = [0u8; 8];
+    rand::Rng::fill(&mut rand::thread_rng(), &mut data);
+    let hash = multihash_codetable::Code::Sha2_256.digest(data.as_slice());
+    let hash = multibase::encode(multibase::Base::Base36Lower, hash.to_bytes());
+    let cid = ceramic_http_client::ceramic_event::Cid::from_str(&hash)?;
+    Ok(cid)
+}

@@ -1,6 +1,5 @@
 use std::io::Write;
 
-use base64::{engine::general_purpose, Engine};
 use ceramic_core::{Cid, DagCborEncoded};
 use goose::GooseError;
 use ipld_core::ipld;
@@ -46,7 +45,7 @@ pub fn create_stream() -> anyhow::Result<(
 
     let genesis_commit = ipld!({
         "header": {
-            "unique": stream_unique_header(),
+            "unique": gen_rand_bytes::<12>().as_slice(),
             "controllers": [controller]
         }
     });
@@ -57,12 +56,6 @@ pub fn create_stream() -> anyhow::Result<(
     let stream_id = write_stream_bytes(&cid)?;
     let stream_id = ceramic_http_client::ceramic_event::StreamId::try_from(stream_id.as_slice())?;
     Ok((stream_id, cid, bytes))
-}
-
-fn stream_unique_header() -> String {
-    let mut data = [0u8; 8];
-    thread_rng().fill(&mut data);
-    general_purpose::STANDARD.encode(data)
 }
 
 const STREAMID_CODEC: u64 = 206;

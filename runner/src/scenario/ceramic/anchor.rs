@@ -1,21 +1,19 @@
 use anyhow::Result;
-use base64::{engine::general_purpose, Engine};
-use ceramic_http_client::ceramic_event::{
-    Cid, DidDocument, JwkSigner, Jws, StreamId, StreamIdType,
-};
+use ceramic_core::{Cid, DagCborEncoded};
+use ceramic_http_client::ceramic_event::{DidDocument, JwkSigner, Jws, StreamId};
 use chrono::Utc;
 use goose::prelude::*;
+use ipld_core::ipld;
 use iroh_car::{CarHeader, CarWriter};
-use libipld::{cbor::DagCborCodec, ipld, prelude::Codec, Ipld, IpldCodec};
-use multihash::{Code::Sha2_256, MultihashDigest};
-use rand::{distributions::Alphanumeric, thread_rng, Rng};
+use multihash_codetable::{Code, MultihashDigest};
+
 use redis::{aio::MultiplexedConnection, AsyncCommands};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 use tokio::sync::Mutex;
 use uuid::Uuid;
 
-use crate::scenario::get_redis_client;
+use crate::scenario::{get_redis_client, util::DAG_CBOR_CODEC};
 
 #[derive(Serialize, Deserialize)]
 struct CasAuthPayload {
@@ -59,8 +57,8 @@ pub async fn stream_tip_car(
         "tip": genesis_cid,
     });
 
-    let ipld_bytes = DagCborCodec.encode(&root_block)?;
-    let root_cid = Cid::new_v1(IpldCodec::DagCbor.into(), Sha2_256.digest(&ipld_bytes));
+    let ipld_bytes = DagCborEncoded::new(&root_block)?;
+    let root_cid = Cid::new_v1(DAG_CBOR_CODEC, Code::Sha2_256.digest(ipld_bytes.as_ref()));
     let car_header = CarHeader::new_v1(vec![root_cid]);
     let mut car_writer = CarWriter::new(car_header, Vec::new());
     car_writer.write(root_cid, ipld_bytes).await.unwrap();
@@ -80,14 +78,14 @@ pub async fn create_anchor_request_on_cas(
         .unwrap_or_else(|_| "https://cas-dev.3boxlabs.com".to_string());
     let node_controller = std::env::var("node_controller")
         .unwrap_or_else(|_| "did:key:z6Mkh3pajt5brscshuDrCCber9nC9Ujpi7EcECveKtJPMEPo".to_string());
-    let (stream_id, genesis_cid, genesis_block) = create_stream(StreamIdType::Tile).unwrap();
+    let (stream_id, genesis_cid, genesis_block) = crate::scenario::util::create_stream().unwrap();
 
     let (root_cid, car_bytes) = stream_tip_car(
         stream_id.clone(),
         genesis_cid,
-        genesis_block.clone(),
+        genesis_block.as_ref().to_vec(),
         genesis_cid,
-        genesis_block,
+        genesis_block.as_ref().to_vec(),
     )
     .await
     .unwrap();
@@ -130,38 +128,4 @@ pub async fn cas_benchmark() -> Result<Scenario, GooseError> {
     .set_name("create_anchor_request");
 
     Ok(scenario!("CeramicCasBenchmark").register_transaction(create_anchor_request))
-}
-
-/// Create a new Ceramic stream
-pub fn create_stream(stream_type: StreamIdType) -> Result<(StreamId, Cid, Vec<u8>)> {
-    let controller: String = thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(32)
-        .map(char::from)
-        .collect();
-
-    let genesis_commit = ipld!({
-        "header": {
-            "unique": stream_unique_header(),
-            "controllers": [controller]
-        }
-    });
-    // Deserialize the genesis commit, encode it as CBOR, and compute the CID.
-    let ipld_map: BTreeMap<String, Ipld> = libipld::serde::from_ipld(genesis_commit)?;
-    let ipld_bytes = DagCborCodec.encode(&ipld_map)?;
-    let genesis_cid = Cid::new_v1(IpldCodec::DagCbor.into(), Sha2_256.digest(&ipld_bytes));
-    Ok((
-        StreamId {
-            r#type: stream_type,
-            cid: genesis_cid,
-        },
-        genesis_cid,
-        ipld_bytes,
-    ))
-}
-
-fn stream_unique_header() -> String {
-    let mut data = [0u8; 8];
-    thread_rng().fill(&mut data);
-    general_purpose::STANDARD.encode(data)
 }

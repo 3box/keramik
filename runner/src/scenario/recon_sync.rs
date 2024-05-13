@@ -1,17 +1,17 @@
+use std::str::FromStr;
+use std::sync::atomic::AtomicU64;
+use std::{sync::Arc, time::Duration};
+
+use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
+use goose::prelude::*;
+use tracing::{info, instrument};
+
 use crate::scenario::ceramic::model_instance::{loop_until_key_value_set, set_key_to_stream_id};
 use crate::scenario::{
     get_redis_client, is_goose_global_leader, is_goose_lead_user, is_goose_lead_worker,
 };
-use ceramic_core::{Cid, EventId};
-use ceramic_http_client::ceramic_event::{StreamId, StreamIdType};
-use goose::prelude::*;
-use libipld::cid;
-use multihash::{Code, MultihashDigest};
-use rand::rngs::ThreadRng;
-use rand::Rng;
-use std::sync::atomic::AtomicU64;
-use std::{sync::Arc, time::Duration};
-use tracing::{info, instrument};
+
+use super::util::random_init_event_car;
 
 const MODEL_ID_KEY: &str = "event_id_sync_model_id";
 pub(crate) const CREATE_EVENT_TX_NAME: &str = "create_new_event";
@@ -22,17 +22,16 @@ pub(crate) const CREATE_EVENT_REQ_NAME: &str = "POST create_new_event";
 static NEW_EVENT_CNT: AtomicU64 = AtomicU64::new(0);
 static TOTAL_BYTES_GENERATED: AtomicU64 = AtomicU64::new(0);
 
-#[derive(Clone)]
+#[derive(Debug)]
 struct ReconCeramicModelInstanceTestUser {
     model_id: StreamId,
-    with_data: bool,
 }
 
-async fn init_scenario(with_data: bool) -> Result<Transaction, GooseError> {
+async fn init_scenario() -> Result<Transaction, GooseError> {
     let redis_cli = get_redis_client().await?;
 
     let test_start = Transaction::new(Arc::new(move |user| {
-        Box::pin(setup(user, redis_cli.clone(), with_data))
+        Box::pin(setup(user, redis_cli.clone()))
     }))
     .set_name("setup")
     .set_on_start();
@@ -54,7 +53,7 @@ async fn log_results(_user: &mut GooseUser) -> TransactionResult {
 }
 
 pub async fn event_sync_scenario() -> Result<Scenario, GooseError> {
-    let test_start = init_scenario(true).await?;
+    let test_start = init_scenario().await?;
     let create_new_event = transaction!(create_new_event).set_name(CREATE_EVENT_TX_NAME);
     let stop = transaction!(log_results)
         .set_name("log_results")
@@ -68,20 +67,21 @@ pub async fn event_sync_scenario() -> Result<Scenario, GooseError> {
 /// One user on one node creates a model.
 /// One user on each node subscribes to the model via Recon
 #[instrument(skip_all, fields(user.index = user.weighted_users_index), ret)]
-async fn setup(
-    user: &mut GooseUser,
-    redis_cli: redis::Client,
-    with_data: bool,
-) -> TransactionResult {
+async fn setup(user: &mut GooseUser, redis_cli: redis::Client) -> TransactionResult {
     let mut conn = redis_cli.get_async_connection().await.unwrap();
     let first = is_goose_global_leader(is_goose_lead_user());
+
     let model_id = if first {
         info!("creating model for event ID sync test");
         // We only need a model ID we do not need it to be a real model.
+        // CID version mismatch between http/c1 versions right now
+        let cid = random_cid().unwrap();
+        // could hard code an ID if we wanted the test to be different
         let model_id = StreamId {
             r#type: StreamIdType::Model,
-            cid: random_cid(),
+            cid,
         };
+
         set_key_to_stream_id(&mut conn, MODEL_ID_KEY, &model_id).await;
 
         // TODO: set a real model
@@ -91,15 +91,11 @@ async fn setup(
         loop_until_key_value_set(&mut conn, MODEL_ID_KEY).await
     };
 
-    tracing::debug!(%model_id, "syncing model");
+    tracing::info!(%model_id, "syncing model");
 
     let path = format!("/ceramic/interests/model/{}", model_id);
-    let user_data = ReconCeramicModelInstanceTestUser {
-        model_id,
-        with_data,
-    };
+    let user_data = ReconCeramicModelInstanceTestUser { model_id };
     user.set_session_data(user_data);
-
     let request_builder = user
         .get_request_builder(&GooseMethod::Post, &path)?
         .timeout(Duration::from_secs(5));
@@ -124,15 +120,16 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         let user_data: &ReconCeramicModelInstanceTestUser = user
             .get_session_data()
             .expect("we are missing sync_event_id user data");
-
+        let data = random_init_event_car(
+            SORT_KEY,
+            user_data.model_id.to_vec().unwrap(),
+            Some(TEST_CONTROLLER.to_string()),
+        )
+        .await
+        .unwrap();
+        let event_key_body = serde_json::json!({"data": data});
         // eventId needs to be a multibase encoded string for the API to accept it
-        let event_id = format!("F{}", random_event_id(&user_data.model_id.to_string()));
-        let event_key_body = if user_data.with_data {
-            let payload = random_car_1kb_body().await;
-            serde_json::json!({"id": event_id, "data": payload})
-        } else {
-            serde_json::json!({"id": event_id})
-        };
+
         let cnt = NEW_EVENT_CNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         if cnt == 0 || cnt % 1000 == 0 {
@@ -153,54 +150,18 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
     }
 }
 
-fn random_cid() -> cid::Cid {
-    let mut data = [0u8; 8];
-    rand::Rng::fill(&mut rand::thread_rng(), &mut data);
-    let hash = Code::Sha2_256.digest(data.as_slice());
-    Cid::new_v1(0x00, hash)
-}
-
 const SORT_KEY: &str = "model";
 // hard code test controller in case we want to find/prune later
 const TEST_CONTROLLER: &str = "did:key:z6MkoFUppcKEVYTS8oVidrja94UoJTatNhnhxJRKF7NYPScS";
 
-fn random_event_id(sort_value: &str) -> ceramic_core::EventId {
-    let cid = random_cid();
-    EventId::new(
-        &ceramic_core::Network::Local(0),
-        SORT_KEY,
-        sort_value,
-        TEST_CONTROLLER,
-        &cid,
-        0,
-        &cid,
-    )
-}
+// TODO: delete. mismatch between http and c1 versions currently. in flight updates.
+fn random_cid() -> anyhow::Result<ceramic_http_client::ceramic_event::Cid> {
+    use multihash_codetable::MultihashDigest;
 
-fn random_block() -> (Cid, Vec<u8>) {
-    let mut rng = rand::thread_rng();
-    TOTAL_BYTES_GENERATED.fetch_add(1000, std::sync::atomic::Ordering::Relaxed);
-    let unique: [u8; 1000] = gen_rand_bytes(&mut rng);
-
-    let hash = ::multihash::MultihashDigest::digest(&::multihash::Code::Sha2_256, &unique);
-    (Cid::new_v1(0x00, hash), unique.to_vec())
-}
-
-async fn random_car_1kb_body() -> String {
-    let mut bytes = Vec::with_capacity(1500);
-    let (cid, block) = random_block();
-    let roots = vec![cid];
-    let mut writer = iroh_car::CarWriter::new(iroh_car::CarHeader::V1(roots.into()), &mut bytes);
-    writer.write(cid, block).await.unwrap();
-    writer.finish().await.unwrap();
-
-    multibase::encode(multibase::Base::Base36Lower, bytes)
-}
-
-fn gen_rand_bytes<const SIZE: usize>(rng: &mut ThreadRng) -> [u8; SIZE] {
-    let mut arr = [0; SIZE];
-    for x in &mut arr {
-        *x = rng.gen_range(0..=255);
-    }
-    arr
+    let mut data = [0u8; 8];
+    rand::Rng::fill(&mut rand::thread_rng(), &mut data);
+    let hash = multihash_codetable::Code::Sha2_256.digest(data.as_slice());
+    let hash = multibase::encode(multibase::Base::Base36Lower, hash.to_bytes());
+    let cid = ceramic_http_client::ceramic_event::Cid::from_str(&hash)?;
+    Ok(cid)
 }

@@ -58,6 +58,7 @@ kube = { version = "0.88", features = [
 multiaddr = { workspace = true, optional = true }
 multibase = { workspace = true, optional = true }
 multihash = { workspace = true, optional = true }
+libp2p-identity = "0.2"
 opentelemetry = { workspace = true, optional = true }
 rand = { version = "0.8.5" }
 reqwest = { workspace = true, optional = true }

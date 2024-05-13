@@ -28,7 +28,7 @@ use crate::{
 
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
-const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_insert_count_total";
+const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_value_insert_count_total";
 const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
 const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
 

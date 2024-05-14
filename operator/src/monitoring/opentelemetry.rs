@@ -22,7 +22,10 @@ use rand::RngCore;
 
 use crate::{
     labels::selector_labels,
-    network::{ipfs_rpc::IpfsRpcClient, resource_limits::ResourceLimitsConfig},
+    network::{
+        controller::DEFAULT_METRICS_PORT, ipfs_rpc::IpfsRpcClient,
+        resource_limits::ResourceLimitsConfig,
+    },
     utils::{
         apply_account, apply_cluster_role, apply_cluster_role_binding, apply_config_map,
         apply_service, apply_stateful_set, Clock, Context,
@@ -97,9 +100,9 @@ fn service_spec() -> ServiceSpec {
             },
             ServicePort {
                 name: Some("all-metrics".to_owned()),
-                port: 9464,
+                port: DEFAULT_METRICS_PORT,
                 protocol: Some("TCP".to_owned()),
-                target_port: Some(IntOrString::Int(9464)),
+                target_port: Some(IntOrString::Int(DEFAULT_METRICS_PORT)),
                 ..Default::default()
             },
             ServicePort {
@@ -178,7 +181,7 @@ fn stateful_set_spec(config: &OtelConfig) -> StatefulSetSpec {
                             ..Default::default()
                         },
                         ContainerPort {
-                            container_port: 9464,
+                            container_port: DEFAULT_METRICS_PORT,
                             name: Some("all-metrics".to_owned()),
                             ..Default::default()
                         },

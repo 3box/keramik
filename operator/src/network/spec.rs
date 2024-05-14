@@ -319,7 +319,7 @@ pub struct PodMetricsEndpointSpec {
     /// Monitoring path
     pub path: Option<String>,
     /// Monitoring port
-    pub target_port: Option<u32>,
+    pub target_port: Option<i32>,
 }
 
 /// Describes the selector for the pod monitor

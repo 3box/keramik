@@ -103,6 +103,10 @@ const CERAMIC_SERVICE_SELECTOR: &str = "ceramic-role=service";
 const CERAMIC_STATEFUL_SET_VALUE: &str = "stateful_set";
 const CERAMIC_STATEFUL_SET_SELECTOR: &str = "ceramic-role=stateful_set";
 
+pub(crate) const DEFAULT_METRICS_PORT: i32 = 9464;
+
+pub(crate) const NODE_INSPECTION_PORT: i32 = 9229;
+
 /// Handle errors during reconciliation.
 fn on_error(
     _network: Arc<Network>,
@@ -290,7 +294,7 @@ async fn reconcile_(
                 cx.clone(),
                 network.clone(),
                 "ceramic",
-                9464,
+                DEFAULT_METRICS_PORT,
                 "ceramic",
                 monitoring_config.pod_monitor.pod_target_labels.clone(),
             )
@@ -308,7 +312,7 @@ async fn reconcile_(
                 cx.clone(),
                 network.clone(),
                 "otel",
-                9464,
+                DEFAULT_METRICS_PORT,
                 "otel",
                 monitoring_config.pod_monitor.pod_target_labels,
             )
@@ -1021,7 +1025,7 @@ async fn apply_pod_monitor(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     network: Arc<Network>,
     monitor_name: &str,
-    monitor_port: u32,
+    monitor_port: i32,
     monitor_selector: &str,
     monitor_labels: Vec<String>,
 ) -> Result<(), Error> {

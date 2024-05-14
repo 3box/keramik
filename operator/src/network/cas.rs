@@ -22,9 +22,9 @@ use crate::{
         ceramic::NetworkConfig,
         controller::{
             CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP,
-            CAS_POSTGRES_SECRET_NAME, CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME, GANACHE_APP,
-            GANACHE_SERVICE_NAME, LOCALSTACK_APP, LOCALSTACK_SERVICE_NAME,
-            NETWORK_DEV_MODE_RESOURCES,
+            CAS_POSTGRES_SECRET_NAME, CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME,
+            DEFAULT_METRICS_PORT, GANACHE_APP, GANACHE_SERVICE_NAME, LOCALSTACK_APP,
+            LOCALSTACK_SERVICE_NAME, NETWORK_DEV_MODE_RESOURCES,
         },
         datadog::DataDogConfig,
         ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
@@ -299,7 +299,7 @@ pub fn cas_stateful_set_spec(
             },
             EnvVar {
                 name: "METRICS_PORT".to_owned(),
-                value: Some("9464".to_owned()),
+                value: Some(DEFAULT_METRICS_PORT.to_string()),
                 ..Default::default()
             },
         ],

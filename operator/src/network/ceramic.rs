@@ -22,8 +22,8 @@ use crate::{
     network::{
         controller::{
             CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_POSTGRES_SECRET_NAME, CERAMIC_SERVICE_API_PORT,
-            CERAMIC_SERVICE_IPFS_PORT, GANACHE_SERVICE_NAME, INIT_CONFIG_MAP_NAME,
-            NETWORK_DEV_MODE_RESOURCES,
+            CERAMIC_SERVICE_IPFS_PORT, DEFAULT_METRICS_PORT, GANACHE_SERVICE_NAME,
+            INIT_CONFIG_MAP_NAME, NETWORK_DEV_MODE_RESOURCES, NODE_INSPECTION_PORT,
         },
         datadog::DataDogConfig,
         ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
@@ -478,7 +478,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
             ..Default::default()
         },
         ContainerPort {
-            container_port: 9464,
+            container_port: DEFAULT_METRICS_PORT,
             name: Some("metrics".to_owned()),
             protocol: Some("TCP".to_owned()),
             ..Default::default()
@@ -486,7 +486,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
     ];
     if bundle.net_config.debug_mode {
         ceramic_ports.push(ContainerPort {
-            container_port: 9229,
+            container_port: NODE_INSPECTION_PORT,
             name: Some("inspect".to_owned()),
             protocol: Some("TCP".to_owned()),
             ..Default::default()

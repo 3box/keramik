@@ -401,6 +401,14 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
         })
     }
 
+    if bundle.net_config.debug_mode {
+        ceramic_env.push(EnvVar {
+            name: "NODE_OPTIONS".to_owned(),
+            value: Some("--inspect".to_owned()),
+            ..Default::default()
+        });
+    }
+
     // Apply env overrides, if specified.
     override_and_sort_env_vars(&mut ceramic_env, &bundle.config.env);
 
@@ -463,6 +471,28 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
 
     volumes.append(&mut bundle.config.ipfs.volumes(&bundle.info));
 
+    let mut ceramic_ports = vec![
+        ContainerPort {
+            container_port: CERAMIC_SERVICE_API_PORT,
+            name: Some("api".to_owned()),
+            ..Default::default()
+        },
+        ContainerPort {
+            container_port: 9464,
+            name: Some("metrics".to_owned()),
+            protocol: Some("TCP".to_owned()),
+            ..Default::default()
+        },
+    ];
+    if bundle.net_config.debug_mode {
+        ceramic_ports.push(ContainerPort {
+            container_port: 9229,
+            name: Some("inspect".to_owned()),
+            protocol: Some("TCP".to_owned()),
+            ..Default::default()
+        });
+    }
+
     StatefulSetSpec {
         pod_management_policy: Some("Parallel".to_owned()),
         replicas: Some(bundle.info.replicas),
@@ -509,19 +539,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                             image: Some(bundle.config.image.clone()),
                             image_pull_policy: Some(bundle.config.image_pull_policy.clone()),
                             name: "ceramic".to_owned(),
-                            ports: Some(vec![
-                                ContainerPort {
-                                    container_port: CERAMIC_SERVICE_API_PORT,
-                                    name: Some("api".to_owned()),
-                                    ..Default::default()
-                                },
-                                ContainerPort {
-                                    container_port: 9464,
-                                    name: Some("metrics".to_owned()),
-                                    protocol: Some("TCP".to_owned()),
-                                    ..Default::default()
-                                },
-                            ]),
+                            ports: Some(ceramic_ports),
                             readiness_probe: Some(Probe {
                                 http_get: Some(HTTPGetAction {
                                     path: Some("/api/v0/node/healthcheck".to_owned()),
@@ -544,7 +562,6 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                                 timeout_seconds: Some(30),
                                 ..Default::default()
                             }),
-
                             resources: Some(ResourceRequirements {
                                 limits: Some(bundle.config.resource_limits.clone().into()),
                                 requests: Some(bundle.config.resource_limits.clone().into()),

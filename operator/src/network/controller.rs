@@ -4345,7 +4345,30 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -148,6 +148,13 @@
+            @@ -82,6 +82,10 @@
+                                 "value": "http://ganache:8545"
+                               },
+                               {
+            +                    "name": "NODE_OPTIONS",
+            +                    "value": "--inspect"
+            +                  },
+            +                  {
+                                 "name": "POSTGRES_DB",
+                                 "value": "ceramic"
+                               },
+            @@ -125,6 +129,11 @@
+                                 "containerPort": 9464,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            +                  },
+            +                  {
+            +                    "containerPort": 9229,
+            +                    "name": "inspect",
+            +                    "protocol": "TCP"
+                               }
+                             ],
+                             "readinessProbe": {
+            @@ -148,6 +157,13 @@
                                  "memory": "1Gi"
                                }
                              },
@@ -4359,7 +4382,7 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/config",
-            @@ -252,6 +259,10 @@
+            @@ -252,6 +268,10 @@
                                  "value": "/ip4/0.0.0.0/tcp/4001"
                                },
                                {
@@ -4370,7 +4393,7 @@ mod tests {
                                  "name": "RUST_LOG",
                                  "value": "info,ceramic_one=debug,multipart=error"
                                }
-            @@ -274,6 +285,11 @@
+            @@ -274,6 +294,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
                                  "protocol": "TCP"
@@ -4382,7 +4405,7 @@ mod tests {
                                }
                              ],
                              "resources": {
-            @@ -288,6 +304,13 @@
+            @@ -288,6 +313,13 @@
                                  "memory": "512Mi"
                                }
                              },
@@ -4396,6 +4419,17 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/data/ipfs",
+            @@ -350,6 +382,10 @@
+                                 "value": "http://ganache:8545"
+                               },
+                               {
+            +                    "name": "NODE_OPTIONS",
+            +                    "value": "--inspect"
+            +                  },
+            +                  {
+                                 "name": "POSTGRES_DB",
+                                 "value": "ceramic"
+                               },
         "#]]);
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original

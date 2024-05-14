@@ -103,6 +103,10 @@ const CERAMIC_SERVICE_SELECTOR: &str = "ceramic-role=service";
 const CERAMIC_STATEFUL_SET_VALUE: &str = "stateful_set";
 const CERAMIC_STATEFUL_SET_SELECTOR: &str = "ceramic-role=stateful_set";
 
+pub(crate) const DEFAULT_METRICS_PORT: i32 = 9464;
+
+pub(crate) const NODE_INSPECTION_PORT: i32 = 9229;
+
 /// Handle errors during reconciliation.
 fn on_error(
     _network: Arc<Network>,
@@ -290,7 +294,7 @@ async fn reconcile_(
                 cx.clone(),
                 network.clone(),
                 "ceramic",
-                9464,
+                DEFAULT_METRICS_PORT,
                 "ceramic",
                 monitoring_config.pod_monitor.pod_target_labels.clone(),
             )
@@ -308,7 +312,7 @@ async fn reconcile_(
                 cx.clone(),
                 network.clone(),
                 "otel",
-                9464,
+                DEFAULT_METRICS_PORT,
                 "otel",
                 monitoring_config.pod_monitor.pod_target_labels,
             )
@@ -1021,7 +1025,7 @@ async fn apply_pod_monitor(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     network: Arc<Network>,
     monitor_name: &str,
-    monitor_port: u32,
+    monitor_port: i32,
     monitor_selector: &str,
     monitor_labels: Vec<String>,
 ) -> Result<(), Error> {
@@ -4345,7 +4349,30 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -148,6 +148,13 @@
+            @@ -82,6 +82,10 @@
+                                 "value": "http://ganache:8545"
+                               },
+                               {
+            +                    "name": "NODE_OPTIONS",
+            +                    "value": "--inspect"
+            +                  },
+            +                  {
+                                 "name": "POSTGRES_DB",
+                                 "value": "ceramic"
+                               },
+            @@ -125,6 +129,11 @@
+                                 "containerPort": 9464,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            +                  },
+            +                  {
+            +                    "containerPort": 9229,
+            +                    "name": "inspect",
+            +                    "protocol": "TCP"
+                               }
+                             ],
+                             "readinessProbe": {
+            @@ -148,6 +157,13 @@
                                  "memory": "1Gi"
                                }
                              },
@@ -4359,7 +4386,7 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/config",
-            @@ -252,6 +259,10 @@
+            @@ -252,6 +268,10 @@
                                  "value": "/ip4/0.0.0.0/tcp/4001"
                                },
                                {
@@ -4370,7 +4397,7 @@ mod tests {
                                  "name": "RUST_LOG",
                                  "value": "info,ceramic_one=debug,multipart=error"
                                }
-            @@ -274,6 +285,11 @@
+            @@ -274,6 +294,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
                                  "protocol": "TCP"
@@ -4382,7 +4409,7 @@ mod tests {
                                }
                              ],
                              "resources": {
-            @@ -288,6 +304,13 @@
+            @@ -288,6 +313,13 @@
                                  "memory": "512Mi"
                                }
                              },
@@ -4396,6 +4423,17 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/data/ipfs",
+            @@ -350,6 +382,10 @@
+                                 "value": "http://ganache:8545"
+                               },
+                               {
+            +                    "name": "NODE_OPTIONS",
+            +                    "value": "--inspect"
+            +                  },
+            +                  {
+                                 "name": "POSTGRES_DB",
+                                 "value": "ceramic"
+                               },
         "#]]);
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original

@@ -2317,6 +2317,25 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
+            @@ -278,14 +240,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "1",
+            +                    "cpu": "250m",
+                                 "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "memory": "512Mi"
+                               },
+                               "requests": {
+            -                    "cpu": "1",
+            +                    "cpu": "250m",
+                                 "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "memory": "512Mi"
+                               }
+                             },
+                             "volumeMounts": [
             @@ -292,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
@@ -2450,17 +2469,17 @@ mod tests {
                              ],
                              "resources": {
                                "limits": {
-            -                    "cpu": "250m",
+            -                    "cpu": "1",
             -                    "ephemeral-storage": "1Gi",
-            -                    "memory": "512Mi"
+            -                    "memory": "1Gi"
             +                    "cpu": "4",
             +                    "ephemeral-storage": "4Gi",
             +                    "memory": "4Gi"
                                },
                                "requests": {
-            -                    "cpu": "250m",
+            -                    "cpu": "1",
             -                    "ephemeral-storage": "1Gi",
-            -                    "memory": "512Mi"
+            -                    "memory": "1Gi"
             +                    "cpu": "4",
             +                    "ephemeral-storage": "4Gi",
             +                    "memory": "4Gi"
@@ -2594,6 +2613,25 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
+            @@ -278,14 +240,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "1",
+            +                    "cpu": "250m",
+                                 "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "memory": "512Mi"
+                               },
+                               "requests": {
+            -                    "cpu": "1",
+            +                    "cpu": "250m",
+                                 "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "memory": "512Mi"
+                               }
+                             },
+                             "volumeMounts": [
             @@ -292,6 +254,16 @@
                                {
                                  "mountPath": "/data/ipfs",
@@ -2718,17 +2756,17 @@ mod tests {
                              ],
                              "resources": {
                                "limits": {
-            -                    "cpu": "250m",
+            -                    "cpu": "1",
             -                    "ephemeral-storage": "1Gi",
-            -                    "memory": "512Mi"
+            -                    "memory": "1Gi"
             +                    "cpu": "4",
             +                    "ephemeral-storage": "4Gi",
             +                    "memory": "4Gi"
                                },
                                "requests": {
-            -                    "cpu": "250m",
+            -                    "cpu": "1",
             -                    "ephemeral-storage": "1Gi",
-            -                    "memory": "512Mi"
+            -                    "memory": "1Gi"
             +                    "cpu": "4",
             +                    "ephemeral-storage": "4Gi",
             +                    "memory": "4Gi"
@@ -2930,17 +2968,17 @@ mod tests {
                              ],
                              "resources": {
                                "limits": {
-            -                    "cpu": "250m",
+            -                    "cpu": "1",
             -                    "ephemeral-storage": "1Gi",
-            -                    "memory": "512Mi"
+            -                    "memory": "1Gi"
             +                    "cpu": "2",
             +                    "ephemeral-storage": "2Gi",
             +                    "memory": "2Gi"
                                },
                                "requests": {
-            -                    "cpu": "250m",
+            -                    "cpu": "1",
             -                    "ephemeral-storage": "1Gi",
-            -                    "memory": "512Mi"
+            -                    "memory": "1Gi"
             +                    "cpu": "2",
             +                    "ephemeral-storage": "2Gi",
             +                    "memory": "2Gi"
@@ -4086,6 +4124,25 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
+            @@ -278,14 +240,14 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "1",
+            +                    "cpu": "250m",
+                                 "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "memory": "512Mi"
+                               },
+                               "requests": {
+            -                    "cpu": "1",
+            +                    "cpu": "250m",
+                                 "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "memory": "512Mi"
+                               }
+                             },
+                             "volumeMounts": [
             @@ -292,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
@@ -4410,7 +4467,7 @@ mod tests {
                              ],
                              "resources": {
             @@ -288,6 +313,13 @@
-                                 "memory": "512Mi"
+                                 "memory": "1Gi"
                                }
                              },
             +                "securityContext": {
@@ -4462,7 +4519,7 @@ mod tests {
                              ],
                              "resources": {
             @@ -105,6 +114,13 @@
-                                 "memory": "512Mi"
+                                 "memory": "1Gi"
                                }
                              },
             +                "securityContext": {

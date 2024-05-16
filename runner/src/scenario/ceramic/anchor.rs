@@ -35,7 +35,8 @@ async fn auth_header(url: String, controller: String, digest: Cid) -> Result<Str
     let signer = JwkSigner::new(DidDocument::new(controller.as_str()), &node_private_key)
         .await
         .unwrap();
-    let auth_jws = Jws::for_data(&signer, &auth_payload).await?;
+    let auth_jws = Jws::builder(&signer).build_for_data(&auth_payload).await?;
+
     let (sig, protected) = auth_jws
         .signatures
         .first()

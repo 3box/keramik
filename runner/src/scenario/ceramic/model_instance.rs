@@ -641,7 +641,7 @@ impl ModelInstanceRequests {
         Ok(resp.stream_id)
     }
 
-    pub async fn create_model_instance<T: serde::Serialize>(
+    pub async fn create_model_instance<T: serde::Serialize + Send + Sync>(
         user: &mut GooseUser,
         cli: &CeramicClient,
         model: &StreamId,

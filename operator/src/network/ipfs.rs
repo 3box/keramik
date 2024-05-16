@@ -119,8 +119,8 @@ impl Default for RustIpfsConfig {
             image: "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest".to_owned(),
             image_pull_policy: "Always".to_owned(),
             resource_limits: ResourceLimitsConfig {
-                cpu: Some(Quantity("250m".to_owned())),
-                memory: Some(Quantity("512Mi".to_owned())),
+                cpu: Some(Quantity("1".to_owned())),
+                memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
             storage_class: None,

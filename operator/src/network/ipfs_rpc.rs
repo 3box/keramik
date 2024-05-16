@@ -1,7 +1,7 @@
 use anyhow::{anyhow, bail, Result};
 use async_trait::async_trait;
 use keramik_common::peer_info::IpfsPeerInfo;
-use multiaddr::{multihash::Multihash, Multiaddr, Protocol};
+use multiaddr::Multiaddr;
 use serde::Deserialize;
 
 /// Define the behavior we consume from the IPFS RPC API.
@@ -47,10 +47,6 @@ impl IpfsRpcClient for HttpRpcClient {
             addresses: Vec<String>,
         }
         let data: Response = resp.json().await?;
-        let hash = Multihash::from_bytes(&multibase::Base::Base58Btc.decode(data.id.clone())?)?;
-        let peer_id = libp2p_identity::PeerId::from_multihash(hash)
-            .map_err(|e| anyhow!("failed to build multiash: {:?}", e))?;
-        let p2p_proto = Protocol::P2p(peer_id);
         // We expect to find at least one non loop back address
         let p2p_addrs = data
             .addresses
@@ -63,11 +59,7 @@ impl IpfsRpcClient for HttpRpcClient {
                     _ => false,
                 })
             })
-            // Add peer id to multiaddrs
-            .map(|mut addr| {
-                addr.push(p2p_proto.clone());
-                addr.to_string()
-            })
+            .map(|addr| addr.to_string())
             .collect::<Vec<String>>();
 
         if !p2p_addrs.is_empty() {

@@ -5,9 +5,8 @@ use k8s_openapi::{
         apps::v1::StatefulSetSpec,
         core::v1::{
             Container, ContainerPort, EnvVar, EnvVarSource, PersistentVolumeClaim,
-            PersistentVolumeClaimSpec, PersistentVolumeClaimVolumeSource, PodSecurityContext,
-            PodSpec, PodTemplateSpec, ResourceRequirements, SecretKeySelector, ServicePort,
-            ServiceSpec, Volume, VolumeMount,
+            PersistentVolumeClaimVolumeSource, PodSecurityContext, PodSpec, PodTemplateSpec,
+            ResourceRequirements, SecretKeySelector, ServicePort, ServiceSpec, Volume, VolumeMount,
         },
     },
     apimachinery::pkg::{
@@ -30,6 +29,7 @@ use crate::{
         ipfs::{IpfsConfig, IpfsInfo, IPFS_DATA_PV_CLAIM},
         node_affinity::NodeAffinityConfig,
         resource_limits::ResourceLimitsConfig,
+        storage::PersistentStorageConfig,
         CasApiSpec, CasSpec,
     },
     utils::override_and_sort_env_vars,
@@ -42,9 +42,13 @@ pub struct CasConfig {
     pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
     pub cas_resource_limits: ResourceLimitsConfig,
+    pub cas_storage: PersistentStorageConfig,
     pub ganache_resource_limits: ResourceLimitsConfig,
+    pub ganache_storage: PersistentStorageConfig,
     pub postgres_resource_limits: ResourceLimitsConfig,
+    pub postgres_storage: PersistentStorageConfig,
     pub localstack_resource_limits: ResourceLimitsConfig,
+    pub localstack_storage: PersistentStorageConfig,
     pub api: CasApiConfig,
 }
 
@@ -86,21 +90,37 @@ impl Default for CasConfig {
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            cas_storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
+            },
             ipfs: Default::default(),
             ganache_resource_limits: ResourceLimitsConfig {
                 cpu: Some(Quantity("250m".to_owned())),
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            ganache_storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
+            },
             postgres_resource_limits: ResourceLimitsConfig {
                 cpu: Some(Quantity("250m".to_owned())),
                 memory: Some(Quantity("512Mi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            postgres_storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
+            },
             localstack_resource_limits: ResourceLimitsConfig {
                 cpu: Some(Quantity("250m".to_owned())),
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
+            },
+            localstack_storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
             },
             api: Default::default(),
         }
@@ -126,18 +146,31 @@ impl From<CasSpec> for CasConfig {
                 value.cas_resource_limits,
                 default.cas_resource_limits,
             ),
+            cas_storage: PersistentStorageConfig::from_spec(value.cas_storage, default.cas_storage),
             ipfs: value.ipfs.map(Into::into).unwrap_or(default.ipfs),
             ganache_resource_limits: ResourceLimitsConfig::from_spec(
                 value.ganache_resource_limits,
                 default.ganache_resource_limits,
             ),
+            ganache_storage: PersistentStorageConfig::from_spec(
+                value.ganache_storage,
+                default.ganache_storage,
+            ),
             postgres_resource_limits: ResourceLimitsConfig::from_spec(
                 value.postgres_resource_limits,
                 default.postgres_resource_limits,
             ),
+            postgres_storage: PersistentStorageConfig::from_spec(
+                value.postgres_storage,
+                default.postgres_storage,
+            ),
             localstack_resource_limits: ResourceLimitsConfig::from_spec(
                 value.localstack_resource_limits,
                 default.localstack_resource_limits,
+            ),
+            localstack_storage: PersistentStorageConfig::from_spec(
+                value.localstack_storage,
+                default.localstack_storage,
             ),
             api: value.api.map(Into::into).unwrap_or(default.api),
         }
@@ -504,17 +537,7 @@ pub fn cas_stateful_set_spec(
                 name: Some("cas-data".to_owned()),
                 ..Default::default()
             },
-            spec: Some(PersistentVolumeClaimSpec {
-                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                resources: Some(ResourceRequirements {
-                    requests: Some(BTreeMap::from_iter(vec![(
-                        "storage".to_owned(),
-                        Quantity("10Gi".to_owned()),
-                    )])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }),
+            spec: Some(config.cas_storage.clone().into()),
             ..Default::default()
         }]),
         ..Default::default()
@@ -582,17 +605,7 @@ pub fn cas_ipfs_stateful_set_spec(
                 name: Some(IPFS_DATA_PV_CLAIM.to_owned()),
                 ..Default::default()
             },
-            spec: Some(PersistentVolumeClaimSpec {
-                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                resources: Some(ResourceRequirements {
-                    requests: Some(BTreeMap::from_iter(vec![(
-                        "storage".to_owned(),
-                        Quantity("10Gi".to_owned()),
-                    )])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }),
+            spec: Some(config.ipfs.storage_config().clone().into()),
             ..Default::default()
         }]),
         ..Default::default()
@@ -676,17 +689,7 @@ pub fn ganache_stateful_set_spec(
                 name: Some("ganache-data".to_owned()),
                 ..Default::default()
             },
-            spec: Some(PersistentVolumeClaimSpec {
-                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                resources: Some(ResourceRequirements {
-                    requests: Some(BTreeMap::from_iter(vec![(
-                        "storage".to_owned(),
-                        Quantity("10Gi".to_owned()),
-                    )])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }),
+            spec: Some(config.ganache_storage.clone().into()),
             ..Default::default()
         }]),
         ..Default::default()
@@ -799,17 +802,7 @@ pub fn postgres_stateful_set_spec(
                 name: Some("postgres-data".to_owned()),
                 ..Default::default()
             },
-            spec: Some(PersistentVolumeClaimSpec {
-                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                resources: Some(ResourceRequirements {
-                    requests: Some(BTreeMap::from_iter(vec![(
-                        "storage".to_owned(),
-                        Quantity("10Gi".to_owned()),
-                    )])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }),
+            spec: Some(config.postgres_storage.clone().into()),
             ..Default::default()
         }]),
         ..Default::default()
@@ -883,17 +876,7 @@ pub fn localstack_stateful_set_spec(
                 name: Some("localstack-data".to_owned()),
                 ..Default::default()
             },
-            spec: Some(PersistentVolumeClaimSpec {
-                access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                resources: Some(ResourceRequirements {
-                    requests: Some(BTreeMap::from_iter(vec![(
-                        "storage".to_owned(),
-                        Quantity("10Gi".to_owned()),
-                    )])),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            }),
+            spec: Some(config.localstack_storage.clone().into()),
             ..Default::default()
         }]),
         ..Default::default()

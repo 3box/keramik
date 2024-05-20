@@ -25,6 +25,8 @@ mod node_affinity;
 pub(crate) mod peers;
 #[cfg(feature = "controller")]
 pub(crate) mod resource_limits;
+#[cfg(feature = "controller")]
+pub(crate) mod storage;
 
 #[cfg(test)]
 #[cfg(feature = "controller")]

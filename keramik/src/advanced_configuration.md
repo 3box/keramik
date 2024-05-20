@@ -70,6 +70,45 @@ and adding the following environment variables to the `spec/template/spec/contai
 
 # Image Resources
 
+## Storage
+
+Nearly all containers (monitoring outstanding), allow configuring the peristent storage size and class. The storage class must be created out of band, but can be included. The storage configuration has two keys (`size` and `class`) and can be used like so:
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  bootstrap: 
+    image: keramik/runner:dev
+    imagePullPolicy: IfNotPresent
+  cas:
+    casStorage:
+      size: "3Gi"
+      class: "fastDisk" # typically not set
+    ipfs:
+      go:
+        storage:
+          size: "1Gi"
+    ganacheStorage:
+      size: "1Gi"
+    postgresStorage:
+      size: "3Gi"
+    localstackStorage:
+      size: "5Gi"
+  ceramic:
+    - ipfs:
+        rust: 
+          storage:
+            size: "3Gi"
+
+```
+
+
+## Requests / Limits
+
 During local benchmarking, you may not have enough resources to run the cluster. A simple "fix" is to use the `devMode` flag on the network and simulation specs. This will override the resource requests and limits values to be none, which means it doesn't need available resources to deploy, and can consume as much as it desires. This would be problematic in production and should only be used for testing purposes.
 
 ```yaml

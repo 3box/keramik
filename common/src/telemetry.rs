@@ -31,7 +31,16 @@ use tracing_subscriber::{
 };
 
 #[derive(
-    Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Deserialize, serde::Serialize,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    clap::ValueEnum,
+    serde::Deserialize,
+    serde::Serialize,
 )]
 /// The format to use for logging
 #[serde(rename_all = "camelCase")]

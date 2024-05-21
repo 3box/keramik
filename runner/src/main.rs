@@ -31,28 +31,7 @@ struct Cli {
 
     /// Specify the format of log events.
     #[arg(long, default_value = "multi-line", env = "RUNNER_LOG_FORMAT")]
-    log_format: LogFormat,
-}
-
-#[derive(clap::ValueEnum, Debug, Clone)]
-/// The format of the logs
-pub enum LogFormat {
-    /// Compact single line logs
-    SingleLine,
-    /// Pretty multi-line logs
-    MultiLine,
-    /// JSON logs
-    Json,
-}
-
-impl From<LogFormat> for telemetry::LogFormat {
-    fn from(format: LogFormat) -> telemetry::LogFormat {
-        match format {
-            LogFormat::SingleLine => telemetry::LogFormat::SingleLine,
-            LogFormat::MultiLine => telemetry::LogFormat::MultiLine,
-            LogFormat::Json => telemetry::LogFormat::Json,
-        }
-    }
+    log_format: telemetry::LogFormat,
 }
 
 /// Available Subcommands
@@ -91,7 +70,7 @@ pub enum CommandResult {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
-    telemetry::init_tracing(Some(args.otlp_endpoint.clone()), args.log_format.into()).await?;
+    telemetry::init_tracing(Some(args.otlp_endpoint.clone()), args.log_format).await?;
     let metrics_controller = telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?;
     info!("starting runner");
 

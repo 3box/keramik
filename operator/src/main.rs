@@ -1,7 +1,7 @@
 //! Operator is a long lived process that auotmates creating and managing Ceramic networks.
 #![deny(missing_docs)]
 use anyhow::Result;
-use clap::{arg, command, Parser, Subcommand, ValueEnum};
+use clap::{arg, command, Parser, Subcommand};
 use keramik_common::telemetry;
 use keramik_operator::set_network_log_format;
 use opentelemetry::global::{shutdown_meter_provider, shutdown_tracer_provider};
@@ -20,28 +20,7 @@ struct Cli {
     prom_bind: String,
 
     #[arg(long, env = "OPERATOR_LOG_FORMAT")]
-    log_format: Option<LogFormat>,
-}
-
-#[derive(ValueEnum, Debug, Clone)]
-/// The format of the logs
-pub enum LogFormat {
-    /// Compact single line logs
-    SingleLine,
-    /// Pretty multi-line logs
-    MultiLine,
-    /// JSON logs
-    Json,
-}
-
-impl From<LogFormat> for telemetry::LogFormat {
-    fn from(format: LogFormat) -> telemetry::LogFormat {
-        match format {
-            LogFormat::SingleLine => telemetry::LogFormat::SingleLine,
-            LogFormat::MultiLine => telemetry::LogFormat::MultiLine,
-            LogFormat::Json => telemetry::LogFormat::Json,
-        }
-    }
+    log_format: Option<telemetry::LogFormat>,
 }
 
 /// Available Subcommands

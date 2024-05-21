@@ -25,7 +25,13 @@ Edit `./k8s/operator/manifests/operator.yaml` to use `IfNotPresent` for the `ima
       containers:
       - name: keramik-operator
         image: "keramik/operator"
-        imagePullPolicy: IfNotPresent
+        imagePullPolicy: IfNotPresent # Should be IfNotPresent when using imageTag: dev, but Always if using imageTag: latest
+        command:
+          - "/usr/bin/keramik-operator"
+          # you can use json logs like so
+          # - "--log-format"
+          # - "json"
+          - "daemon"
 # ...
 ```
 

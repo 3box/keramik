@@ -1,5 +1,5 @@
 //! Provides helper functions for initializing telemetry collection and publication.
-use std::{convert::Infallible, net::SocketAddr, sync::OnceLock, time::Duration};
+use std::{convert::Infallible, net::SocketAddr, str::FromStr, sync::OnceLock, time::Duration};
 
 use anyhow::Result;
 use hyper::{
@@ -19,18 +19,69 @@ use opentelemetry_sdk::{
 };
 use prometheus::{Encoder, TextEncoder};
 use tokio::{sync::oneshot, task::JoinHandle};
-use tracing_subscriber::{filter::LevelFilter, prelude::*, EnvFilter, Registry};
+use tracing_subscriber::{
+    filter::LevelFilter,
+    fmt::{
+        format::{Compact, DefaultFields, Json, JsonFields, Pretty},
+        time::SystemTime,
+        FormatEvent, FormatFields,
+    },
+    prelude::*,
+    EnvFilter, Registry,
+};
+
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, Hash, Default, serde::Deserialize, serde::Serialize,
+)]
+/// The format to use for logging
+#[serde(rename_all = "camelCase")]
+pub enum LogFormat {
+    /// Compact format
+    SingleLine,
+    /// Pretty format
+    #[default]
+    MultiLine,
+    /// JSON format
+    Json,
+}
+
+impl FromStr for LogFormat {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "singleLine" | "single-line" | "SINGLE_LINE" => Ok(LogFormat::SingleLine),
+            "multiLine" | "multi-line" | "MULTI_LINE" => Ok(LogFormat::MultiLine),
+            "json" => Ok(LogFormat::Json),
+            _ => Err(anyhow::anyhow!("invalid log format: {}", s)),
+        }
+    }
+}
+
+impl std::fmt::Display for LogFormat {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            // we match the clap enum format to make it easier when passing as an argument
+            LogFormat::SingleLine => write!(f, "single-line"),
+            LogFormat::MultiLine => write!(f, "multi-line"),
+            LogFormat::Json => write!(f, "json"),
+        }
+    }
+}
 
 // create a new prometheus registry
 static PROM_REGISTRY: OnceLock<prometheus::Registry> = OnceLock::new();
 
 /// Initialize tracing
-pub async fn init_tracing(otlp_endpoint: Option<String>) -> Result<()> {
+pub async fn init_tracing(otlp_endpoint: Option<String>, log_format: LogFormat) -> Result<()> {
     //// Setup log filter
     //// Default to INFO if no env is specified
     let log_filter = EnvFilter::builder()
         .with_default_directive(LevelFilter::INFO.into())
         .from_env()?;
+
+    let fields_format = FieldsFormat::new(log_format);
+    let event_format = EventFormat::new(log_format);
 
     // If we have an otlp_endpoint setup export of traces
     if let Some(otlp_endpoint) = otlp_endpoint {
@@ -67,7 +118,8 @@ pub async fn init_tracing(otlp_endpoint: Option<String>) -> Result<()> {
         // Setup logging to stdout
         let logger = tracing_subscriber::fmt::layer()
             .with_ansi(true)
-            .pretty()
+            .event_format(event_format)
+            .fmt_fields(fields_format)
             .with_filter(log_filter);
 
         let collector = Registry::default().with(telemetry).with(logger);
@@ -84,7 +136,8 @@ pub async fn init_tracing(otlp_endpoint: Option<String>) -> Result<()> {
         // Setup basic log only tracing
         let logger = tracing_subscriber::fmt::layer()
             .with_ansi(true)
-            .pretty()
+            .event_format(event_format)
+            .fmt_fields(fields_format)
             .with_filter(log_filter);
         tracing_subscriber::registry().with(logger).init()
     }
@@ -177,4 +230,73 @@ fn start_metrics_server(addr: &SocketAddr) -> (MetricsServerShutdown, MetricsSer
             rx.await.ok();
         });
     (tx, tokio::spawn(server))
+}
+
+// Implement a FormatEvent type that can be configured to one of a set of log formats.
+struct EventFormat {
+    kind: LogFormat,
+    single: tracing_subscriber::fmt::format::Format<Compact, SystemTime>,
+    multi: tracing_subscriber::fmt::format::Format<Pretty, SystemTime>,
+    json: tracing_subscriber::fmt::format::Format<Json, SystemTime>,
+}
+
+impl EventFormat {
+    fn new(kind: LogFormat) -> Self {
+        Self {
+            kind,
+            single: tracing_subscriber::fmt::format().compact(),
+            multi: tracing_subscriber::fmt::format().pretty(),
+            json: tracing_subscriber::fmt::format().json(),
+        }
+    }
+}
+
+impl<S, N> FormatEvent<S, N> for EventFormat
+where
+    S: tracing::Subscriber + for<'a> tracing_subscriber::registry::LookupSpan<'a>,
+    N: for<'a> tracing_subscriber::fmt::FormatFields<'a> + 'static,
+{
+    fn format_event(
+        &self,
+        ctx: &tracing_subscriber::fmt::FmtContext<'_, S, N>,
+        writer: tracing_subscriber::fmt::format::Writer<'_>,
+        event: &tracing::Event<'_>,
+    ) -> std::fmt::Result {
+        match self.kind {
+            LogFormat::SingleLine => self.single.format_event(ctx, writer, event),
+            LogFormat::MultiLine => self.multi.format_event(ctx, writer, event),
+            LogFormat::Json => self.json.format_event(ctx, writer, event),
+        }
+    }
+}
+
+// Implement a FormatFields type that can be configured to one of a set of log formats.
+struct FieldsFormat {
+    kind: LogFormat,
+    default_fields: DefaultFields,
+    json_fields: JsonFields,
+}
+
+impl FieldsFormat {
+    pub fn new(kind: LogFormat) -> Self {
+        Self {
+            kind,
+            default_fields: DefaultFields::new(),
+            json_fields: JsonFields::new(),
+        }
+    }
+}
+
+impl<'writer> FormatFields<'writer> for FieldsFormat {
+    fn format_fields<R: tracing_subscriber::prelude::__tracing_subscriber_field_RecordFields>(
+        &self,
+        writer: tracing_subscriber::fmt::format::Writer<'writer>,
+        fields: R,
+    ) -> std::fmt::Result {
+        match self.kind {
+            LogFormat::SingleLine => self.default_fields.format_fields(writer, fields),
+            LogFormat::MultiLine => self.default_fields.format_fields(writer, fields),
+            LogFormat::Json => self.json_fields.format_fields(writer, fields),
+        }
+    }
 }

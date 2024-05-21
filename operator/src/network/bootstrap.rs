@@ -5,7 +5,10 @@ use k8s_openapi::api::{
     },
 };
 
-use crate::network::{node_affinity::NodeAffinityConfig, BootstrapSpec, PEERS_CONFIG_MAP_NAME};
+use crate::{
+    network::{node_affinity::NodeAffinityConfig, BootstrapSpec, PEERS_CONFIG_MAP_NAME},
+    network_log_format,
+};
 
 // BootstrapConfig defines which properties of the JobSpec can be customized.
 pub struct BootstrapConfig {
@@ -92,6 +95,11 @@ pub fn bootstrap_job_spec(
                         EnvVar {
                             name: "BOOTSTRAP_PEERS_PATH".to_owned(),
                             value: Some("/keramik-peers/peers.json".to_owned()),
+                            ..Default::default()
+                        },
+                        EnvVar {
+                            name: "RUNNER_LOG_FORMAT".to_owned(),
+                            value: Some(network_log_format().to_string()),
                             ..Default::default()
                         },
                     ]),

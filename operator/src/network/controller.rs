@@ -2817,7 +2817,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -134,8 +134,8 @@
+            @@ -130,8 +130,8 @@
                                  "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
                                }
                              ],
@@ -2828,7 +2828,7 @@ mod tests {
                              "name": "cas-api",
                              "ports": [
                                {
-            @@ -272,8 +272,8 @@
+            @@ -264,8 +264,8 @@
                                  "value": "false"
                                }
                              ],
@@ -2839,7 +2839,7 @@ mod tests {
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
-            @@ -442,8 +442,8 @@
+            @@ -434,8 +434,8 @@
                                  "value": "dev"
                                }
                              ],
@@ -2848,8 +2848,8 @@ mod tests {
             +                "image": "cas/cas:dev",
             +                "imagePullPolicy": "Never",
                              "name": "cas-migrations"
-                           },
-                           {
+                           }
+                         ],
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -2915,7 +2915,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -144,12 +144,12 @@
+            @@ -140,12 +140,12 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2930,7 +2930,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -277,12 +277,12 @@
+            @@ -269,12 +269,12 @@
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
@@ -2945,7 +2945,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -365,12 +365,12 @@
+            @@ -357,12 +357,12 @@
                              "name": "cas-scheduler",
                              "resources": {
                                "limits": {
@@ -4352,7 +4352,7 @@ mod tests {
             +            },
                          "containers": [
                            {
-                             "image": "gresau/localstack-persist:2",
+                             "image": "gresau/localstack-persist:3",
         "#]]);
 
         stub.ceramics[0].stateful_set.patch(expect![[r#"

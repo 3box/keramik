@@ -32,7 +32,7 @@ Request {
           "spec": {
             "containers": [
               {
-                "image": "gresau/localstack-persist:2",
+                "image": "gresau/localstack-persist:3",
                 "imagePullPolicy": "IfNotPresent",
                 "name": "localstack",
                 "ports": [

@@ -202,7 +202,7 @@ pub fn cas_stateful_set_spec(
         },
         EnvVar {
             name: "AWS_REGION".to_owned(),
-            value: Some("us-east-1".to_owned()),
+            value: Some("us-east-2".to_owned()),
             ..Default::default()
         },
         EnvVar {
@@ -268,11 +268,6 @@ pub fn cas_stateful_set_spec(
             EnvVar {
                 name: "MERKLE_CAR_STORAGE_MODE".to_owned(),
                 value: Some("s3".to_owned()),
-                ..Default::default()
-            },
-            EnvVar {
-                name: "S3_BUCKET_NAME".to_owned(),
-                value: Some("merkle-car".to_owned()),
                 ..Default::default()
             },
             EnvVar {
@@ -361,26 +356,6 @@ pub fn cas_stateful_set_spec(
                         image: Some(config.image.clone()),
                         image_pull_policy: Some(config.image_pull_policy.clone()),
                         name: "cas-migrations".to_owned(),
-                        ..Default::default()
-                    },
-                    Container {
-                        env: Some(aws_env.clone()),
-                        command: Some(
-                            [
-                                "aws",
-                                "s3api",
-                                "create-bucket",
-                                "--bucket",
-                                "merkle-car",
-                                "--endpoint-url",
-                                "http://localstack:4566",
-                            ]
-                            .map(String::from)
-                            .to_vec(),
-                        ),
-                        image: Some("amazon/aws-cli".to_owned()),
-                        image_pull_policy: Some("IfNotPresent".to_owned()),
-                        name: "aws-cli".to_owned(),
                         ..Default::default()
                     },
                 ]),
@@ -868,7 +843,7 @@ pub fn localstack_stateful_set_spec(
             }),
             spec: Some(PodSpec {
                 containers: vec![Container {
-                    image: Some("gresau/localstack-persist:2".to_owned()),
+                    image: Some("gresau/localstack-persist:3".to_owned()),
                     image_pull_policy: Some("IfNotPresent".to_owned()),
                     name: "localstack".to_owned(),
                     ports: Some(vec![ContainerPort {

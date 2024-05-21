@@ -271,6 +271,11 @@ pub fn cas_stateful_set_spec(
                 ..Default::default()
             },
             EnvVar {
+                name: "S3_BUCKET_NAME".to_owned(),
+                value: Some("ceramic-dev-cas".to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
                 name: "S3_ENDPOINT".to_owned(),
                 value: Some("http://localstack:4566".to_owned()),
                 ..Default::default()

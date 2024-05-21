@@ -2817,7 +2817,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -130,8 +130,8 @@
+            @@ -134,8 +134,8 @@
                                  "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
                                }
                              ],
@@ -2828,7 +2828,7 @@ mod tests {
                              "name": "cas-api",
                              "ports": [
                                {
-            @@ -264,8 +264,8 @@
+            @@ -272,8 +272,8 @@
                                  "value": "false"
                                }
                              ],
@@ -2839,7 +2839,7 @@ mod tests {
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
-            @@ -434,8 +434,8 @@
+            @@ -442,8 +442,8 @@
                                  "value": "dev"
                                }
                              ],
@@ -2915,7 +2915,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -140,12 +140,12 @@
+            @@ -144,12 +144,12 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2930,7 +2930,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -269,12 +269,12 @@
+            @@ -277,12 +277,12 @@
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
@@ -2945,7 +2945,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -357,12 +357,12 @@
+            @@ -365,12 +365,12 @@
                              "name": "cas-scheduler",
                              "resources": {
                                "limits": {

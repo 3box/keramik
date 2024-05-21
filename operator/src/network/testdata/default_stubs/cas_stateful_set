@@ -122,6 +122,10 @@ Request {
                     "value": "dev"
                   },
                   {
+                    "name": "S3_BUCKET_NAME",
+                    "value": "ceramic-dev-cas"
+                  },
+                  {
                     "name": "S3_ENDPOINT",
                     "value": "http://localstack:4566"
                   },
@@ -230,6 +234,10 @@ Request {
                   {
                     "name": "MERKLE_CAR_STORAGE_MODE",
                     "value": "s3"
+                  },
+                  {
+                    "name": "S3_BUCKET_NAME",
+                    "value": "ceramic-dev-cas"
                   },
                   {
                     "name": "S3_ENDPOINT",

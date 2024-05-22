@@ -633,6 +633,39 @@ disable this by editing the statefulset for CAS</p>
 </code></pre>
 <p><em>Note</em> statefulsets must be edited every time the network is recreated.</p>
 <h1 id="image-resources"><a class="header" href="#image-resources">Image Resources</a></h1>
+<h2 id="storage"><a class="header" href="#storage">Storage</a></h2>
+<p>Nearly all containers (monitoring outstanding), allow configuring the peristent storage size and class. The storage class must be created out of band, but can be included. The storage configuration has two keys (<code>size</code> and <code>class</code>) and can be used like so:</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: small
+spec:
+  replicas: 2
+  bootstrap: 
+    image: keramik/runner:dev
+    imagePullPolicy: IfNotPresent
+  cas:
+    casStorage:
+      size: &quot;3Gi&quot;
+      class: &quot;fastDisk&quot; # typically not set
+    ipfs:
+      go:
+        storage:
+          size: &quot;1Gi&quot;
+    ganacheStorage:
+      size: &quot;1Gi&quot;
+    postgresStorage:
+      size: &quot;3Gi&quot;
+    localstackStorage:
+      size: &quot;5Gi&quot;
+  ceramic:
+    - ipfs:
+        rust: 
+          storage:
+            size: &quot;3Gi&quot;
+
+</code></pre>
+<h2 id="requests--limits"><a class="header" href="#requests--limits">Requests / Limits</a></h2>
 <p>During local benchmarking, you may not have enough resources to run the cluster. A simple &quot;fix&quot; is to use the <code>devMode</code> flag on the network and simulation specs. This will override the resource requests and limits values to be none, which means it doesn't need available resources to deploy, and can consume as much as it desires. This would be problematic in production and should only be used for testing purposes.</p>
 <pre><code class="language-yaml"># network configuration
 ---

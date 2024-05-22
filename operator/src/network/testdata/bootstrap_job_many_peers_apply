@@ -45,6 +45,10 @@ Request {
                   {
                     "name": "BOOTSTRAP_PEERS_PATH",
                     "value": "/keramik-peers/peers.json"
+                  },
+                  {
+                    "name": "RUNNER_LOG_FORMAT",
+                    "value": "multi-line"
                   }
                 ],
                 "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner",

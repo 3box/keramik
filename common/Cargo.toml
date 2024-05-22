@@ -23,6 +23,7 @@ tokio-console = ["telemetry", "dep:console-subscriber"]
 [dependencies]
 anyhow.workspace = true
 console-subscriber = { workspace = true, optional = true }
+clap.workspace = true # technically optional to telemetry but required by the rest of the workspace right now
 gethostname = "0.4.2"
 opentelemetry-otlp = { workspace = true, optional = true }
 opentelemetry = { workspace = true, optional = true }

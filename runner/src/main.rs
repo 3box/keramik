@@ -28,6 +28,10 @@ struct Cli {
         default_value = "http://localhost:4317"
     )]
     otlp_endpoint: String,
+
+    /// Specify the format of log events.
+    #[arg(long, default_value = "multi-line", env = "RUNNER_LOG_FORMAT")]
+    log_format: telemetry::LogFormat,
 }
 
 /// Available Subcommands
@@ -66,7 +70,7 @@ pub enum CommandResult {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
-    telemetry::init_tracing(Some(args.otlp_endpoint.clone())).await?;
+    telemetry::init_tracing(Some(args.otlp_endpoint.clone()), args.log_format).await?;
     let metrics_controller = telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?;
     info!("starting runner");
 

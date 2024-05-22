@@ -161,8 +161,12 @@ pub struct CeramicSpec {
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for ceramic nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Storage configuration for the ceramic container.
+    pub storage: Option<PersistentStorageSpec>,
     /// Resource limits for postgres container in ceramic nodes, applies to both requests and limits.
     pub postgres_resource_limits: Option<ResourceLimitsSpec>,
+    /// Storage configuration for the postgres container.
+    pub postgres_storage: Option<PersistentStorageSpec>,
     /// Extra env values to pass to the image.
     /// CAUTION: Any env vars specified in this set will override any predefined values.
     pub env: Option<BTreeMap<String, String>>,
@@ -171,6 +175,9 @@ pub struct CeramicSpec {
 /// Describes how the IPFS node for a peer should behave.
 #[derive(Serialize, Deserialize, Debug, PartialEq, Clone, JsonSchema)]
 #[serde(rename_all = "camelCase")]
+#[allow(clippy::large_enum_variant)]
+// Clippy seems be warning for a false positive.
+// It's saying 0 and at least 216, when it should be at least 248 for RustIpfsSpec.
 pub enum IpfsSpec {
     /// Rust IPFS specification
     Rust(RustIpfsSpec),
@@ -188,6 +195,8 @@ pub struct RustIpfsSpec {
     pub image_pull_policy: Option<String>,
     /// Resource limits for ipfs nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Persistent storage configuration
+    pub storage: Option<PersistentStorageSpec>,
     /// Name of the storage class for the PVC of the IPFS container
     pub storage_class: Option<String>,
     /// Value of the RUST_LOG env var.
@@ -207,6 +216,8 @@ pub struct GoIpfsSpec {
     pub image_pull_policy: Option<String>,
     /// Resource limits for ipfs nodes, applies to both requests and limits.
     pub resource_limits: Option<ResourceLimitsSpec>,
+    /// Persistent storage configuration
+    pub storage: Option<PersistentStorageSpec>,
     /// Name of the storage class for the PVC of the IPFS container
     pub storage_class: Option<String>,
     /// List of ipfs commands to run during initialization.
@@ -225,14 +236,24 @@ pub struct CasSpec {
     pub ipfs: Option<IpfsSpec>,
     /// Resource limits for the CAS pod, applies to both requests and limits.
     pub cas_resource_limits: Option<ResourceLimitsSpec>,
+    /// CAS storage configuration
+    pub cas_storage: Option<PersistentStorageSpec>,
     /// Resource limits for the CAS IPFS pod, applies to both requests and limits.
     pub ipfs_resource_limits: Option<ResourceLimitsSpec>,
+    /// IPFS container storage configuration
+    pub ipfs_storage: Option<PersistentStorageSpec>,
     /// Resource limits for the Ganache pod, applies to both requests and limits.
     pub ganache_resource_limits: Option<ResourceLimitsSpec>,
+    /// Ganache container storage configuration
+    pub ganache_storage: Option<PersistentStorageSpec>,
     /// Resource limits for the CAS Postgres pod, applies to both requests and limits.
     pub postgres_resource_limits: Option<ResourceLimitsSpec>,
+    /// Postgres container container storage configuration
+    pub postgres_storage: Option<PersistentStorageSpec>,
     /// Resource limits for the LocalStack pod, applies to both requests and limits.
     pub localstack_resource_limits: Option<ResourceLimitsSpec>,
+    /// Localstack container storage configuration
+    pub localstack_storage: Option<PersistentStorageSpec>,
     /// Configuration for the CAS API
     pub api: Option<CasApiSpec>,
 }
@@ -268,6 +289,16 @@ pub struct ResourceLimitsSpec {
     pub memory: Option<Quantity>,
     /// Ephemeral storage resource limit
     pub storage: Option<Quantity>,
+}
+
+/// Describes the resources limits and requests for a pod
+#[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct PersistentStorageSpec {
+    /// Size of the persistent disk to request
+    pub size: Option<Quantity>,
+    /// Name of the storage class for the PVC of the container
+    pub class: Option<String>,
 }
 
 /// Describes how monitoring resources are deployed for the network

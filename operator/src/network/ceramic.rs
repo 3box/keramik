@@ -5,10 +5,9 @@ use k8s_openapi::{
         apps::v1::{RollingUpdateStatefulSetStrategy, StatefulSetSpec, StatefulSetUpdateStrategy},
         core::v1::{
             ConfigMapVolumeSource, Container, ContainerPort, EmptyDirVolumeSource, EnvVar,
-            EnvVarSource, HTTPGetAction, PersistentVolumeClaim, PersistentVolumeClaimSpec,
-            PersistentVolumeClaimVolumeSource, PodSecurityContext, PodSpec, PodTemplateSpec, Probe,
-            ResourceRequirements, SecretKeySelector, SecurityContext, ServicePort, ServiceSpec,
-            Volume, VolumeMount,
+            EnvVarSource, HTTPGetAction, PersistentVolumeClaim, PersistentVolumeClaimVolumeSource,
+            PodSecurityContext, PodSpec, PodTemplateSpec, Probe, ResourceRequirements,
+            SecretKeySelector, SecurityContext, ServicePort, ServiceSpec, Volume, VolumeMount,
         },
     },
     apimachinery::pkg::{
@@ -34,7 +33,7 @@ use crate::{
     utils::override_and_sort_env_vars,
 };
 
-use super::debug_mode_security_context;
+use super::{debug_mode_security_context, storage::PersistentStorageConfig};
 
 pub fn config_maps(
     info: &CeramicInfo,
@@ -143,7 +142,9 @@ pub struct CeramicConfig {
     pub image_pull_policy: String,
     pub ipfs: IpfsConfig,
     pub resource_limits: ResourceLimitsConfig,
+    pub storage: PersistentStorageConfig,
     pub postgres_resource_limits: ResourceLimitsConfig,
+    pub postgres_storage: PersistentStorageConfig,
     pub env: Option<BTreeMap<String, String>>,
 }
 
@@ -268,10 +269,18 @@ impl Default for CeramicConfig {
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
+            storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
+            },
             postgres_resource_limits: ResourceLimitsConfig {
                 cpu: Some(Quantity("250m".to_owned())),
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
+            },
+            postgres_storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
             },
             env: None,
         }
@@ -308,9 +317,14 @@ impl From<CeramicSpec> for CeramicConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            storage: PersistentStorageConfig::from_spec(value.storage, default.storage),
             postgres_resource_limits: ResourceLimitsConfig::from_spec(
                 value.postgres_resource_limits,
                 default.postgres_resource_limits,
+            ),
+            postgres_storage: PersistentStorageConfig::from_spec(
+                value.postgres_storage,
+                default.postgres_storage,
             ),
             env: value.env,
         }
@@ -700,17 +714,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                     name: Some("ceramic-data".to_owned()),
                     ..Default::default()
                 },
-                spec: Some(PersistentVolumeClaimSpec {
-                    access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                    resources: Some(ResourceRequirements {
-                        requests: Some(BTreeMap::from_iter(vec![(
-                            "storage".to_owned(),
-                            Quantity("10Gi".to_owned()),
-                        )])),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
+                spec: Some(bundle.config.storage.clone().into()),
                 ..Default::default()
             },
             PersistentVolumeClaim {
@@ -718,18 +722,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                     name: Some(IPFS_DATA_PV_CLAIM.to_owned()),
                     ..Default::default()
                 },
-                spec: Some(PersistentVolumeClaimSpec {
-                    access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                    resources: Some(ResourceRequirements {
-                        requests: Some(BTreeMap::from_iter(vec![(
-                            "storage".to_owned(),
-                            Quantity("10Gi".to_owned()),
-                        )])),
-                        ..Default::default()
-                    }),
-                    storage_class_name: bundle.config.ipfs.storage_class_name(),
-                    ..Default::default()
-                }),
+                spec: Some(bundle.config.ipfs.storage_config().clone().into()),
                 ..Default::default()
             },
             PersistentVolumeClaim {
@@ -737,17 +730,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                     name: Some("postgres-data".to_owned()),
                     ..Default::default()
                 },
-                spec: Some(PersistentVolumeClaimSpec {
-                    access_modes: Some(vec!["ReadWriteOnce".to_owned()]),
-                    resources: Some(ResourceRequirements {
-                        requests: Some(BTreeMap::from_iter(vec![(
-                            "storage".to_owned(),
-                            Quantity("10Gi".to_owned()),
-                        )])),
-                        ..Default::default()
-                    }),
-                    ..Default::default()
-                }),
+                spec: Some(bundle.config.postgres_storage.clone().into()),
                 ..Default::default()
             },
         ]),

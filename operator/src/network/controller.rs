@@ -1087,8 +1087,8 @@ mod tests {
             ipfs_rpc::{tests::MockIpfsRpcClientTest, Peer},
             stub::{CeramicStub, Stub},
             BootstrapSpec, CasSpec, CeramicSpec, DataDogSpec, GoIpfsSpec, IpfsSpec, MonitoringSpec,
-            NetworkSpec, NetworkStatus, NetworkType, PodMonitorSpec, ResourceLimitsSpec,
-            RustIpfsSpec,
+            NetworkSpec, NetworkStatus, NetworkType, PersistentStorageSpec, PodMonitorSpec,
+            ResourceLimitsSpec, RustIpfsSpec,
         },
         utils::{
             test::{timeout_after_1s, ApiServerVerifier, WithStatus},
@@ -2384,6 +2384,10 @@ mod tests {
                             memory: Some(Quantity("4Gi".to_owned())),
                             storage: Some(Quantity("4Gi".to_owned())),
                         }),
+                        storage: Some(PersistentStorageSpec {
+                            size: Some(Quantity("1Gi".to_owned())),
+                            class: None,
+                        }),
                         ..Default::default()
                     })),
                     ..Default::default()
@@ -2512,6 +2516,15 @@ mod tests {
                            }
                          ]
                        }
+            @@ -470,7 +444,7 @@
+                           ],
+                           "resources": {
+                             "requests": {
+            -                  "storage": "10Gi"
+            +                  "storage": "1Gi"
+                             }
+                           }
+                         }
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -2685,6 +2698,10 @@ mod tests {
                             memory: Some(Quantity("4Gi".to_owned())),
                             storage: Some(Quantity("4Gi".to_owned())),
                         }),
+                        storage: Some(PersistentStorageSpec {
+                            size: Some(Quantity("1Gi".to_owned())),
+                            class: Some("fastDisk".to_owned()),
+                        }),
                         env: Some(BTreeMap::from_iter([
                             ("ENV_KEY_A".to_string(), "ENV_VALUE_A".to_string()),
                             ("ENV_KEY_B".to_string(), "ENV_VALUE_B".to_string()),
@@ -2773,6 +2790,19 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
+            @@ -470,9 +482,10 @@
+                           ],
+                           "resources": {
+                             "requests": {
+            -                  "storage": "10Gi"
+            +                  "storage": "1Gi"
+                             }
+            -              }
+            +              },
+            +              "storageClassName": "fastDisk"
+                         }
+                       },
+                       {
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -2870,11 +2900,19 @@ mod tests {
                         memory: Some(Quantity("1Gi".to_owned())),
                         storage: Some(Quantity("1Gi".to_owned())),
                     }),
+                    cas_storage: Some(PersistentStorageSpec {
+                        size: Some(Quantity("2Gi".to_owned())),
+                        class: None,
+                    }),
                     ipfs: Some(IpfsSpec::Rust(RustIpfsSpec {
                         resource_limits: Some(ResourceLimitsSpec {
                             cpu: Some(Quantity("2".to_owned())),
                             memory: Some(Quantity("2Gi".to_owned())),
                             storage: Some(Quantity("2Gi".to_owned())),
+                        }),
+                        storage: Some(PersistentStorageSpec {
+                            size: Some(Quantity("3Gi".to_owned())),
+                            class: Some("fastDisk".to_owned()),
                         }),
                         ..Default::default()
                     })),
@@ -2883,10 +2921,18 @@ mod tests {
                         memory: Some(Quantity("3Gi".to_owned())),
                         storage: Some(Quantity("3Gi".to_owned())),
                     }),
+                    ganache_storage: Some(PersistentStorageSpec {
+                        size: Some(Quantity("4Gi".to_owned())),
+                        class: Some("fastDisk".to_owned()),
+                    }),
                     postgres_resource_limits: Some(ResourceLimitsSpec {
                         cpu: Some(Quantity("4".to_owned())),
                         memory: Some(Quantity("4Gi".to_owned())),
                         storage: Some(Quantity("4Gi".to_owned())),
+                    }),
+                    postgres_storage: Some(PersistentStorageSpec {
+                        size: Some(Quantity("5Gi".to_owned())),
+                        class: None,
                     }),
                     ..Default::default()
                 }),
@@ -2960,6 +3006,15 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
+            @@ -470,7 +470,7 @@
+                           ],
+                           "resources": {
+                             "requests": {
+            -                  "storage": "10Gi"
+            +                  "storage": "2Gi"
+                             }
+                           }
+                         }
         "#]]);
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original
@@ -2985,6 +3040,19 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
+            @@ -136,9 +136,10 @@
+                           ],
+                           "resources": {
+                             "requests": {
+            -                  "storage": "10Gi"
+            +                  "storage": "3Gi"
+                             }
+            -              }
+            +              },
+            +              "storageClassName": "fastDisk"
+                         }
+                       }
+                     ]
         "#]]);
         stub.ganache_stateful_set.patch(expect![[r#"
             --- original
@@ -3010,6 +3078,19 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
+            @@ -92,9 +92,10 @@
+                           ],
+                           "resources": {
+                             "requests": {
+            -                  "storage": "10Gi"
+            +                  "storage": "4Gi"
+                             }
+            -              }
+            +              },
+            +              "storageClassName": "fastDisk"
+                         }
+                       }
+                     ]
         "#]]);
         stub.cas_postgres_stateful_set.patch(expect![[r#"
             --- original
@@ -3035,6 +3116,15 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
+            @@ -114,7 +114,7 @@
+                           ],
+                           "resources": {
+                             "requests": {
+            -                  "storage": "10Gi"
+            +                  "storage": "5Gi"
+                             }
+                           }
+                         }
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);
@@ -3054,6 +3144,10 @@ mod tests {
                         cpu: Some(Quantity("4".to_owned())),
                         memory: Some(Quantity("4Gi".to_owned())),
                         storage: Some(Quantity("4Gi".to_owned())),
+                    }),
+                    storage: Some(PersistentStorageSpec {
+                        size: Some(Quantity("100Gi".to_owned())),
+                        class: None,
                     }),
                     ..Default::default()
                 }]),
@@ -3124,6 +3218,15 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
+            @@ -453,7 +453,7 @@
+                           ],
+                           "resources": {
+                             "requests": {
+            -                  "storage": "10Gi"
+            +                  "storage": "100Gi"
+                             }
+                           }
+                         }
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

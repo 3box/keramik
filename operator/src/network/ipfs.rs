@@ -15,8 +15,8 @@ const IPFS_SERVICE_PORT: i32 = 5001;
 use crate::{
     network::{
         ceramic::NetworkConfig, controller::NETWORK_DEV_MODE_RESOURCES,
-        resource_limits::ResourceLimitsConfig, GoIpfsSpec, IpfsSpec, RustIpfsSpec,
-        NETWORK_LOCAL_ID,
+        resource_limits::ResourceLimitsConfig, storage::PersistentStorageConfig, GoIpfsSpec,
+        IpfsSpec, RustIpfsSpec, NETWORK_LOCAL_ID,
     },
     utils::override_and_sort_env_vars,
 };
@@ -83,10 +83,10 @@ impl IpfsConfig {
             IpfsConfig::Go(config) => config.volumes(&info),
         }
     }
-    pub fn storage_class_name(&self) -> Option<String> {
+    pub fn storage_config(&self) -> &PersistentStorageConfig {
         match self {
-            IpfsConfig::Rust(r) => r.storage_class.clone(),
-            IpfsConfig::Go(g) => g.storage_class.clone(),
+            IpfsConfig::Rust(r) => &r.storage,
+            IpfsConfig::Go(g) => &g.storage,
         }
     }
 }
@@ -95,7 +95,7 @@ pub struct RustIpfsConfig {
     image: String,
     image_pull_policy: String,
     resource_limits: ResourceLimitsConfig,
-    storage_class: Option<String>,
+    storage: PersistentStorageConfig,
     rust_log: String,
     env: Option<BTreeMap<String, String>>,
 }
@@ -123,7 +123,10 @@ impl Default for RustIpfsConfig {
                 memory: Some(Quantity("1Gi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
-            storage_class: None,
+            storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
+            },
             rust_log: "info,ceramic_one=debug,multipart=error".to_owned(),
             env: None,
         }
@@ -131,7 +134,11 @@ impl Default for RustIpfsConfig {
 }
 impl From<RustIpfsSpec> for RustIpfsConfig {
     fn from(value: RustIpfsSpec) -> Self {
-        let default = RustIpfsConfig::network_default();
+        let mut default = RustIpfsConfig::network_default();
+        // we prefer the value from PersistentStorageConfig but will fall back to this if provided
+        if let Some(class) = value.storage_class {
+            default.storage.class = Some(class);
+        }
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
@@ -139,8 +146,8 @@ impl From<RustIpfsSpec> for RustIpfsConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
+            storage: PersistentStorageConfig::from_spec(value.storage, default.storage),
             rust_log: value.rust_log.unwrap_or(default.rust_log),
-            storage_class: value.storage_class,
             env: value.env,
         }
     }
@@ -260,7 +267,7 @@ pub struct GoIpfsConfig {
     image: String,
     image_pull_policy: String,
     resource_limits: ResourceLimitsConfig,
-    storage_class: Option<String>,
+    storage: PersistentStorageConfig,
     commands: Vec<String>,
 }
 
@@ -287,14 +294,21 @@ impl Default for GoIpfsConfig {
                 memory: Some(Quantity("512Mi".to_owned())),
                 storage: Quantity("1Gi".to_owned()),
             },
-            storage_class: None,
+            storage: PersistentStorageConfig {
+                size: Quantity("10Gi".to_owned()),
+                class: None,
+            },
             commands: vec![],
         }
     }
 }
 impl From<GoIpfsSpec> for GoIpfsConfig {
     fn from(value: GoIpfsSpec) -> Self {
-        let default = GoIpfsConfig::network_default();
+        let mut default = GoIpfsConfig::network_default();
+        // we prefer the value from PersistentStorageConfig but will fall back to this if provided
+        if let Some(class) = value.storage_class {
+            default.storage.class = Some(class);
+        }
         Self {
             image: value.image.unwrap_or(default.image),
             image_pull_policy: value.image_pull_policy.unwrap_or(default.image_pull_policy),
@@ -302,7 +316,7 @@ impl From<GoIpfsSpec> for GoIpfsConfig {
                 value.resource_limits,
                 default.resource_limits,
             ),
-            storage_class: value.storage_class,
+            storage: PersistentStorageConfig::from_spec(value.storage, default.storage),
             commands: value.commands.unwrap_or(default.commands),
         }
     }

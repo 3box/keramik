@@ -700,7 +700,7 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
-        let wait_duration = Duration::from_secs(60 * 60);
+        let wait_duration = Duration::from_secs(10 * 60);
         // TODO_3164_1 : Make this a parameter, pass it in from the scenario config
         // TODO_3164_3 : Code clean-up : Move redis calls to separate file move it out of simulate.rs
         // TODO_3164_4 : Code clean-up : Move api call (fetch stream) to model_instance.rs?, maybe rename it
@@ -713,16 +713,19 @@ impl ScenarioState {
         info!("Number of MIDs: {}", ids.len());
 
         // Make an API call to get the status of request from the chosen peer
-        for stream_id in ids.clone() {
-            info!("Fetching anchor status for streamID {}", stream_id);
-            match self.get_anchor_status(peer, stream_id.clone()).await {
-                Ok(AnchorStatus::Anchored) => anchored_count += 1,
-                Ok(AnchorStatus::Pending) => pending_count += 1,
-                Ok(AnchorStatus::Failed) => failed_count += 1,
-                Ok(AnchorStatus::NotRequested) => not_requested_count += 1,
-                Err(e) => {
-                    failed_count += 1;
-                    error!("Failed to get anchor status: {}", e);
+        for (index, stream_id) in ids.iter().enumerate() {
+            // Only fetch anchor status for every thousandth stream ID
+            if index % 5000 == 0 {
+                info!("Fetching anchor status for streamID {}", stream_id);
+                match self.get_anchor_status(peer, stream_id.clone()).await {
+                    Ok(AnchorStatus::Anchored) => anchored_count += 1,
+                    Ok(AnchorStatus::Pending) => pending_count += 1,
+                    Ok(AnchorStatus::Failed) => failed_count += 1,
+                    Ok(AnchorStatus::NotRequested) => not_requested_count += 1,
+                    Err(e) => {
+                        failed_count += 1;
+                        error!("Failed to get anchor status: {}", e);
+                    }
                 }
             }
         }

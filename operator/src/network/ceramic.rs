@@ -560,9 +560,9 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                                     port: IntOrString::String("api".to_owned()),
                                     ..Default::default()
                                 }),
-                                initial_delay_seconds: Some(60),
-                                period_seconds: Some(15),
-                                timeout_seconds: Some(30),
+                                initial_delay_seconds: Some(15),
+                                period_seconds: Some(30),
+                                timeout_seconds: Some(60),
                                 ..Default::default()
                             }),
                             liveness_probe: Some(Probe {
@@ -571,9 +571,9 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                                     port: IntOrString::String("api".to_owned()),
                                     ..Default::default()
                                 }),
-                                initial_delay_seconds: Some(60),
-                                period_seconds: Some(15),
-                                timeout_seconds: Some(30),
+                                initial_delay_seconds: Some(15),
+                                period_seconds: Some(30),
+                                timeout_seconds: Some(120),
                                 ..Default::default()
                             }),
                             resources: Some(ResourceRequirements {

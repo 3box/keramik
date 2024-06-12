@@ -39,6 +39,10 @@ pub struct SimulationSpec {
     /// which consumes RAM, and will disappear if there is no persistent volume when the pod exits.
     /// Valid values: 'warn', 'info', 'debug', 'trace'. Defaults to None meaning no logging beyond RUST_LOG.
     pub(crate) log_level: Option<String>,
+    /// Anchor wait time in seconds
+    pub anchor_wait_time: Option<u32>,
+    /// Network type to use for the simulation.
+    pub cas_network: Option<String>,
 }
 
 impl Simulation {

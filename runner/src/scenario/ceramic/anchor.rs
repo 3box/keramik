@@ -76,7 +76,7 @@ pub async fn create_anchor_request_on_cas(
     conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,
 ) -> TransactionResult {
     let cas_service_url = std::env::var("CAS_SERVICE_URL")
-        .unwrap_or_else(|_| "https://cas-dev.3boxlabs.com".to_string());
+        .unwrap_or_else(|_| "https://cas-dev-direct.3boxlabs.com".to_string());
     let node_controller = std::env::var("node_controller")
         .unwrap_or_else(|_| "did:key:z6Mkh3pajt5brscshuDrCCber9nC9Ujpi7EcECveKtJPMEPo".to_string());
     let (stream_id, genesis_cid, genesis_block) = crate::scenario::util::create_stream().unwrap();

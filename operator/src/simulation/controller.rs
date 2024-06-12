@@ -183,6 +183,8 @@ async fn reconcile_(
         throttle_requests: spec.throttle_requests,
         success_request_target: spec.success_request_target,
         log_level: spec.log_level.clone(),
+        anchor_wait_time: spec.anchor_wait_time.clone(),
+        cas_network: spec.cas_network.clone(),
     };
 
     apply_manager(cx.clone(), &ns, simulation.clone(), manager_config).await?;

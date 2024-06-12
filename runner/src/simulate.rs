@@ -22,7 +22,7 @@ use crate::{
         ceramic::{self, new_streams},
         get_redis_client, ipfs_block_fetch, recon_sync,
     },
-    utils::parse_peers_info,
+    utils::{calculate_sample_size, parse_peers_info, select_sample_set_ids},
     CommandResult,
 };
 
@@ -88,8 +88,17 @@ pub struct Opts {
     /// left to the scenario (requests per second, total requests, rps/node etc).
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
-    // #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME")]
-    // anchor_wait_time: Option<u64>,
+
+    // Wait time after which we wosh to check the anchor correctness. 
+    // Should only be passed for ceramic-anchoring-benchamrk scenario
+    #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME", default_value = "20m")]
+    anchor_wait_time: Option<u64>,
+
+    // Add ceramic network specification as well
+    // Pass ceramic network information to this
+    #[arg(long, env = "SIMULATE_CAS_NETWORK")]
+    cas_network: Option<String>,
+
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -117,6 +126,12 @@ pub struct Topology {
     pub total_workers: usize,
     pub users: usize,
     pub nonce: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScenarioOptions {
+    pub anchor_wait_time: Option<usize>,
+    pub cas_network: Option<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -371,7 +386,7 @@ struct ScenarioState {
     run_time: String,
     log_level: Option<LogLevel>,
     throttle_requests: Option<usize>,
-    // wait_time: Option<u64>,
+    pub scenario_opts: ScenarioOptions,
 }
 
 impl ScenarioState {
@@ -402,6 +417,10 @@ impl ScenarioState {
             nonce: opts.nonce,
             users: peers.len() * opts.users,
         };
+        let scenario_opts: ScenarioOptions = ScenarioOptions {
+            anchor_wait_time: opts.anchor_wait_time.map(|t| t as usize),
+            cas_network: opts.cas_network,
+        };
         Ok(Self {
             topo,
             peers,
@@ -413,7 +432,7 @@ impl ScenarioState {
             run_time: opts.run_time,
             log_level: opts.log_level,
             throttle_requests: opts.throttle_requests,
-            // wait_time: opts.anchor_wait_time,
+            scenario_opts,
         })
     }
 
@@ -425,6 +444,7 @@ impl ScenarioState {
             Scenario::CeramicWriteOnly => {
                 ceramic::write_only::scenario(self.scenario.into()).await?
             }
+            // TODO_AES_84_1 : Pass wait_for_anchoring_in_minutes to this scenario
             Scenario::CeramicNewStreams | Scenario::CeramicAnchoringBenchmark => {
                 ceramic::new_streams::small_large_scenario(self.scenario.into()).await?
             }
@@ -700,10 +720,7 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
-        let wait_duration = Duration::from_secs(10 * 60);
-        // TODO_3164_1 : Make this a parameter, pass it in from the scenario config
-        // TODO_3164_3 : Code clean-up : Move redis calls to separate file move it out of simulate.rs
-        // TODO_3164_4 : Code clean-up : Move api call (fetch stream) to model_instance.rs?, maybe rename it
+        let wait_duration = Duration::from_secs(self.scenario_opts.anchor_wait_time.unwrap_or_default() as u64);
         sleep(wait_duration).await;
 
         // Pick a peer at random
@@ -712,12 +729,19 @@ impl ScenarioState {
         let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;
         info!("Number of MIDs: {}", ids.len());
 
+        // Calculate the sample size
+        let sample_size = calculate_sample_size(ids.len(), 0.99, 0.02).await;
+        info!("Sample size: {}", sample_size);
+
+        // Select a random sample set of IDs
+        let sample_ids = select_sample_set_ids(&ids, sample_size).await;
+        info!("Sampled IDs count: {}", sample_ids.len());
+
         // Make an API call to get the status of request from the chosen peer
-        for (index, stream_id) in ids.iter().enumerate() {
+        for stream_id in sample_ids.iter() {
             // Only fetch anchor status for every thousandth stream ID
-            if index % 5000 == 0 {
-                info!("Fetching anchor status for streamID {}", stream_id);
-                match self.get_anchor_status(peer, stream_id.clone()).await {
+            info!("Fetching anchor status for streamID {}", stream_id);
+            match self.get_anchor_status(peer, stream_id.clone()).await {
                     Ok(AnchorStatus::Anchored) => anchored_count += 1,
                     Ok(AnchorStatus::Pending) => pending_count += 1,
                     Ok(AnchorStatus::Failed) => failed_count += 1,
@@ -725,7 +749,6 @@ impl ScenarioState {
                     Err(e) => {
                         failed_count += 1;
                         error!("Failed to get anchor status: {}", e);
-                    }
                 }
             }
         }
@@ -749,7 +772,6 @@ impl ScenarioState {
             info!("Anchored count is : {}", anchored_count);
             Ok((CommandResult::Success, None))
         }
-        // TODO_3164_2 : Report these counts to Graphana
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
@@ -1290,7 +1312,8 @@ mod test {
             throttle_requests: None,
             log_level: None,
             target_request_rate,
-            // anchor_wait_time: None,
+            anchor_wait_time: None,
+            cas_network: None,
         }
     }
 

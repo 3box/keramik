@@ -89,16 +89,15 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
 
-    // Wait time after which we wosh to check the anchor correctness. 
+    // Wait time after which we wosh to check the anchor correctness.
     // Should only be passed for ceramic-anchoring-benchamrk scenario
-    #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME", default_value = "20m")]
+    #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME")]
     anchor_wait_time: Option<u64>,
 
     // Add ceramic network specification as well
     // Pass ceramic network information to this
     #[arg(long, env = "SIMULATE_CAS_NETWORK")]
     cas_network: Option<String>,
-
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -720,9 +719,14 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
-        let wait_duration = Duration::from_secs(self.scenario_opts.anchor_wait_time.unwrap_or_default() as u64);
+        info!(
+            "Anchor wait time: {}",
+            self.scenario_opts.anchor_wait_time.unwrap()
+        );
+        let wait_duration =
+            Duration::from_secs(self.scenario_opts.anchor_wait_time.unwrap_or_default() as u64);
         sleep(wait_duration).await;
-
+        info!("Waiting for {} seconds", wait_duration.as_secs());
         // Pick a peer at random
         let peer = self.peers.first().unwrap();
 
@@ -742,13 +746,13 @@ impl ScenarioState {
             // Only fetch anchor status for every thousandth stream ID
             info!("Fetching anchor status for streamID {}", stream_id);
             match self.get_anchor_status(peer, stream_id.clone()).await {
-                    Ok(AnchorStatus::Anchored) => anchored_count += 1,
-                    Ok(AnchorStatus::Pending) => pending_count += 1,
-                    Ok(AnchorStatus::Failed) => failed_count += 1,
-                    Ok(AnchorStatus::NotRequested) => not_requested_count += 1,
-                    Err(e) => {
-                        failed_count += 1;
-                        error!("Failed to get anchor status: {}", e);
+                Ok(AnchorStatus::Anchored) => anchored_count += 1,
+                Ok(AnchorStatus::Pending) => pending_count += 1,
+                Ok(AnchorStatus::Failed) => failed_count += 1,
+                Ok(AnchorStatus::NotRequested) => not_requested_count += 1,
+                Err(e) => {
+                    failed_count += 1;
+                    error!("Failed to get anchor status: {}", e);
                 }
             }
         }

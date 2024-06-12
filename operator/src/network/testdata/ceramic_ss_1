@@ -111,9 +111,9 @@ Request {
                     "path": "/api/v0/node/healthcheck",
                     "port": "api"
                   },
-                  "initialDelaySeconds": 60,
-                  "periodSeconds": 15,
-                  "timeoutSeconds": 30
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 30,
+                  "timeoutSeconds": 120
                 },
                 "name": "ceramic",
                 "ports": [
@@ -132,9 +132,9 @@ Request {
                     "path": "/api/v0/node/healthcheck",
                     "port": "api"
                   },
-                  "initialDelaySeconds": 60,
-                  "periodSeconds": 15,
-                  "timeoutSeconds": 30
+                  "initialDelaySeconds": 15,
+                  "periodSeconds": 30,
+                  "timeoutSeconds": 60
                 },
                 "resources": {
                   "limits": {

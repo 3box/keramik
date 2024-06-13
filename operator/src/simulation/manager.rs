@@ -40,6 +40,7 @@ pub struct ManagerConfig {
     pub log_level: Option<String>,
     pub anchor_wait_time: Option<u32>,
     pub cas_network: Option<String>,
+    pub cas_controller: Option<String>,
 }
 
 pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
@@ -144,6 +145,13 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
         env_vars.push(EnvVar {
             name: "SIMULATE_CAS_NETWORK".to_owned(),
             value: Some(cas_network.to_owned()),
+            ..Default::default()
+        })
+    }
+    if let Some(cas_controller) = config.cas_controller {
+        env_vars.push(EnvVar {
+            name: "SIMULATE_CAS_CONTROLLER".to_owned(),
+            value: Some(cas_controller.to_owned()),
             ..Default::default()
         })
     }

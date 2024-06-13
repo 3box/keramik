@@ -98,6 +98,9 @@ pub struct Opts {
     // Pass ceramic network information to this
     #[arg(long, env = "SIMULATE_CAS_NETWORK")]
     cas_network: Option<String>,
+
+    #[arg(long, env = "SIMULATE_CAS_CONTROLLER")]
+    cas_controller: Option<String>,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -131,6 +134,7 @@ pub struct Topology {
 pub struct ScenarioOptions {
     pub anchor_wait_time: Option<usize>,
     pub cas_network: Option<String>,
+    pub cas_controller: Option<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -419,6 +423,7 @@ impl ScenarioState {
         let scenario_opts: ScenarioOptions = ScenarioOptions {
             anchor_wait_time: opts.anchor_wait_time.map(|t| t as usize),
             cas_network: opts.cas_network,
+            cas_controller: opts.cas_controller,
         };
         Ok(Self {
             topo,
@@ -453,7 +458,13 @@ impl ScenarioState {
             }
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
-            Scenario::CASBenchmark => ceramic::anchor::cas_benchmark().await?,
+            Scenario::CASBenchmark => {
+                ceramic::anchor::cas_benchmark(
+                    self.scenario_opts.cas_network.clone(),
+                    self.scenario_opts.cas_controller.clone(),
+                )
+                .await?
+            }
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -727,7 +738,7 @@ impl ScenarioState {
             Duration::from_secs(self.scenario_opts.anchor_wait_time.unwrap_or_default() as u64);
         sleep(wait_duration).await;
         info!("Waiting for {} seconds", wait_duration.as_secs());
-        // Pick a peer at random
+        // Pick the first peer as the validator. It should have all the streams synced to it
         let peer = self.peers.first().unwrap();
 
         let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;
@@ -1318,6 +1329,7 @@ mod test {
             target_request_rate,
             anchor_wait_time: None,
             cas_network: None,
+            cas_controller: None,
         }
     }
 

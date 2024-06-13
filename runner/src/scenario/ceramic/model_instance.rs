@@ -73,6 +73,7 @@ pub struct EnvBasedConfig {
 
 #[derive(Clone, Debug)]
 pub struct GooseUserInfo {
+    #[allow(dead_code)]
     pub global_leader: bool,
     /// True if this user is the lead user on the worker
     pub lead_user: bool,

@@ -730,6 +730,8 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
+        // TODO_AES_84_1: Validate sync between peers
+        // TODO_AES_84_2: Make this a nightly perf test. With a green signal when bith the validations pass
         info!(
             "Anchor wait time: {}",
             self.scenario_opts.anchor_wait_time.unwrap()
@@ -755,7 +757,6 @@ impl ScenarioState {
         // Make an API call to get the status of request from the chosen peer
         for stream_id in sample_ids.iter() {
             // Only fetch anchor status for every thousandth stream ID
-            info!("Fetching anchor status for streamID {}", stream_id);
             match self.get_anchor_status(peer, stream_id.clone()).await {
                 Ok(AnchorStatus::Anchored) => anchored_count += 1,
                 Ok(AnchorStatus::Pending) => pending_count += 1,

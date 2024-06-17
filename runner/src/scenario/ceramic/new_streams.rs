@@ -237,9 +237,9 @@ async fn instantiate_small_model(
     user: &mut GooseUser,
     store_in_redis: bool,
     conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,
-    only_once_per_network: bool,
+    one_writer_per_network: bool,
 ) -> TransactionResult {
-    let should_create = !only_once_per_network || is_goose_lead_worker();
+    let should_create = !one_writer_per_network || is_goose_lead_worker();
     if should_create {
         let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
         let response = ModelInstanceRequests::create_model_instance(
@@ -253,7 +253,11 @@ async fn instantiate_small_model(
         if store_in_redis {
             let mut conn: tokio::sync::MutexGuard<'_, MultiplexedConnection> = conn.lock().await;
             let stream_id_string = response.to_string();
-            let _: () = conn.sadd("anchor_mids", stream_id_string).await.unwrap();
+            let result: Result<usize, redis::RedisError> =
+                conn.sadd("anchor_mids", stream_id_string).await;
+            if let Err(e) = result {
+                tracing::error!("Failed to add to anchor_mids: {}", e);
+            }
         }
     }
     Ok(())
@@ -276,7 +280,11 @@ async fn instantiate_large_model(
     if store_in_redis {
         let mut conn: tokio::sync::MutexGuard<'_, MultiplexedConnection> = conn.lock().await;
         let stream_id_string = response.to_string();
-        let _: () = conn.sadd("anchor_mids", stream_id_string).await.unwrap();
+        let result: Result<usize, redis::RedisError> =
+            conn.sadd("anchor_mids", stream_id_string).await;
+        if let Err(e) = result {
+            tracing::error!("Failed to add to anchor_mids: {}", e);
+        }
     }
     Ok(())
 }

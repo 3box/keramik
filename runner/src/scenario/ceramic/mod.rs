@@ -30,7 +30,7 @@ impl Credentials {
         let did = Document::new(&std::env::var("DID_KEY").expect("DID_KEY is required"));
         let private_key = std::env::var("DID_PRIVATE_KEY").expect("DID_PRIVATE_KEY is required");
         let signer = JwkSigner::new(did.clone(), &private_key).await?;
-        Ok(Self { signer, did })
+        Ok(Self { signer })
     }
 
     pub async fn admin_from_env() -> Result<Self, anyhow::Error> {
@@ -51,13 +51,13 @@ impl Credentials {
 
         let did = Self::generate_did_for_jwk(&key)?;
         let signer = JwkSigner::new(did.clone(), &private_key).await?;
-        Ok(Self { signer, did })
+        Ok(Self { signer })
     }
 
     pub async fn new_generate_did_key() -> Result<Self, anyhow::Error> {
         let (pk, did) = Self::generate_did_and_pk()?;
         let signer = JwkSigner::new(did.clone(), &pk).await?;
-        Ok(Self { signer, did })
+        Ok(Self { signer })
     }
 
     fn generate_did_for_jwk(key: &JWK) -> anyhow::Result<Document> {

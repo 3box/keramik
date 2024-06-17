@@ -258,7 +258,6 @@ impl CeramicModelInstanceTestUser {
             config,
             user_info: GooseUserInfo {
                 lead_user,
-                global_leader,
                 lead_worker: is_goose_lead_worker(),
             },
             small_model_id,

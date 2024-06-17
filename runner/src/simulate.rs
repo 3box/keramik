@@ -25,12 +25,18 @@ use crate::{
     utils::{calculate_sample_size, parse_peers_info, select_sample_set_ids},
     CommandResult,
 };
+use once_cell::sync::Lazy;
+use reqwest::Client;
 
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_value_insert_count_total";
 const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
 const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
+
+
+
+static CLIENT: Lazy<Client> = Lazy::new(|| reqwest::Client::new());
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -671,7 +677,7 @@ impl ScenarioState {
         peer: &Peer,
         stream_id: String,
     ) -> Result<AnchorStatus, anyhow::Error> {
-        let client = reqwest::Client::new();
+        let client = self.
         let ceramic_addr = peer
             .ceramic_addr()
             .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;
@@ -704,7 +710,7 @@ impl ScenarioState {
         peer: &Peer,
         stream_id: String,
     ) -> Result<bool, anyhow::Error> {
-        let client = reqwest::Client::new();
+        let client = &*CLIENT;
         let ceramic_addr = peer
             .ceramic_addr()
             .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;

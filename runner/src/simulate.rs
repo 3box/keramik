@@ -89,16 +89,18 @@ pub struct Opts {
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
 
-    // Wait time after which we wosh to check the anchor correctness.
+    // Wait time after which we wish to check the anchor correctness.
     // Should only be passed for ceramic-anchoring-benchamrk scenario
     #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME")]
     anchor_wait_time: Option<u64>,
 
-    // Add ceramic network specification as well
-    // Pass ceramic network information to this
+    // URL of the CAS network to use for the scenario.
+    // Use this with cas_benchmark scenario.
     #[arg(long, env = "SIMULATE_CAS_NETWORK")]
     cas_network: Option<String>,
 
+    // Did Key of the CAS controller to use for the scenario.
+    // Use this with cas_benchmark scenario.
     #[arg(long, env = "SIMULATE_CAS_CONTROLLER")]
     cas_controller: Option<String>,
 }
@@ -756,7 +758,6 @@ impl ScenarioState {
 
         // Make an API call to get the status of request from the chosen peer
         for stream_id in sample_ids.iter() {
-            // Only fetch anchor status for every thousandth stream ID
             match self.get_anchor_status(peer, stream_id.clone()).await {
                 Ok(AnchorStatus::Anchored) => anchored_count += 1,
                 Ok(AnchorStatus::Pending) => pending_count += 1,

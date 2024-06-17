@@ -34,9 +34,7 @@ const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_value_insert_count_total
 const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
 const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
 
-
-
-static CLIENT: Lazy<Client> = Lazy::new(|| reqwest::Client::new());
+static CLIENT: Lazy<Client> = Lazy::new(reqwest::Client::new);
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -677,7 +675,7 @@ impl ScenarioState {
         peer: &Peer,
         stream_id: String,
     ) -> Result<AnchorStatus, anyhow::Error> {
-        let client = self.
+        let client = &*CLIENT;
         let ceramic_addr = peer
             .ceramic_addr()
             .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;

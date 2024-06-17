@@ -595,6 +595,7 @@ pub fn cas_ipfs_stateful_set_spec(
                     ..Default::default()
                 }),
                 spec: Some(PodSpec {
+                    init_containers: config.ipfs.init_container(net_config).map(|c| vec![c]),
                     containers: vec![config.ipfs.container(ipfs_info, net_config)],
                     volumes: Some(volumes),
                     ..Default::default()

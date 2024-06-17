@@ -9,6 +9,7 @@ use k8s_openapi::{
 };
 
 const IPFS_CONTAINER_NAME: &str = "ipfs";
+const IPFS_STORE_DIR: &str = "/data/ipfs";
 pub const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
 const IPFS_SERVICE_PORT: i32 = 5001;
 
@@ -69,6 +70,12 @@ impl IpfsConfig {
             IpfsConfig::Go(config) => config.config_maps(&info),
         }
     }
+    pub fn init_container(&self, net_config: &NetworkConfig) -> Option<Container> {
+        match self {
+            IpfsConfig::Rust(config) => config.init_container(net_config),
+            _ => None,
+        }
+    }
     pub fn container(&self, info: impl Into<IpfsInfo>, net_config: &NetworkConfig) -> Container {
         let info = info.into();
         match self {
@@ -98,6 +105,7 @@ pub struct RustIpfsConfig {
     storage: PersistentStorageConfig,
     rust_log: String,
     env: Option<BTreeMap<String, String>>,
+    migration_cmd: Option<String>,
 }
 
 impl RustIpfsConfig {
@@ -129,6 +137,7 @@ impl Default for RustIpfsConfig {
             },
             rust_log: "info,ceramic_one=debug,multipart=error".to_owned(),
             env: None,
+            migration_cmd: None,
         }
     }
 }
@@ -149,6 +158,7 @@ impl From<RustIpfsSpec> for RustIpfsConfig {
             storage: PersistentStorageConfig::from_spec(value.storage, default.storage),
             rust_log: value.rust_log.unwrap_or(default.rust_log),
             env: value.env,
+            migration_cmd: value.migration_cmd,
         }
     }
 }
@@ -177,7 +187,7 @@ impl RustIpfsConfig {
             },
             EnvVar {
                 name: "CERAMIC_ONE_STORE_DIR".to_owned(),
-                value: Some("/data/ipfs".to_owned()),
+                value: Some(IPFS_STORE_DIR.to_owned()),
                 ..Default::default()
             },
             EnvVar {
@@ -253,12 +263,29 @@ impl RustIpfsConfig {
                 ..Default::default()
             }),
             volume_mounts: Some(vec![VolumeMount {
-                mount_path: "/data/ipfs".to_owned(),
+                mount_path: IPFS_STORE_DIR.to_owned(),
                 name: IPFS_DATA_PV_CLAIM.to_owned(),
                 ..Default::default()
             }]),
             security_context: net_config.debug_mode.then(debug_mode_security_context),
             ..Default::default()
+        }
+    }
+
+    fn init_container(&self, net_config: &NetworkConfig) -> Option<Container> {
+        if let Some(cmd) = &self.migration_cmd {
+            Some(Container {
+                command: Some(
+                    vec!["/usr/bin/ceramic-one", "migrations"]
+                        .into_iter()
+                        .chain(cmd.split_whitespace())
+                        .map(ToOwned::to_owned)
+                        .collect(),
+                ),
+                ..self.container(net_config)
+            })
+        } else {
+            None
         }
     }
 }
@@ -364,7 +391,7 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
     fn container(&self, info: &IpfsInfo) -> Container {
         let mut volume_mounts = vec![
             VolumeMount {
-                mount_path: "/data/ipfs".to_owned(),
+                mount_path: IPFS_STORE_DIR.to_owned(),
                 name: IPFS_DATA_PV_CLAIM.to_owned(),
                 ..Default::default()
             },

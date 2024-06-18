@@ -158,8 +158,9 @@ kubectl apply -f custom-ipfs.yaml
 ### Example Custom Simulation for Ceramic Anchoring Benchmark
 
 Use this example to run a simulation which uses the CAS Api defined in the network spec. 
-anchorWaitTime : Wait time in seconds for how long we want to wait after streams have been created to check when they have been anchored. This should be a high number like 30-40 minutes.
-throttleRequests: Number of requests to send per second.
+`anchorWaitTime`: Wait time in seconds for how long we want to wait after streams have been created to check when they have been anchored. This should be a high number like 30-40 minutes.
+`throttleRequests`: Number of requests to send per second.
+
 ```yaml
 # ceramic-anchoring-benchamrk.yaml
 ---
@@ -175,6 +176,8 @@ spec:
   runTime: 60
   throttleRequests: 100
   anchorWaitTime: 2400
+```
+
 
 ```shell
 kubectl apply -f ceramic-anchoring-benchamrk.yaml
@@ -182,10 +185,13 @@ kubectl apply -f ceramic-anchoring-benchamrk.yaml
 
 ### Example Custom Simulation for cas-benchmark
 
-Use this example to run a simulation you can pass in the the cas-api-url, the network-type, and the private secret ket as the controller.
-By default the casNetwork is set to "https://cas-dev-direct.3boxlabs.com" and the casController is set to the private key of the controller DID.
-casNetwork: The url of the CAS network to run the simulation against.
-casController: The private key of the controller DID to use for the simulation.
+Use this example to run a simulation you can pass in the the cas-api-url, the network-type, and the private secret key in the spec.
+By default the casNetwork and casController are set to run against cas-dev-direct Api.
+
+`casNetwork`: The url of the CAS network to run the simulation against.
+
+`casController`: The private key of the controller DID to use for the simulation.
+
 ```yaml
 # cas-benchmark.yaml
 ---
@@ -202,6 +208,7 @@ spec:
   throttleRequests: 100
   casNetwork: "https://cas-dev-direct.3boxlabs.com"
   casController: "did:key:<secret>"
+```
 
 ```shell
 kubectl apply -f cas-benchmark.yaml

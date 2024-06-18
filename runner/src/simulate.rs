@@ -25,12 +25,16 @@ use crate::{
     utils::{calculate_sample_size, parse_peers_info, select_sample_set_ids},
     CommandResult,
 };
+use once_cell::sync::Lazy;
+use reqwest::Client;
 
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_value_insert_count_total";
 const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
 const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
+
+static CLIENT: Lazy<Client> = Lazy::new(reqwest::Client::new);
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -450,9 +454,11 @@ impl ScenarioState {
             Scenario::CeramicWriteOnly => {
                 ceramic::write_only::scenario(self.scenario.into()).await?
             }
-            // TODO_AES_84_1 : Pass wait_for_anchoring_in_minutes to this scenario
-            Scenario::CeramicNewStreams | Scenario::CeramicAnchoringBenchmark => {
+            Scenario::CeramicNewStreams => {
                 ceramic::new_streams::small_large_scenario(self.scenario.into()).await?
+            }
+            Scenario::CeramicAnchoringBenchmark => {
+                ceramic::new_streams::small_scenario(self.scenario.into()).await?
             }
             Scenario::CeramicNewStreamsBenchmark => {
                 ceramic::new_streams::benchmark_scenario(self.scenario.into(), self.topo.nonce)
@@ -669,7 +675,7 @@ impl ScenarioState {
         peer: &Peer,
         stream_id: String,
     ) -> Result<AnchorStatus, anyhow::Error> {
-        let client = reqwest::Client::new();
+        let client = &*CLIENT;
         let ceramic_addr = peer
             .ceramic_addr()
             .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;
@@ -695,6 +701,39 @@ impl ScenarioState {
             e
         })?;
         Ok(metrics.state.anchor_status)
+    }
+
+    pub async fn model_sync_status(
+        &self,
+        peer: &Peer,
+        stream_id: String,
+    ) -> Result<bool, anyhow::Error> {
+        let client = &*CLIENT;
+        let ceramic_addr = peer
+            .ceramic_addr()
+            .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;
+
+        let streams_url = format!("{}/{}/{}", ceramic_addr, "api/v0/streams", stream_id);
+
+        let response = client
+            .get(streams_url)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("HTTP request failed: {}", e);
+                e
+            })?
+            .error_for_status()
+            .map_err(|e| {
+                error!("HTTP request returned unsuccessful status: {}", e);
+                e
+            })?;
+
+        let text = response.text().await.map_err(|e| {
+            error!("Failed to read response text: {}", e);
+            e
+        })?;
+        Ok(text.contains(&stream_id))
     }
 
     pub async fn get_set_from_redis(&self, key: &str) -> Result<Vec<String>, anyhow::Error> {
@@ -732,18 +771,15 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
-        // TODO_AES_84_1: Validate sync between peers
+        let mut synced_count = 0;
+        let mut synced_failures_count = 0;
+
         // TODO_AES_84_2: Make this a nightly perf test. With a green signal when bith the validations pass
-        info!(
-            "Anchor wait time: {}",
-            self.scenario_opts.anchor_wait_time.unwrap()
-        );
-        let wait_duration =
-            Duration::from_secs(self.scenario_opts.anchor_wait_time.unwrap_or_default() as u64);
-        sleep(wait_duration).await;
-        info!("Waiting for {} seconds", wait_duration.as_secs());
+
         // Pick the first peer as the validator. It should have all the streams synced to it
-        let peer = self.peers.first().unwrap();
+        let write_peer = self.peers.first().unwrap();
+
+        let read_peer = self.peers.last().unwrap();
 
         let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;
         info!("Number of MIDs: {}", ids.len());
@@ -756,9 +792,39 @@ impl ScenarioState {
         let sample_ids = select_sample_set_ids(&ids, sample_size).await;
         info!("Sampled IDs count: {}", sample_ids.len());
 
+        for stream_id in sample_ids.iter() {
+            // Only fetch anchor status for every thousandth stream ID
+            match self.model_sync_status(read_peer, stream_id.clone()).await {
+                Ok(true) => synced_count += 1,
+                Ok(false) => synced_failures_count += 1,
+                Err(e) => {
+                    synced_failures_count += 1;
+                    error!("Failed to get model sync status: {}", e);
+                }
+            }
+        }
+        info!("Model sync failures count: {}", synced_failures_count);
+        info!("Models synced count: {}", synced_count);
+        if synced_failures_count > 0 {
+            return Ok((
+                CommandResult::Failure(anyhow!("Model sync failures count is greater than 0")),
+                None,
+            ));
+        }
+
+        info!(
+            "Anchor wait time: {}",
+            self.scenario_opts.anchor_wait_time.unwrap()
+        );
+        let wait_duration =
+            Duration::from_secs(self.scenario_opts.anchor_wait_time.unwrap_or_default() as u64);
+        sleep(wait_duration).await;
+        info!("Waiting for {} seconds", wait_duration.as_secs());
+
         // Make an API call to get the status of request from the chosen peer
         for stream_id in sample_ids.iter() {
-            match self.get_anchor_status(peer, stream_id.clone()).await {
+            // Only fetch anchor status for every thousandth stream ID
+            match self.get_anchor_status(write_peer, stream_id.clone()).await {
                 Ok(AnchorStatus::Anchored) => anchored_count += 1,
                 Ok(AnchorStatus::Pending) => pending_count += 1,
                 Ok(AnchorStatus::Failed) => failed_count += 1,

@@ -7,7 +7,7 @@ use tracing::info;
 
 use crate::scenario::{
     ceramic::{model_instance::CountResponse, models, RandomModelInstance},
-    get_redis_client,
+    get_redis_client, is_goose_lead_worker,
 };
 
 use super::{
@@ -144,7 +144,7 @@ pub async fn small_large_scenario(
     let instantiate_small_model = Transaction::new(Arc::new(move |user| {
         let small_model_conn_clone = small_model_conn.clone();
         Box::pin(async move {
-            instantiate_small_model(user, params.store_mids, small_model_conn_clone).await
+            instantiate_small_model(user, params.store_mids, small_model_conn_clone, false).await
         })
     }))
     .set_name("instantiate_small_model");
@@ -161,6 +161,36 @@ pub async fn small_large_scenario(
         .register_transaction(test_start)
         .register_transaction(instantiate_small_model)
         .register_transaction(instantiate_large_model))
+}
+
+pub async fn small_scenario(params: CeramicScenarioParameters) -> Result<Scenario, GooseError> {
+    let redis_cli = get_redis_client().await.unwrap();
+    let multiplexed_conn = redis_cli.get_multiplexed_tokio_connection().await.unwrap();
+    let shared_conn = Arc::new(Mutex::new(multiplexed_conn));
+    let config = CeramicModelInstanceTestUser::prep_scenario(params.clone())
+        .await
+        .unwrap();
+
+    let test_start = Transaction::new(Arc::new(move |user| {
+        Box::pin(CeramicModelInstanceTestUser::setup_mid_scenario(
+            user,
+            config.clone(),
+        ))
+    }))
+    .set_name("setup")
+    .set_on_start();
+
+    let instantiate_small_model = Transaction::new(Arc::new(move |user| {
+        let small_model_conn_clone = shared_conn.clone();
+        Box::pin(async move {
+            instantiate_small_model(user, params.store_mids, small_model_conn_clone, true).await
+        })
+    }))
+    .set_name("instantiate_small_model");
+
+    Ok(scenario!("CeramicAnchoringBenchmark")
+        .register_transaction(test_start)
+        .register_transaction(instantiate_small_model))
 }
 
 // the nonce is used to ensure that the metrics stored in redis for the run are unique
@@ -207,20 +237,28 @@ async fn instantiate_small_model(
     user: &mut GooseUser,
     store_in_redis: bool,
     conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,
+    one_writer_per_network: bool,
 ) -> TransactionResult {
-    let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
-    let response = ModelInstanceRequests::create_model_instance(
-        user,
-        user_data.user_cli(),
-        &user_data.small_model_id,
-        "instantiate_small_model_instance",
-        &models::SmallModel::random(),
-    )
-    .await?;
-    if store_in_redis {
-        let mut conn: tokio::sync::MutexGuard<'_, MultiplexedConnection> = conn.lock().await;
-        let stream_id_string = response.to_string();
-        let _: () = conn.sadd("anchor_mids", stream_id_string).await.unwrap();
+    let should_create = !one_writer_per_network || is_goose_lead_worker();
+    if should_create {
+        let user_data = CeramicModelInstanceTestUser::user_data(user).to_owned();
+        let response = ModelInstanceRequests::create_model_instance(
+            user,
+            user_data.user_cli(),
+            &user_data.small_model_id,
+            "instantiate_small_model_instance",
+            &models::SmallModel::random(),
+        )
+        .await?;
+        if store_in_redis {
+            let mut conn: tokio::sync::MutexGuard<'_, MultiplexedConnection> = conn.lock().await;
+            let stream_id_string = response.to_string();
+            let result: Result<usize, redis::RedisError> =
+                conn.sadd("anchor_mids", stream_id_string).await;
+            if let Err(e) = result {
+                tracing::error!("Failed to add to anchor_mids: {}", e);
+            }
+        }
     }
     Ok(())
 }
@@ -242,7 +280,11 @@ async fn instantiate_large_model(
     if store_in_redis {
         let mut conn: tokio::sync::MutexGuard<'_, MultiplexedConnection> = conn.lock().await;
         let stream_id_string = response.to_string();
-        let _: () = conn.sadd("anchor_mids", stream_id_string).await.unwrap();
+        let result: Result<usize, redis::RedisError> =
+            conn.sadd("anchor_mids", stream_id_string).await;
+        if let Err(e) = result {
+            tracing::error!("Failed to add to anchor_mids: {}", e);
+        }
     }
     Ok(())
 }

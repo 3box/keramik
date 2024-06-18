@@ -74,11 +74,13 @@ pub async fn stream_tip_car(
 pub async fn create_anchor_request_on_cas(
     user: &mut GooseUser,
     conn: Arc<tokio::sync::Mutex<MultiplexedConnection>>,
+    cas_network: Option<String>,
+    cas_controller: Option<String>,
 ) -> TransactionResult {
-    let cas_service_url = std::env::var("CAS_SERVICE_URL")
-        .unwrap_or_else(|_| "https://cas-dev.3boxlabs.com".to_string());
-    let node_controller = std::env::var("node_controller")
-        .unwrap_or_else(|_| "did:key:z6Mkh3pajt5brscshuDrCCber9nC9Ujpi7EcECveKtJPMEPo".to_string());
+    let cas_service_url =
+        cas_network.unwrap_or_else(|| "https://cas-dev-direct.3boxlabs.com".to_string());
+    let node_controller = cas_controller
+        .unwrap_or_else(|| "did:key:z6Mkh3pajt5brscshuDrCCber9nC9Ujpi7EcECveKtJPMEPo".to_string());
     let (stream_id, genesis_cid, genesis_block) = crate::scenario::util::create_stream().unwrap();
 
     let (root_cid, car_bytes) = stream_tip_car(
@@ -118,13 +120,20 @@ pub async fn create_anchor_request_on_cas(
     Ok(())
 }
 
-pub async fn cas_benchmark() -> Result<Scenario, GooseError> {
+pub async fn cas_benchmark(
+    cas_network: Option<String>,
+    cas_controller: Option<String>,
+) -> Result<Scenario, GooseError> {
     let redis_cli = get_redis_client().await.unwrap();
     let multiplexed_conn = redis_cli.get_multiplexed_tokio_connection().await.unwrap();
     let conn_mutex = Arc::new(Mutex::new(multiplexed_conn));
     let create_anchor_request = Transaction::new(Arc::new(move |user| {
         let conn_mutex_clone = conn_mutex.clone();
-        Box::pin(async move { create_anchor_request_on_cas(user, conn_mutex_clone).await })
+        let cas_network = cas_network.clone();
+        let cas_controller = cas_controller.clone();
+        Box::pin(async move {
+            create_anchor_request_on_cas(user, conn_mutex_clone, cas_network, cas_controller).await
+        })
     }))
     .set_name("create_anchor_request");
 

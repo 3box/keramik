@@ -183,6 +183,9 @@ async fn reconcile_(
         throttle_requests: spec.throttle_requests,
         success_request_target: spec.success_request_target,
         log_level: spec.log_level.clone(),
+        anchor_wait_time: spec.anchor_wait_time,
+        cas_network: spec.cas_network.clone(),
+        cas_controller: spec.cas_controller.clone(),
     };
 
     apply_manager(cx.clone(), &ns, simulation.clone(), manager_config).await?;
@@ -759,6 +762,105 @@ mod tests {
                              ],
                              "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
         "#]]);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_anchor_wait_time() {
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            anchor_wait_time: Some(15), // Set anchor wait time to 15 minutes
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+        --- original
+        +++ modified
+        @@ -87,6 +87,10 @@
+                                 "name": "ceramic-admin"
+                               }
+                             }
+        +                  },
+        +                  {
+        +                    "name": "SIMULATE_ANCHOR_WAIT_TIME",
+        +                    "value": "15"
+                           }
+                         ],
+                         "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+    "#]]);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_cas_network() {
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            cas_network: Some("test-cas-network".to_owned()),
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+        --- original
+        +++ modified
+        @@ -87,6 +87,10 @@
+                                 "name": "ceramic-admin"
+                               }
+                             }
+        +                  },
+        +                  {
+        +                    "name": "SIMULATE_CAS_NETWORK",
+        +                    "value": "test-cas-network"
+                           }
+                         ],
+                         "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+    "#]]);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(simulation), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+
+    #[tokio::test]
+    #[traced_test]
+    async fn reconcile_cas_controller() {
+        let mock_rpc_client = MockIpfsRpcClientTest::new();
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let simulation = Simulation::test().with_spec(SimulationSpec {
+            cas_controller: Some("test-cas-controller".to_owned()),
+            ..Default::default()
+        });
+        let mut stub = Stub::default();
+        stub.manager_job.patch(expect![[r#"
+    --- original
+    +++ modified
+    @@ -87,6 +87,10 @@
+                             "name": "ceramic-admin"
+                           }
+                         }
+    +                  },
+    +                  {
+    +                    "name": "SIMULATE_CAS_CONTROLLER",
+    +                    "value": "test-cas-controller"
+                       }
+                     ],
+                     "image": "public.ecr.aws/r5b3e0r5/3box/keramik-runner:latest",
+"#]]);
         let mocksrv = stub.run(fakeserver);
         reconcile(Arc::new(simulation), testctx)
             .await

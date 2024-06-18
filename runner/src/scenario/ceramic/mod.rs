@@ -21,6 +21,7 @@ pub type CeramicClient = CeramicHttpClient<JwkSigner>;
 #[derive(Clone)]
 pub struct Credentials {
     pub signer: JwkSigner,
+    #[allow(dead_code)]
     pub did: Document,
 }
 

@@ -38,6 +38,9 @@ pub struct ManagerConfig {
     pub job_image_config: JobImageConfig,
     pub success_request_target: Option<usize>,
     pub log_level: Option<String>,
+    pub anchor_wait_time: Option<u32>,
+    pub cas_network: Option<String>,
+    pub cas_controller: Option<String>,
 }
 
 pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
@@ -128,6 +131,27 @@ pub fn manager_job_spec(config: ManagerConfig) -> JobSpec {
         env_vars.push(EnvVar {
             name: "SIMULATE_TARGET_REQUESTS".to_owned(),
             value: Some(success_request_target.to_string()),
+            ..Default::default()
+        })
+    }
+    if let Some(anchor_wait_time) = config.anchor_wait_time {
+        env_vars.push(EnvVar {
+            name: "SIMULATE_ANCHOR_WAIT_TIME".to_owned(),
+            value: Some(anchor_wait_time.to_string()),
+            ..Default::default()
+        })
+    }
+    if let Some(cas_network) = config.cas_network {
+        env_vars.push(EnvVar {
+            name: "SIMULATE_CAS_NETWORK".to_owned(),
+            value: Some(cas_network.to_owned()),
+            ..Default::default()
+        })
+    }
+    if let Some(cas_controller) = config.cas_controller {
+        env_vars.push(EnvVar {
+            name: "SIMULATE_CAS_CONTROLLER".to_owned(),
+            value: Some(cas_controller.to_owned()),
             ..Default::default()
         })
     }

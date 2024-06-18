@@ -22,15 +22,19 @@ use crate::{
         ceramic::{self, new_streams},
         get_redis_client, ipfs_block_fetch, recon_sync,
     },
-    utils::parse_peers_info,
+    utils::{calculate_sample_size, parse_peers_info, select_sample_set_ids},
     CommandResult,
 };
+use once_cell::sync::Lazy;
+use reqwest::Client;
 
 // FIXME: is it worth attaching metrics to the peer info?
 const IPFS_SERVICE_METRICS_PORT: &str = "9465";
 const EVENT_SYNC_METRIC_NAME: &str = "ceramic_store_key_value_insert_count_total";
 const ANCHOR_REQUEST_MIDS_KEY: &str = "anchor_mids";
 const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
+
+static CLIENT: Lazy<Client> = Lazy::new(reqwest::Client::new);
 
 /// Options to Simulate command
 #[derive(Args, Debug)]
@@ -88,8 +92,21 @@ pub struct Opts {
     /// left to the scenario (requests per second, total requests, rps/node etc).
     #[arg(long, env = "SIMULATE_TARGET_REQUESTS")]
     target_request_rate: Option<usize>,
-    // #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME")]
-    // anchor_wait_time: Option<u64>,
+
+    // Wait time after which we wish to check the anchor correctness.
+    // Should only be passed for ceramic-anchoring-benchamrk scenario
+    #[arg(long, env = "SIMULATE_ANCHOR_WAIT_TIME")]
+    anchor_wait_time: Option<u64>,
+
+    // URL of the CAS network to use for the scenario.
+    // Use this with cas_benchmark scenario.
+    #[arg(long, env = "SIMULATE_CAS_NETWORK")]
+    cas_network: Option<String>,
+
+    // Did Key of the CAS controller to use for the scenario.
+    // Use this with cas_benchmark scenario.
+    #[arg(long, env = "SIMULATE_CAS_CONTROLLER")]
+    cas_controller: Option<String>,
 }
 
 #[derive(Debug, Clone, ValueEnum)]
@@ -117,6 +134,13 @@ pub struct Topology {
     pub total_workers: usize,
     pub users: usize,
     pub nonce: u64,
+}
+
+#[derive(Debug, Clone)]
+pub struct ScenarioOptions {
+    pub anchor_wait_time: Option<usize>,
+    pub cas_network: Option<String>,
+    pub cas_controller: Option<String>,
 }
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -371,7 +395,7 @@ struct ScenarioState {
     run_time: String,
     log_level: Option<LogLevel>,
     throttle_requests: Option<usize>,
-    // wait_time: Option<u64>,
+    pub scenario_opts: ScenarioOptions,
 }
 
 impl ScenarioState {
@@ -402,6 +426,11 @@ impl ScenarioState {
             nonce: opts.nonce,
             users: peers.len() * opts.users,
         };
+        let scenario_opts: ScenarioOptions = ScenarioOptions {
+            anchor_wait_time: opts.anchor_wait_time.map(|t| t as usize),
+            cas_network: opts.cas_network,
+            cas_controller: opts.cas_controller,
+        };
         Ok(Self {
             topo,
             peers,
@@ -413,7 +442,7 @@ impl ScenarioState {
             run_time: opts.run_time,
             log_level: opts.log_level,
             throttle_requests: opts.throttle_requests,
-            // wait_time: opts.anchor_wait_time,
+            scenario_opts,
         })
     }
 
@@ -425,8 +454,11 @@ impl ScenarioState {
             Scenario::CeramicWriteOnly => {
                 ceramic::write_only::scenario(self.scenario.into()).await?
             }
-            Scenario::CeramicNewStreams | Scenario::CeramicAnchoringBenchmark => {
+            Scenario::CeramicNewStreams => {
                 ceramic::new_streams::small_large_scenario(self.scenario.into()).await?
+            }
+            Scenario::CeramicAnchoringBenchmark => {
+                ceramic::new_streams::small_scenario(self.scenario.into()).await?
             }
             Scenario::CeramicNewStreamsBenchmark => {
                 ceramic::new_streams::benchmark_scenario(self.scenario.into(), self.topo.nonce)
@@ -434,7 +466,13 @@ impl ScenarioState {
             }
             Scenario::CeramicQuery => ceramic::query::scenario(self.scenario.into()).await?,
             Scenario::ReconEventSync => recon_sync::event_sync_scenario().await?,
-            Scenario::CASBenchmark => ceramic::anchor::cas_benchmark().await?,
+            Scenario::CASBenchmark => {
+                ceramic::anchor::cas_benchmark(
+                    self.scenario_opts.cas_network.clone(),
+                    self.scenario_opts.cas_controller.clone(),
+                )
+                .await?
+            }
         };
         self.collect_before_metrics().await?;
         Ok(scenario)
@@ -637,7 +675,7 @@ impl ScenarioState {
         peer: &Peer,
         stream_id: String,
     ) -> Result<AnchorStatus, anyhow::Error> {
-        let client = reqwest::Client::new();
+        let client = &*CLIENT;
         let ceramic_addr = peer
             .ceramic_addr()
             .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;
@@ -663,6 +701,39 @@ impl ScenarioState {
             e
         })?;
         Ok(metrics.state.anchor_status)
+    }
+
+    pub async fn model_sync_status(
+        &self,
+        peer: &Peer,
+        stream_id: String,
+    ) -> Result<bool, anyhow::Error> {
+        let client = &*CLIENT;
+        let ceramic_addr = peer
+            .ceramic_addr()
+            .ok_or_else(|| anyhow!("Peer does not have a ceramic address"))?;
+
+        let streams_url = format!("{}/{}/{}", ceramic_addr, "api/v0/streams", stream_id);
+
+        let response = client
+            .get(streams_url)
+            .send()
+            .await
+            .map_err(|e| {
+                error!("HTTP request failed: {}", e);
+                e
+            })?
+            .error_for_status()
+            .map_err(|e| {
+                error!("HTTP request returned unsuccessful status: {}", e);
+                e
+            })?;
+
+        let text = response.text().await.map_err(|e| {
+            error!("Failed to read response text: {}", e);
+            e
+        })?;
+        Ok(text.contains(&stream_id))
     }
 
     pub async fn get_set_from_redis(&self, key: &str) -> Result<Vec<String>, anyhow::Error> {
@@ -700,22 +771,60 @@ impl ScenarioState {
         let mut pending_count = 0;
         let mut failed_count = 0;
         let mut not_requested_count = 0;
-        let wait_duration = Duration::from_secs(60 * 60);
-        // TODO_3164_1 : Make this a parameter, pass it in from the scenario config
-        // TODO_3164_3 : Code clean-up : Move redis calls to separate file move it out of simulate.rs
-        // TODO_3164_4 : Code clean-up : Move api call (fetch stream) to model_instance.rs?, maybe rename it
-        sleep(wait_duration).await;
+        let mut synced_count = 0;
+        let mut synced_failures_count = 0;
 
-        // Pick a peer at random
-        let peer = self.peers.first().unwrap();
+        // TODO_AES_84_2: Make this a nightly perf test. With a green signal when bith the validations pass
+
+        // Pick the first peer as the validator. It should have all the streams synced to it
+        let write_peer = self.peers.first().unwrap();
+
+        let read_peer = self.peers.last().unwrap();
 
         let ids = self.get_set_from_redis(ANCHOR_REQUEST_MIDS_KEY).await?;
         info!("Number of MIDs: {}", ids.len());
 
+        // Calculate the sample size
+        let sample_size = calculate_sample_size(ids.len(), 0.99, 0.02).await;
+        info!("Sample size: {}", sample_size);
+
+        // Select a random sample set of IDs
+        let sample_ids = select_sample_set_ids(&ids, sample_size).await;
+        info!("Sampled IDs count: {}", sample_ids.len());
+
+        for stream_id in sample_ids.iter() {
+            // Only fetch anchor status for every thousandth stream ID
+            match self.model_sync_status(read_peer, stream_id.clone()).await {
+                Ok(true) => synced_count += 1,
+                Ok(false) => synced_failures_count += 1,
+                Err(e) => {
+                    synced_failures_count += 1;
+                    error!("Failed to get model sync status: {}", e);
+                }
+            }
+        }
+        info!("Model sync failures count: {}", synced_failures_count);
+        info!("Models synced count: {}", synced_count);
+        if synced_failures_count > 0 {
+            return Ok((
+                CommandResult::Failure(anyhow!("Model sync failures count is greater than 0")),
+                None,
+            ));
+        }
+
+        info!(
+            "Anchor wait time: {}",
+            self.scenario_opts.anchor_wait_time.unwrap()
+        );
+        let wait_duration =
+            Duration::from_secs(self.scenario_opts.anchor_wait_time.unwrap_or_default() as u64);
+        sleep(wait_duration).await;
+        info!("Waiting for {} seconds", wait_duration.as_secs());
+
         // Make an API call to get the status of request from the chosen peer
-        for stream_id in ids.clone() {
-            info!("Fetching anchor status for streamID {}", stream_id);
-            match self.get_anchor_status(peer, stream_id.clone()).await {
+        for stream_id in sample_ids.iter() {
+            // Only fetch anchor status for every thousandth stream ID
+            match self.get_anchor_status(write_peer, stream_id.clone()).await {
                 Ok(AnchorStatus::Anchored) => anchored_count += 1,
                 Ok(AnchorStatus::Pending) => pending_count += 1,
                 Ok(AnchorStatus::Failed) => failed_count += 1,
@@ -746,7 +855,6 @@ impl ScenarioState {
             info!("Anchored count is : {}", anchored_count);
             Ok((CommandResult::Success, None))
         }
-        // TODO_3164_2 : Report these counts to Graphana
     }
 
     /// Removed from `validate_scenario_success` to make testing easier as constructing the GooseMetrics appropriately is difficult
@@ -1287,7 +1395,9 @@ mod test {
             throttle_requests: None,
             log_level: None,
             target_request_rate,
-            // anchor_wait_time: None,
+            anchor_wait_time: None,
+            cas_network: None,
+            cas_controller: None,
         }
     }
 

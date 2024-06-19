@@ -152,7 +152,7 @@ spec:
 ```
 
 ```shell
-kubectl apply -f custom-ipfs.yaml
+kubectl apply -f custom-cas-api.yaml
 ```
 
 ### Example Custom Simulation for Ceramic Anchoring Benchmark

@@ -8,6 +8,8 @@ To run a simulation, first define a simulation. Available simulation types are
 - `ceramic-new-streams` - A simulation that only creates new streams
 - `ceramic-model-reuse` - A simulation that reuses the same model and queries instances across workers
 - `recon-event-sync` - A simulation that creates events for Recon to sync at a fixed rate (~300/s by default). Designed for a 2 node network but should work on any.
+- `cas-benchmark` - A simulation that benchmarks the CAS network. 
+- `cas-anchoring-benchmark` - A simulation that benchmarks the Ceramic with anchoring enabled.
 
 Using one of these scenarios, we can then define the configuration for that scenario:
 
@@ -122,5 +124,93 @@ spec:
 
 ```shell
 kubectl apply -f custom-ipfs.yaml
+```
+
+### Example Custom CAS Api Url Network Spec
+
+Use this example in the network definition while using `cas-benchmark` or `cas-anchoring-benchmark`. This is specifically for testing against the CAS dev network.
+
+```yaml
+# custom-cas-api.yaml
+---
+apiVersion: keramik.3box.io/v1alpha1
+kind: Network
+metadata:
+  name: ceramic-benchmark
+spec:
+  ceramic:
+    - env:
+        CERAMIC_RECON_MODE: "true"
+      ipfs:
+        rust:
+          env:
+            CERAMIC_ONE_RECON: "true"
+  casApiUrl: https://cas-dev-direct.3boxlabs.com
+  networkType: dev-unstable
+  privateKeySecret: ceramic-v4-dev
+  ethRpcUrl: ""
+```
+
+```shell
+kubectl apply -f custom-cas-api.yaml
+```
+
+### Example Custom Simulation for Ceramic Anchoring Benchmark
+
+Use this example to run a simulation which uses the CAS Api defined in the network spec. 
+`anchorWaitTime`: Wait time in seconds for how long we want to wait after streams have been created to check when they have been anchored. This should be a high number like 30-40 minutes.
+`throttleRequests`: Number of requests to send per second.
+
+```yaml
+# ceramic-anchoring-benchamrk.yaml
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Simulation
+metadata:
+  name: basic
+  # Must be the same namespace as the network to test
+  namespace: keramik-ceramic-benchmark
+spec:
+  scenario: ceramic-anchoring-benchmark
+  users: 16
+  runTime: 60
+  throttleRequests: 100
+  anchorWaitTime: 2400
+```
+
+
+```shell
+kubectl apply -f ceramic-anchoring-benchamrk.yaml
+```
+
+### Example Custom Simulation for cas-benchmark
+
+Use this example to run a simulation you can pass in the the cas-api-url, the network-type, and the private secret key in the spec.
+By default the casNetwork and casController are set to run against cas-dev-direct Api.
+
+`casNetwork`: The url of the CAS network to run the simulation against.
+
+`casController`: The private key of the controller DID to use for the simulation.
+
+```yaml
+# cas-benchmark.yaml
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Simulation
+metadata:
+  name: basic
+  # Must be the same namespace as the network to test
+  namespace: keramik-ceramic-benchmark
+spec:
+  scenario: ceramic-anchoring-benchmark
+  users: 16
+  runTime: 60
+  throttleRequests: 100
+  casNetwork: "https://cas-dev-direct.3boxlabs.com"
+  casController: "did:key:<secret>"
+```
+
+```shell
+kubectl apply -f cas-benchmark.yaml
 ```
 

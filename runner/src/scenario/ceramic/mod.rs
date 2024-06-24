@@ -8,7 +8,7 @@ pub mod write_only;
 
 use ceramic_core::ssi::did::{DIDMethod, Document, DocumentBuilder, Source};
 use ceramic_core::ssi::jwk::{self, Base64urlUInt, Params, JWK};
-use ceramic_http_client::ceramic_event::JwkSigner;
+use ceramic_http_client::ceramic_event::unvalidated::signed::JwkSigner;
 use ceramic_http_client::CeramicHttpClient;
 
 use models::RandomModelInstance;

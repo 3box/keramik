@@ -120,17 +120,17 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
         let user_data: &ReconCeramicModelInstanceTestUser = user
             .get_session_data()
             .expect("we are missing sync_event_id user data");
-        let data = random_init_event_car(
-            SORT_KEY,
-            user_data.model_id.to_vec().unwrap(),
+        let event = random_init_event_car(
+            user_data.model_id.to_vec(),
             Some(TEST_CONTROLLER.to_string()),
         )
         .await
         .unwrap();
-        let event_key_body = serde_json::json!({"data": data});
         // eventId needs to be a multibase encoded string for the API to accept it
-
         let cnt = NEW_EVENT_CNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let event_key_body = serde_json::json!({
+            "data": event,
+        });
 
         if cnt == 0 || cnt % 1000 == 0 {
             tracing::trace!("new sync_event_id body: {:?}", event_key_body);
@@ -150,7 +150,6 @@ async fn create_new_event(user: &mut GooseUser) -> TransactionResult {
     }
 }
 
-const SORT_KEY: &str = "model";
 // hard code test controller in case we want to find/prune later
 const TEST_CONTROLLER: &str = "did:key:z6MkoFUppcKEVYTS8oVidrja94UoJTatNhnhxJRKF7NYPScS";
 

@@ -688,7 +688,6 @@ impl ModelInstanceRequests {
         let name = format!("create_index_model_{}", tx_name);
         let req = cli
             .create_index_model_request(model_id, &resp.code)
-            .await
             .unwrap();
         let mut goose = user
             .request(

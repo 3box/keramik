@@ -4,6 +4,7 @@ use goose::GooseError;
 pub mod ceramic;
 pub mod ipfs_block_fetch;
 pub mod recon_sync;
+pub mod stability_test_utils;
 pub mod util;
 
 static FIRST_USER: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);

@@ -196,15 +196,16 @@ async fn reconcile_(
 
     if manager_ready > 0 {
         //for loop n peers
-        apply_n_workers(
-            cx.clone(),
-            &ns,
-            num_peers,
-            &status,
-            simulation.clone(),
-            job_image_config.clone(),
-        )
-        .await?;
+
+        // apply_n_workers(
+        //     cx.clone(),
+        //     &ns,
+        //     num_peers,
+        //     &status,
+        //     simulation.clone(),
+        //     job_image_config.clone(),
+        // )
+        // .await?;
     }
 
     let simulations: Api<Simulation> = Api::namespaced(cx.k_client.clone(), &ns);

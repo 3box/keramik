@@ -5,7 +5,9 @@ use std::{
 };
 
 use anyhow::{anyhow, bail, Result};
+use ceramic_core::StreamId;
 use clap::{Args, ValueEnum};
+use futures::future;
 use goose::{config::GooseConfiguration, prelude::GooseMetrics, GooseAttack};
 use keramik_common::peer_info::Peer;
 use opentelemetry::{
@@ -14,12 +16,21 @@ use opentelemetry::{
     KeyValue,
 };
 use reqwest::Url;
+use std::sync::atomic::{AtomicU64, Ordering};
+use tokio::sync::Semaphore;
 use tokio::time::sleep;
+use tokio::time::Instant;
 use tracing::{error, info, warn};
 
+// Use the stability test utils
+use crate::scenario::stability_test_utils;
 use crate::{
     scenario::{
-        ceramic::{self, new_streams},
+        ceramic::{
+            self,
+            model_instance::{CeramicModelInstanceTestUser, EnvBasedConfig},
+            new_streams,
+        },
         get_redis_client, ipfs_block_fetch, recon_sync,
     },
     utils::{calculate_sample_size, parse_peers_info, select_sample_set_ids},
@@ -1045,7 +1056,42 @@ impl ScenarioState {
 
 #[tracing::instrument]
 pub async fn simulate(opts: Opts) -> Result<CommandResult> {
-    let mut metrics = Metrics::init(&opts)?;
+    // let mut metrics = Metrics::init(&opts)?;
+
+    // let metrics_collector = Box::new(PromMetricCollector {
+    //     client: reqwest::Client::builder()
+    //         .connect_timeout(Duration::from_secs(3))
+    //         .timeout(Duration::from_secs(10))
+    //         .build()?,
+    // });
+    // let mut state: ScenarioState = ScenarioState::try_from_opts(opts, metrics_collector, None).await?;
+    // let scenario = state.build_goose_scenario().await?;
+
+    // let start = std::time::Instant::now();
+    // let goose_metrics = match GooseAttack::initialize_with_config(config)?
+    //     .register_scenario(scenario)
+    //     .execute()
+    //     .await
+    // {
+    //     Ok(m) => m,
+    //     Err(e) => {
+    //         error!("{:#?}", e);
+    //         return Err(e.into());
+    //     }
+    // };
+    // let elapsed = start.elapsed();
+
+    // let (success, peer_rps) = state
+    //     .validate_scenario_success(&goose_metrics, elapsed)
+    //     .await;
+    // metrics.record(goose_metrics, peer_rps);
+
+    // TODO: Implement load generator that lasts for a week
+    simulate_for_week(opts).await
+}
+
+pub async fn simulate_for_week(opts: Opts) -> Result<CommandResult> {
+    let mut metrics: Metrics = Metrics::init(&opts)?;
 
     let metrics_collector = Box::new(PromMetricCollector {
         client: reqwest::Client::builder()
@@ -1053,30 +1099,196 @@ pub async fn simulate(opts: Opts) -> Result<CommandResult> {
             .timeout(Duration::from_secs(10))
             .build()?,
     });
-    let mut state = ScenarioState::try_from_opts(opts, metrics_collector, None).await?;
-    let scenario = state.build_goose_scenario().await?;
-    let config: GooseConfiguration = state.goose_config()?;
+    let state: ScenarioState = ScenarioState::try_from_opts(opts, metrics_collector, None).await?;
+    let config: EnvBasedConfig =
+        CeramicModelInstanceTestUser::prep_scenario(state.scenario.into()).await?;
 
-    let start = std::time::Instant::now();
-    let goose_metrics = match GooseAttack::initialize_with_config(config)?
-        .register_scenario(scenario)
-        .execute()
-        .await
-    {
-        Ok(m) => m,
-        Err(e) => {
-            error!("{:#?}", e);
-            return Err(e.into());
+    // TODO : Set up a ceramic client which is authenticated, or get it from somewhere
+    // TODO : Get address of the ceramic peer from somewhere
+    let peer_addr = state.target_peer_addr()?;
+    info!("Peer address: {:?}", peer_addr);
+    // TODO : Fet the address of the peer
+    // let peer_addr = peer.ceramic_addr().expect("Peer does not have a ceramic address");
+
+    let stable_load_user = stability_test_utils::StableLoadUser::setup_stability_test(
+        config.admin_cli,
+        Some(peer_addr),
+    )
+    .await;
+
+    // Create a model by calling generate random model
+    let model = stable_load_user.generate_random_model().await?;
+    let run_time: u64 = state.run_time.parse().expect("Failed to parse run_time as u64");
+
+    info!("Model: {:?}", model);
+    // create a model instance document on loop at 100 rps, by calling create random mid in a loop
+    let model_instance_creation_result =
+        create_model_instances_continuously(stable_load_user, model, run_time).await;
+    info!(
+        "Model instance creation result: {:?}",
+        model_instance_creation_result
+    );
+    Ok(CommandResult::Success)
+}
+
+pub async fn create_model_instances_continuously(
+    stable_load_user: stability_test_utils::StableLoadUser,
+    model: StreamId,
+    duration_in_minutes: u64,
+) -> Result<()> {
+    let start_time = Instant::now();
+    // Convert hours to seconds for the total duration
+    // let duration = Duration::from_secs(duration_in_hours * 3600);
+    let duration = Duration::from_secs(duration_in_minutes * 60);
+    let mut count = 0;
+    let mut errors = 0;
+
+    // TODO : Do things with the channel to implement throttling
+    //  TODO : Remove logs after 3 hour test
+    let (tx, mut rx) = tokio::sync::mpsc::channel(10000);
+    let mut tasks = tokio::task::JoinSet::new();
+    for i in 0..5 {
+        let user_clone = stable_load_user.clone();
+        let model = model.clone();
+        let tx = tx.clone();
+        // Wrap the future in a tokio timeout
+        tasks.spawn(async move {
+            loop {
+                if start_time.elapsed() > duration {
+                    info!("loop {i} Duration expired");
+                    break;
+                }
+                match tokio::time::timeout(
+                    Duration::from_millis(500),
+                    user_clone.create_random_mid(&model),
+                )
+                .await
+                {
+                    Ok(Ok(mid)) => {
+                        match tx.send(Ok(mid.to_string())).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failed to send MID: {}", e);
+                            }
+                        }
+                    }
+                    Ok(Err(e)) => {
+                        match tx.send(Err(e.to_string())).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failed to send error: {}", e);
+                            }
+                        }
+                    }
+                    Err(e) => {
+                        match tx.send(Err(e.to_string())).await {
+                            Ok(_) => {}
+                            Err(e) => {
+                                error!("Failed to send error: {}", e);
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    drop(tx);
+    loop {
+        let mut mid_vec: Vec<Result<String, String>> = Vec::new();
+        if rx.recv_many(&mut mid_vec, 10).await > 0 {
+            for mid in mid_vec {
+                match mid {
+                    Ok(_) => {
+                        count += 1;
+                    }
+                    Err(_) => {
+                        errors += 1;
+                    }
+                }
+            }
         }
-    };
-    let elapsed = start.elapsed();
+        if start_time.elapsed() > duration {
+            tasks.abort_all();
+            break;
+        }
+    }
+    info!("Created {} MIDs in {} minutes", count, duration_in_minutes);
+    info!(
+        "Failed to create {} MIDs in {} minutes",
+        errors, duration_in_minutes
+    );
+    Ok(())
+}
 
-    let (success, peer_rps) = state
-        .validate_scenario_success(&goose_metrics, elapsed)
-        .await;
-    metrics.record(goose_metrics, peer_rps);
+pub async fn create_model_instances_continuously_no_channel(
+    stable_load_user: stability_test_utils::StableLoadUser,
+    model: StreamId,
+    duration_in_hours: u64,
+    requests_per_second: u64,
+) -> Result<()> {
+    let start_time = Instant::now();
+    let duration = Duration::from_secs(duration_in_hours * 360);
+    let interval = Duration::from_micros(1_000_000 / requests_per_second);
 
-    Ok(success)
+    let count = Arc::new(AtomicU64::new(0));
+    let errors = Arc::new(AtomicU64::new(0));
+    let timeouts = Arc::new(AtomicU64::new(0));
+
+    let semaphore = Arc::new(Semaphore::new(requests_per_second as usize * 2)); // Allow some bursting
+
+    while start_time.elapsed() < duration {
+        let permit = semaphore.clone().acquire_owned().await.unwrap();
+        let user_clone = stable_load_user.clone();
+        let model = model.clone();
+        let count_clone = count.clone();
+        let errors_clone = errors.clone();
+        let timeouts_clone = timeouts.clone();
+
+        tokio::spawn(async move {
+            let _permit = permit; // Keep the permit until the task is done
+            match tokio::time::timeout(
+                Duration::from_secs(10),
+                user_clone.create_random_mid(&model),
+            )
+            .await
+            {
+                Ok(Ok(mid)) => {
+                    count_clone.fetch_add(1, Ordering::Relaxed);
+                    info!("Created MID: {}", mid);
+                }
+                Ok(Err(e)) => {
+                    errors_clone.fetch_add(1, Ordering::Relaxed);
+                    error!("Failed to create MID: {}", e);
+                }
+                Err(_) => {
+                    timeouts_clone.fetch_add(1, Ordering::Relaxed);
+                    error!("Request timed out");
+                }
+            }
+        });
+
+        tokio::time::sleep(interval).await;
+    }
+
+    let total_count = count.load(Ordering::Relaxed);
+    let total_errors = errors.load(Ordering::Relaxed);
+    let total_timeouts = timeouts.load(Ordering::Relaxed);
+    let total_requests = total_count + total_errors + total_timeouts;
+    let elapsed = start_time.elapsed().as_secs_f64();
+
+    info!(
+        "Completed creating MIDs continuously for {} hours",
+        duration_in_hours
+    );
+    info!("Created {} MIDs in {:.2} seconds", total_count, elapsed);
+    info!("Failed to create {} MIDs", total_errors);
+    info!("Request timed out {} times", total_timeouts);
+    info!(
+        "Actual request rate: {:.2} req/s",
+        total_requests as f64 / elapsed
+    );
+
+    Ok(())
 }
 
 struct Metrics {
@@ -1464,7 +1676,7 @@ mod test {
         let mut state =
             ScenarioState::try_from_opts(opts, Box::new(metrics_collector), Some(peers))
                 .await
-                .unwrap();
+                .unwrap();  
 
         state.collect_before_metrics().await.unwrap();
         state.validate_recon_scenario_success(run_time).await.0

@@ -481,7 +481,7 @@ pub fn cas_stateful_set_spec(
                                     },
                                     EnvVar {
                                         name: "ANCHOR_BATCH_SIZE".to_owned(),
-                                        value: Some("20".to_owned()),
+                                        value: Some("1".to_owned()),
                                         ..Default::default()
                                     },
                                     EnvVar {

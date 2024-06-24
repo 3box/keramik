@@ -861,8 +861,8 @@ async fn update_peer_status(
     for ceramic in ceramics {
         for i in 0..ceramic.info.replicas {
             let pod_name = ceramic.info.pod_name(i);
-            let pod = pods.get_status(&pod_name).await?;
-            if !is_pod_ready(&pod) {
+            let pod = pods.get_status(&pod_name).await;
+            if pod.map(|pod| !is_pod_ready(&pod)).unwrap_or(true) {
                 debug!(pod_name, "peer is not ready skipping");
                 continue;
             }

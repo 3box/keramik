@@ -181,7 +181,7 @@ blockstore path of `/data/ipfs`) and the Ceramic network set to `dev-unstable`.
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
-  name: kubo-migration-src
+  name: basic-network
 spec:
   replicas: 5
   ceramic:
@@ -197,12 +197,18 @@ starting up the node.
 apiVersion: "keramik.3box.io/v1alpha1"
 kind: Network
 metadata:
-  name: ceramic-one-migration-dest
+  name: basic-network
 spec:
   replicas: 5
   ceramic:
     - ipfs:
         rust:
             migrationCmd:
-                - from-ipfs -i /data/ipfs/blocks -o /data/ipfs/db.sqlite3 --network dev-unstable
+                - from-ipfs
+                - -i
+                - /data/ipfs/blocks
+                - -o
+                - /data/ipfs/
+                - --network
+                - dev-unstable
 ```

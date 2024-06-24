@@ -105,7 +105,7 @@ pub struct RustIpfsConfig {
     storage: PersistentStorageConfig,
     rust_log: String,
     env: Option<BTreeMap<String, String>>,
-    migration_cmd: Option<String>,
+    migration_cmd: Option<Vec<String>>,
 }
 
 impl RustIpfsConfig {
@@ -273,20 +273,17 @@ impl RustIpfsConfig {
     }
 
     fn init_container(&self, net_config: &NetworkConfig) -> Option<Container> {
-        if let Some(cmd) = &self.migration_cmd {
-            Some(Container {
-                command: Some(
-                    vec!["/usr/bin/ceramic-one", "migrations"]
-                        .into_iter()
-                        .chain(cmd.split_whitespace())
-                        .map(ToOwned::to_owned)
-                        .collect(),
-                ),
-                ..self.container(net_config)
-            })
-        } else {
-            None
-        }
+        self.migration_cmd.as_ref().map(|cmd| Container {
+            name: "ipfs-migration".to_string(),
+            command: Some(
+                vec!["/usr/bin/ceramic-one", "migrations"]
+                    .into_iter()
+                    .chain(cmd.iter().map(String::as_str))
+                    .map(ToOwned::to_owned)
+                    .collect(),
+            ),
+            ..self.container(net_config)
+        })
     }
 }
 

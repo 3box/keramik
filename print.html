@@ -1009,6 +1009,41 @@ spec:
        commands:
          - ipfs config --json Swarm.RelayClient.Enabled false
 </code></pre>
+<h2 id="migration-from-kubo-to-ceramic-one"><a class="header" href="#migration-from-kubo-to-ceramic-one">Migration from Kubo to Ceramic One</a></h2>
+<p>A Kubo blockstore can be migrated to Ceramic One by specifying the migration command in the IPFS configuration.</p>
+<p>Example <a href="./setup_network.html">network config</a> that uses Go based IPFS (i.e. Kubo) with its defaults for Ceramic (including a default
+blockstore path of <code>/data/ipfs</code>) and the Ceramic network set to <code>dev-unstable</code>.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: basic-network
+spec:
+  replicas: 5
+  ceramic:
+    - ipfs:
+        go: {}
+  networkType: dev-unstable
+</code></pre>
+<p>Example <a href="./setup_network.html">network config</a> that uses Ceramic One and specifies what migration command to run before
+starting up the node.</p>
+<pre><code class="language-yaml">apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: Network
+metadata:
+  name: basic-network
+spec:
+  replicas: 5
+  ceramic:
+    - ipfs:
+        rust:
+            migrationCmd:
+                - from-ipfs
+                - -i
+                - /data/ipfs/blocks
+                - -o
+                - /data/ipfs/
+                - --network
+                - dev-unstable
+</code></pre>
 <div style="break-before: page; page-break-before: always;"></div><h1 id="mixed-networks"><a class="header" href="#mixed-networks">Mixed Networks</a></h1>
 <p>It is possible to configure multiple sets of Ceramic nodes that different from one another.
 For example a network where half of the nodes are running a different version of js-ceramic or IPFS.</p>

@@ -654,11 +654,11 @@ pub fn ganache_stateful_set_spec(
                     command: Some([
                         "node",
                         "/app/dist/node/cli.js",
-                        "--miner.blockTime=0",
+                        "--miner.blockTime=1",
                         "--mnemonic='move sense much taxi wave hurry recall stairs thank brother nut woman'",
                         "--networkId=5777",
                         "-l=80000000",
-                        "--quiet",
+                        "-v",
                     ].map(String::from).to_vec()),
                     image: Some("trufflesuite/ganache".to_owned()),
                     image_pull_policy: Some("IfNotPresent".to_owned()),

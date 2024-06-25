@@ -270,6 +270,10 @@ Request {
                   {
                     "name": "SCHEDULER_STOP_AFTER_NO_OP",
                     "value": "false"
+                  },
+                  {
+                    "name": "SCHEDULER_INTERVAL_MS",
+                    "value": "1000"
                   }
                 ],
                 "image": "ceramicnetwork/ceramic-anchor-service:latest",

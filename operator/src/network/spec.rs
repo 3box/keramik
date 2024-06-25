@@ -204,6 +204,8 @@ pub struct RustIpfsSpec {
     /// Extra env values to pass to the image.
     /// CAUTION: Any env vars specified in this set will override any predefined values.
     pub env: Option<BTreeMap<String, String>>,
+    /// Migration command that should run before a node comes up
+    pub migration_cmd: Option<Vec<String>>,
 }
 
 /// Describes how the Go IPFS node for a peer should behave.

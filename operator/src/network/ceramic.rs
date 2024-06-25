@@ -664,35 +664,40 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
                             .ipfs
                             .container(&bundle.info, bundle.net_config),
                     ],
-                    init_containers: Some(vec![Container {
-                        command: Some(vec![
-                            "/bin/bash".to_owned(),
-                            "-c".to_owned(),
-                            "/ceramic-init/ceramic-init.sh".to_owned(),
-                        ]),
-                        env: Some(init_env),
-                        image: Some(bundle.config.init_image_name.to_owned()),
-                        image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
-                        name: "init-ceramic-config".to_owned(),
-                        resources: Some(ResourceRequirements {
-                            limits: Some(bundle.config.resource_limits.clone().into()),
-                            requests: Some(bundle.config.resource_limits.clone().into()),
+                    init_containers: Some(
+                        vec![Container {
+                            command: Some(vec![
+                                "/bin/bash".to_owned(),
+                                "-c".to_owned(),
+                                "/ceramic-init/ceramic-init.sh".to_owned(),
+                            ]),
+                            env: Some(init_env),
+                            image: Some(bundle.config.init_image_name.to_owned()),
+                            image_pull_policy: Some(bundle.config.image_pull_policy.to_owned()),
+                            name: "init-ceramic-config".to_owned(),
+                            resources: Some(ResourceRequirements {
+                                limits: Some(bundle.config.resource_limits.clone().into()),
+                                requests: Some(bundle.config.resource_limits.clone().into()),
+                                ..Default::default()
+                            }),
+                            volume_mounts: Some(vec![
+                                VolumeMount {
+                                    mount_path: "/config".to_owned(),
+                                    name: "config-volume".to_owned(),
+                                    ..Default::default()
+                                },
+                                VolumeMount {
+                                    mount_path: "/ceramic-init".to_owned(),
+                                    name: "ceramic-init".to_owned(),
+                                    ..Default::default()
+                                },
+                            ]),
                             ..Default::default()
-                        }),
-                        volume_mounts: Some(vec![
-                            VolumeMount {
-                                mount_path: "/config".to_owned(),
-                                name: "config-volume".to_owned(),
-                                ..Default::default()
-                            },
-                            VolumeMount {
-                                mount_path: "/ceramic-init".to_owned(),
-                                name: "ceramic-init".to_owned(),
-                                ..Default::default()
-                            },
-                        ]),
-                        ..Default::default()
-                    }]),
+                        }]
+                        .into_iter()
+                        .chain(bundle.config.ipfs.init_container(bundle.net_config))
+                        .collect(),
+                    ),
                     volumes: Some(volumes),
                     security_context: Some(PodSecurityContext {
                         fs_group: Some(70),

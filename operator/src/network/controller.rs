@@ -861,8 +861,8 @@ async fn update_peer_status(
     for ceramic in ceramics {
         for i in 0..ceramic.info.replicas {
             let pod_name = ceramic.info.pod_name(i);
-            let pod = pods.get_status(&pod_name).await?;
-            if !is_pod_ready(&pod) {
+            let pod = pods.get_status(&pod_name).await;
+            if pod.map(|pod| !is_pod_ready(&pod)).unwrap_or(true) {
                 debug!(pod_name, "peer is not ready skipping");
                 continue;
             }
@@ -4691,6 +4691,147 @@ mod tests {
                                  "name": "ETH_CONTRACT_ADDRESS",
                                  "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
                                },
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    #[traced_test]
+    async fn migration_cmd() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            ceramic: Some(vec![CeramicSpec {
+                ipfs: Some(IpfsSpec::Rust(RustIpfsSpec {
+                    migration_cmd: Some(
+                        vec![
+                            "from-ipfs",
+                            "-i",
+                            "/data/ipfs/blocks",
+                            "-o",
+                            "/data/ipfs/",
+                            "--network",
+                            "dev-unstable",
+                        ]
+                        .into_iter()
+                        .map(ToOwned::to_owned)
+                        .collect(),
+                    ),
+                    ..Default::default()
+                })),
+                ..Default::default()
+            }]),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.ceramics[0].stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -397,6 +397,95 @@
+                                 "name": "ceramic-init"
+                               }
+                             ]
+            +              },
+            +              {
+            +                "command": [
+            +                  "/usr/bin/ceramic-one",
+            +                  "migrations",
+            +                  "from-ipfs",
+            +                  "-i",
+            +                  "/data/ipfs/blocks",
+            +                  "-o",
+            +                  "/data/ipfs/",
+            +                  "--network",
+            +                  "dev-unstable"
+            +                ],
+            +                "env": [
+            +                  {
+            +                    "name": "CERAMIC_ONE_BIND_ADDRESS",
+            +                    "value": "0.0.0.0:5001"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
+            +                    "value": "1"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_KADEMLIA_REPLICATION",
+            +                    "value": "6"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_LOCAL_NETWORK_ID",
+            +                    "value": "0"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
+            +                    "value": "0.0.0.0:9465"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_NETWORK",
+            +                    "value": "local"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_STORE_DIR",
+            +                    "value": "/data/ipfs"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
+            +                    "value": "/ip4/0.0.0.0/tcp/4001"
+            +                  },
+            +                  {
+            +                    "name": "RUST_LOG",
+            +                    "value": "info,ceramic_one=debug,multipart=error"
+            +                  }
+            +                ],
+            +                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
+            +                "imagePullPolicy": "Always",
+            +                "name": "ipfs-migration",
+            +                "ports": [
+            +                  {
+            +                    "containerPort": 4001,
+            +                    "name": "swarm-tcp",
+            +                    "protocol": "TCP"
+            +                  },
+            +                  {
+            +                    "containerPort": 5001,
+            +                    "name": "rpc",
+            +                    "protocol": "TCP"
+            +                  },
+            +                  {
+            +                    "containerPort": 9465,
+            +                    "name": "metrics",
+            +                    "protocol": "TCP"
+            +                  }
+            +                ],
+            +                "resources": {
+            +                  "limits": {
+            +                    "cpu": "1",
+            +                    "ephemeral-storage": "1Gi",
+            +                    "memory": "1Gi"
+            +                  },
+            +                  "requests": {
+            +                    "cpu": "1",
+            +                    "ephemeral-storage": "1Gi",
+            +                    "memory": "1Gi"
+            +                  }
+            +                },
+            +                "volumeMounts": [
+            +                  {
+            +                    "mountPath": "/data/ipfs",
+            +                    "name": "ipfs-data"
+            +                  }
+            +                ]
+                           }
+                         ],
+                         "securityContext": {
+        "#]]);
+        stub.cas_ipfs_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

@@ -454,6 +454,11 @@ pub fn cas_stateful_set_spec(
                                         value: Some("false".to_owned()),
                                         ..Default::default()
                                     },
+                                    EnvVar {
+                                        name: "SCHEDULER_INTERVAL_MS".to_owned(),
+                                        value: Some("1000".to_owned()),
+                                        ..Default::default()
+                                    },
                                 ],
                             ]
                             .concat(),
@@ -648,7 +653,7 @@ pub fn ganache_stateful_set_spec(
                     command: Some([
                         "node",
                         "/app/dist/node/cli.js",
-                        "--miner.blockTime=5",
+                        "--miner.blockTime=0",
                         "--mnemonic='move sense much taxi wave hurry recall stairs thank brother nut woman'",
                         "--networkId=5777",
                         "-l=80000000",

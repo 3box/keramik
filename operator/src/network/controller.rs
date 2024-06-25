@@ -2858,8 +2858,8 @@ mod tests {
                              "name": "cas-api",
                              "ports": [
                                {
-            @@ -272,8 +272,8 @@
-                                 "value": "false"
+            @@ -276,8 +276,8 @@
+                                 "value": "1000"
                                }
                              ],
             -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
@@ -2869,7 +2869,7 @@ mod tests {
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
-            @@ -442,8 +442,8 @@
+            @@ -446,8 +446,8 @@
                                  "value": "dev"
                                }
                              ],
@@ -2976,7 +2976,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -277,12 +277,12 @@
+            @@ -281,12 +281,12 @@
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
@@ -2991,7 +2991,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -365,12 +365,12 @@
+            @@ -369,12 +369,12 @@
                              "name": "cas-scheduler",
                              "resources": {
                                "limits": {
@@ -3006,7 +3006,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -470,7 +470,7 @@
+            @@ -474,7 +474,7 @@
                            ],
                            "resources": {
                              "requests": {

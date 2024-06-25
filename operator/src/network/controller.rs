@@ -4708,7 +4708,18 @@ mod tests {
             ceramic: Some(vec![CeramicSpec {
                 ipfs: Some(IpfsSpec::Rust(RustIpfsSpec {
                     migration_cmd: Some(
-                        "from-ipfs -i /data/ipfs/blocks -o /data/ipfs/db.sqlite3 --network dev-unstable".to_string(),
+                        vec![
+                            "from-ipfs",
+                            "-i",
+                            "/data/ipfs/blocks",
+                            "-o",
+                            "/data/ipfs/",
+                            "--network",
+                            "dev-unstable",
+                        ]
+                        .into_iter()
+                        .map(ToOwned::to_owned)
+                        .collect(),
                     ),
                     ..Default::default()
                 })),
@@ -4734,7 +4745,7 @@ mod tests {
             +                  "-i",
             +                  "/data/ipfs/blocks",
             +                  "-o",
-            +                  "/data/ipfs/db.sqlite3",
+            +                  "/data/ipfs/",
             +                  "--network",
             +                  "dev-unstable"
             +                ],
@@ -4778,7 +4789,7 @@ mod tests {
             +                ],
             +                "image": "public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest",
             +                "imagePullPolicy": "Always",
-            +                "name": "ipfs",
+            +                "name": "ipfs-migration",
             +                "ports": [
             +                  {
             +                    "containerPort": 4001,

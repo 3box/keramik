@@ -169,3 +169,46 @@ spec:
        commands:
          - ipfs config --json Swarm.RelayClient.Enabled false
 ```
+
+## Migration from Kubo to Ceramic One
+
+A Kubo blockstore can be migrated to Ceramic One by specifying the migration command in the IPFS configuration.
+
+Example [network config](./setup_network.md) that uses Go based IPFS (i.e. Kubo) with its defaults for Ceramic (including a default
+blockstore path of `/data/ipfs`) and the Ceramic network set to `dev-unstable`.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: basic-network
+spec:
+  replicas: 5
+  ceramic:
+    - ipfs:
+        go: {}
+  networkType: dev-unstable
+```
+
+Example [network config](./setup_network.md) that uses Ceramic One and specifies what migration command to run before
+starting up the node.
+
+```yaml
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: Network
+metadata:
+  name: basic-network
+spec:
+  replicas: 5
+  ceramic:
+    - ipfs:
+        rust:
+            migrationCmd:
+                - from-ipfs
+                - -i
+                - /data/ipfs/blocks
+                - -o
+                - /data/ipfs/
+                - --network
+                - dev-unstable
+```

@@ -703,11 +703,10 @@ dependencies = [
 
 [[package]]
 name = "ceramic-core"
-version = "0.18.0"
-source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#c803ac49ec7b136a3aca42927c5696649238841a"
+version = "0.24.0"
+source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#8333cc9021f54bab1b941712fce5e2fdae60787a"
 dependencies = [
  "anyhow",
- "async-trait",
  "base64 0.21.7",
  "cid 0.11.1",
  "did-method-key",
@@ -731,23 +730,28 @@ dependencies = [
 
 [[package]]
 name = "ceramic-event"
-version = "0.18.0"
-source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#c803ac49ec7b136a3aca42927c5696649238841a"
+version = "0.24.0"
+source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#8333cc9021f54bab1b941712fce5e2fdae60787a"
 dependencies = [
  "anyhow",
- "async-trait",
+ "base64 0.21.7",
  "ceramic-core",
  "cid 0.11.1",
  "ipld-core",
+ "iroh-car",
  "multihash-codetable",
  "serde",
+ "serde_ipld_dagcbor",
  "serde_json",
+ "ssi",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]
 name = "ceramic-http-client"
 version = "0.1.0"
-source = "git+https://github.com/3box/ceramic-http-client-rs.git?branch=main#ffa148277f686b694100430f0125e65169c9f548"
+source = "git+https://github.com/3box/ceramic-http-client-rs.git?branch=main#536203fb3c71ab2cc1f73e70bb838b372ef12453"
 dependencies = [
  "anyhow",
  "ceramic-event",
@@ -2456,8 +2460,8 @@ dependencies = [
 
 [[package]]
 name = "iroh-car"
-version = "0.18.0"
-source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#c803ac49ec7b136a3aca42927c5696649238841a"
+version = "0.24.0"
+source = "git+https://github.com/ceramicnetwork/rust-ceramic.git?branch=main#8333cc9021f54bab1b941712fce5e2fdae60787a"
 dependencies = [
  "cid 0.11.1",
  "futures",

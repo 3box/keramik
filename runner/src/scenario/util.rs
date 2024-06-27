@@ -1,8 +1,8 @@
 use std::io::Write;
 
-use ceramic_core::{Cid, DagCborEncoded};
+use ceramic_core::{Cid, DagCborEncoded, MultiBase32String};
+use ceramic_http_client::ceramic_event::unvalidated;
 use goose::GooseError;
-use ipld_core::ipld;
 use multihash_codetable::{Code, MultihashDigest};
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
 use unsigned_varint::encode;
@@ -43,7 +43,7 @@ pub fn create_stream() -> anyhow::Result<(
         .map(char::from)
         .collect();
 
-    let genesis_commit = ipld!({
+    let genesis_commit = ipld_core::ipld!({
         "header": {
             "unique": gen_rand_bytes::<12>().as_slice(),
             "controllers": [controller]
@@ -73,10 +73,9 @@ pub fn write_stream_bytes(cid: &Cid) -> anyhow::Result<Vec<u8>> {
 }
 
 pub(crate) async fn random_init_event_car(
-    sort_key: &str,
     model: Vec<u8>,
     controller: Option<String>,
-) -> anyhow::Result<String> {
+) -> Result<MultiBase32String, anyhow::Error> {
     let controller = if let Some(owner) = controller {
         owner
     } else {
@@ -88,25 +87,14 @@ pub(crate) async fn random_init_event_car(
     };
 
     let unique = gen_rand_bytes::<12>();
-    let init = ipld!({
-        "header": {
-            "controllers": [controller],
-            "model": model,
-            "sep": sort_key,
-            "unique": unique.as_slice(),
-        }
-    });
-
-    let block = DagCborEncoded::new(&init)?;
-    let cid = Cid::new_v1(DAG_CBOR_CODEC, Code::Sha2_256.digest(block.as_ref()));
-
-    let mut buf = Vec::new();
-    let roots = vec![cid];
-    let mut writer = iroh_car::CarWriter::new(iroh_car::CarHeader::V1(roots.into()), &mut buf);
-    writer.write(cid, block).await?;
-    writer.finish().await.unwrap();
-
-    Ok(multibase::encode(multibase::Base::Base36Lower, buf))
+    let res = unvalidated::Builder::init()
+        .with_controller(controller)
+        .with_sep("model".to_string(), model)
+        .with_unique(unique.to_vec())
+        .with_data(ipld_core::ipld!({"a": 1, "b": 2}))
+        .build();
+    let car = res.encode_car().await?;
+    Ok(MultiBase32String::from(car))
 }
 
 fn gen_rand_bytes<const SIZE: usize>() -> [u8; SIZE] {

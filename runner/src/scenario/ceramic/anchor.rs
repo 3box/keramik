@@ -1,6 +1,9 @@
 use anyhow::Result;
 use ceramic_core::{Cid, DagCborEncoded};
-use ceramic_http_client::ceramic_event::{DidDocument, JwkSigner, Jws, StreamId};
+use ceramic_http_client::{
+    ceramic_event::{unvalidated, DidDocument, StreamId},
+    JwsBuilder,
+};
 use chrono::Utc;
 use goose::prelude::*;
 use ipld_core::ipld;
@@ -32,10 +35,13 @@ async fn auth_header(url: String, controller: String, digest: Cid) -> Result<Str
     let node_private_key = std::env::var("NODE_PRIVATE_KEY").unwrap_or_else(|_| {
         "b650ae31651a33cc1a40402e5b38266b8b6eb9213013b3fa3a91b3f065ab643a".to_string()
     });
-    let signer = JwkSigner::new(DidDocument::new(controller.as_str()), &node_private_key)
-        .await
-        .unwrap();
-    let auth_jws = Jws::builder(&signer).build_for_data(&auth_payload).await?;
+    let signer = unvalidated::signed::JwkSigner::new(
+        DidDocument::new(controller.as_str()),
+        &node_private_key,
+    )
+    .await
+    .unwrap();
+    let auth_jws = JwsBuilder::new(&signer).build_for_data(&auth_payload)?;
 
     let (sig, protected) = auth_jws
         .signatures
@@ -54,7 +60,7 @@ pub async fn stream_tip_car(
 ) -> Result<(Cid, Vec<u8>)> {
     let root_block = ipld!({
         "timestamp": Utc::now().to_rfc3339(),
-        "streamId": stream_id.to_vec()?,
+        "streamId": stream_id.to_vec(),
         "tip": genesis_cid,
     });
 

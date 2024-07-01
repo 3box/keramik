@@ -11,7 +11,6 @@ use k8s_openapi::{
 const IPFS_CONTAINER_NAME: &str = "ipfs";
 const IPFS_STORE_DIR: &str = "/data/ipfs";
 pub const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
-const IPFS_SERVICE_PORT: i32 = 5001;
 
 use crate::{
     network::{
@@ -22,7 +21,10 @@ use crate::{
     utils::override_and_sort_env_vars,
 };
 
-use super::debug_mode_security_context;
+use super::{
+    controller::{CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_SWARM_PORT},
+    debug_mode_security_context,
+};
 
 /// Unique identifying information about this IPFS spec.
 #[derive(Debug, Clone)]
@@ -172,7 +174,7 @@ impl RustIpfsConfig {
             },
             EnvVar {
                 name: "CERAMIC_ONE_BIND_ADDRESS".to_owned(),
-                value: Some(format!("0.0.0.0:{IPFS_SERVICE_PORT}")),
+                value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_IPFS_PORT}")),
                 ..Default::default()
             },
             EnvVar {
@@ -182,7 +184,7 @@ impl RustIpfsConfig {
             },
             EnvVar {
                 name: "CERAMIC_ONE_SWARM_ADDRESSES".to_owned(),
-                value: Some("/ip4/0.0.0.0/tcp/4001".to_owned()),
+                value: Some(format!("/ip4/0.0.0.0/tcp/{CERAMIC_SERVICE_SWARM_PORT}")),
                 ..Default::default()
             },
             EnvVar {
@@ -225,13 +227,13 @@ impl RustIpfsConfig {
         // Construct the set of ports
         let mut ports = vec![
             ContainerPort {
-                container_port: 4001,
+                container_port: CERAMIC_SERVICE_SWARM_PORT,
                 name: Some("swarm-tcp".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
             ContainerPort {
-                container_port: IPFS_SERVICE_PORT,
+                container_port: CERAMIC_SERVICE_IPFS_PORT,
                 name: Some("rpc".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
@@ -415,13 +417,13 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
             name: IPFS_CONTAINER_NAME.to_owned(),
             ports: Some(vec![
                 ContainerPort {
-                    container_port: 4001,
+                    container_port: CERAMIC_SERVICE_SWARM_PORT,
                     name: Some("swarm-tcp".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
                 },
                 ContainerPort {
-                    container_port: IPFS_SERVICE_PORT,
+                    container_port: CERAMIC_SERVICE_IPFS_PORT,
                     name: Some("rpc".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()

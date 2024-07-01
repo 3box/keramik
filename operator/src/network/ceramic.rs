@@ -33,7 +33,10 @@ use crate::{
     utils::override_and_sort_env_vars,
 };
 
-use super::{debug_mode_security_context, storage::PersistentStorageConfig};
+use super::{
+    controller::CERAMIC_SERVICE_SWARM_PORT, debug_mode_security_context,
+    storage::PersistentStorageConfig,
+};
 
 pub fn config_maps(
     info: &CeramicInfo,
@@ -121,7 +124,7 @@ pub fn service_spec() -> ServiceSpec {
                 ..Default::default()
             },
             ServicePort {
-                port: 4001,
+                port: CERAMIC_SERVICE_SWARM_PORT,
                 name: Some("swarm-tcp".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()

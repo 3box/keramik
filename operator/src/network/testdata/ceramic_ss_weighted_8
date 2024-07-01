@@ -55,7 +55,7 @@ Request {
                   },
                   {
                     "name": "CERAMIC_IPFS_HOST",
-                    "value": "http://localhost:5001"
+                    "value": "http://localhost:5101"
                   },
                   {
                     "name": "CERAMIC_LOG_LEVEL",
@@ -221,7 +221,7 @@ Request {
                 "env": [
                   {
                     "name": "CERAMIC_ONE_BIND_ADDRESS",
-                    "value": "0.0.0.0:5001"
+                    "value": "0.0.0.0:5101"
                   },
                   {
                     "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
@@ -249,7 +249,7 @@ Request {
                   },
                   {
                     "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-                    "value": "/ip4/0.0.0.0/tcp/4001"
+                    "value": "/ip4/0.0.0.0/tcp/4101"
                   },
                   {
                     "name": "RUST_LOG",
@@ -261,12 +261,12 @@ Request {
                 "name": "ipfs",
                 "ports": [
                   {
-                    "containerPort": 4001,
+                    "containerPort": 4101,
                     "name": "swarm-tcp",
                     "protocol": "TCP"
                   },
                   {
-                    "containerPort": 5001,
+                    "containerPort": 5101,
                     "name": "rpc",
                     "protocol": "TCP"
                   },
@@ -323,7 +323,7 @@ Request {
                   },
                   {
                     "name": "CERAMIC_IPFS_HOST",
-                    "value": "http://localhost:5001"
+                    "value": "http://localhost:5101"
                   },
                   {
                     "name": "CERAMIC_LOG_LEVEL",

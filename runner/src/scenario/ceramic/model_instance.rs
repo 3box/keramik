@@ -155,8 +155,15 @@ impl CeramicModelInstanceTestUser {
         debug!(params=?config.params, "setting up scenario");
         let (small_model_id, large_model_id) = match config.params.model_reuse {
             super::ReuseType::PerUser => {
-                Self::generate_list_models(user, &config.admin_cli, &config.redis_cli, true, None)
-                    .await?
+                Self::generate_list_models(
+                    user,
+                    &config.admin_cli,
+                    &config.redis_cli,
+                    true,
+                    None,
+                    false,
+                )
+                .await?
             }
             super::ReuseType::Shared => {
                 let (small, large) = Self::generate_list_models(
@@ -165,6 +172,7 @@ impl CeramicModelInstanceTestUser {
                     &config.redis_cli,
                     global_leader,
                     None,
+                    false,
                 )
                 .await?;
                 // js ceramic subscribes to the meta model, so we'll get all models created synced to us. we just need to make sure they sync before starting
@@ -181,8 +189,23 @@ impl CeramicModelInstanceTestUser {
                     &config.redis_cli,
                     lead_user,
                     Some(goose::get_worker_id().to_string()),
+                    false,
                 )
                 .await?
+            }
+            crate::scenario::ceramic::ReuseType::LeadWorkerSubscriber => {
+                let (small, large) = Self::generate_list_models(
+                    user,
+                    &config.admin_cli,
+                    &config.redis_cli,
+                    global_leader,
+                    None,
+                    true,
+                )
+                .await?;
+                Self::ensure_model_exists(user, &config.user_cli, &small).await?;
+                Self::ensure_model_exists(user, &config.user_cli, &large).await?;
+                (small, large)
             }
         };
 
@@ -252,6 +275,20 @@ impl CeramicModelInstanceTestUser {
                 )
                 .await?
             }
+            super::ReuseType::LeadWorkerSubscriber => {
+                // For model instance reuse type make it work the same way as shared
+                Self::generate_mids(
+                    user,
+                    &config.user_cli,
+                    &config.redis_cli,
+                    &small_model_id,
+                    &large_model_id,
+                    config.params.number_of_documents,
+                    global_leader,
+                    None,
+                )
+                .await?
+            }
         };
 
         let resp = Self {
@@ -294,6 +331,7 @@ impl CeramicModelInstanceTestUser {
         redis_cli: &redis::Client,
         should_create: bool,
         redis_postfix: Option<String>,
+        should_subscribe: bool,
     ) -> Result<(StreamId, StreamId), TransactionError> {
         let mut conn = redis_cli.get_async_connection().await.unwrap();
         let (small_key, large_key) = if let Some(pf) = redis_postfix {
@@ -333,6 +371,10 @@ impl CeramicModelInstanceTestUser {
             info!("waiting for shared model IDs to be set in redis");
             let small = loop_until_key_value_set(&mut conn, &small_key).await;
             let large = loop_until_key_value_set(&mut conn, &large_key).await;
+            if should_subscribe {
+                Self::subscribe_to_model(user, &small).await?;
+                Self::subscribe_to_model(user, &large).await?;
+            }
             Ok((small, large))
         }
     }

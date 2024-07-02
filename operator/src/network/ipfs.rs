@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::{
-    controller::{CERAMIC_SERVICE_IPFS_PORT, CERAMIC_SERVICE_SWARM_PORT},
+    controller::{CERAMIC_ONE_IPFS_PORT, CERAMIC_ONE_SWARM_PORT},
     debug_mode_security_context,
 };
 
@@ -174,7 +174,7 @@ impl RustIpfsConfig {
             },
             EnvVar {
                 name: "CERAMIC_ONE_BIND_ADDRESS".to_owned(),
-                value: Some(format!("0.0.0.0:{CERAMIC_SERVICE_IPFS_PORT}")),
+                value: Some(format!("0.0.0.0:{CERAMIC_ONE_IPFS_PORT}")),
                 ..Default::default()
             },
             EnvVar {
@@ -184,7 +184,7 @@ impl RustIpfsConfig {
             },
             EnvVar {
                 name: "CERAMIC_ONE_SWARM_ADDRESSES".to_owned(),
-                value: Some(format!("/ip4/0.0.0.0/tcp/{CERAMIC_SERVICE_SWARM_PORT}")),
+                value: Some(format!("/ip4/0.0.0.0/tcp/{CERAMIC_ONE_SWARM_PORT}")),
                 ..Default::default()
             },
             EnvVar {
@@ -227,13 +227,13 @@ impl RustIpfsConfig {
         // Construct the set of ports
         let mut ports = vec![
             ContainerPort {
-                container_port: CERAMIC_SERVICE_SWARM_PORT,
+                container_port: CERAMIC_ONE_SWARM_PORT,
                 name: Some("swarm-tcp".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
             ContainerPort {
-                container_port: CERAMIC_SERVICE_IPFS_PORT,
+                container_port: CERAMIC_ONE_IPFS_PORT,
                 name: Some("rpc".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
@@ -363,7 +363,7 @@ ipfs config  --json Addresses.Gateway '[]'
 # Enable pubsub
 ipfs config  --json PubSub.Enabled true
 # Only listen on specific tcp address as nothing else is exposed
-ipfs config  --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/4001"]'
+ipfs config  --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/4101"]'
 # Set explicit resource manager limits as Kubo computes them based off
 # the k8s node resources and not the pods limits.
 ipfs config Swarm.ResourceMgr.MaxMemory '400 MB'
@@ -417,13 +417,13 @@ ipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000
             name: IPFS_CONTAINER_NAME.to_owned(),
             ports: Some(vec![
                 ContainerPort {
-                    container_port: CERAMIC_SERVICE_SWARM_PORT,
+                    container_port: CERAMIC_ONE_SWARM_PORT,
                     name: Some("swarm-tcp".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()
                 },
                 ContainerPort {
-                    container_port: CERAMIC_SERVICE_IPFS_PORT,
+                    container_port: CERAMIC_ONE_IPFS_PORT,
                     name: Some("rpc".to_owned()),
                     protocol: Some("TCP".to_owned()),
                     ..Default::default()

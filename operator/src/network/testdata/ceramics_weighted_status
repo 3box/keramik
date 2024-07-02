@@ -172,7 +172,7 @@ Request {
           },
           {
             "ipfs": {
-              "ipfsRpcAddr": "http://cas-ipfs-0.cas-ipfs.keramik-test.svc.cluster.local:5001",
+              "ipfsRpcAddr": "http://cas-ipfs-0.cas-ipfs.keramik-test.svc.cluster.local:5101",
               "p2pAddrs": [],
               "peerId": "cas_peer_id"
             }

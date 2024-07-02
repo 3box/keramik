@@ -21,7 +21,7 @@ use crate::{
     network::{
         controller::{
             CAS_SERVICE_NAME, CERAMIC_APP, CERAMIC_POSTGRES_SECRET_NAME, CERAMIC_SERVICE_API_PORT,
-            CERAMIC_SERVICE_IPFS_PORT, DEFAULT_METRICS_PORT, GANACHE_SERVICE_NAME,
+            CERAMIC_ONE_IPFS_PORT, DEFAULT_METRICS_PORT, GANACHE_SERVICE_NAME,
             INIT_CONFIG_MAP_NAME, NETWORK_DEV_MODE_RESOURCES, NODE_INSPECTION_PORT,
         },
         datadog::DataDogConfig,
@@ -34,7 +34,7 @@ use crate::{
 };
 
 use super::{
-    controller::CERAMIC_SERVICE_SWARM_PORT, debug_mode_security_context,
+    controller::CERAMIC_ONE_SWARM_PORT, debug_mode_security_context,
     storage::PersistentStorageConfig,
 };
 
@@ -118,13 +118,13 @@ pub fn service_spec() -> ServiceSpec {
                 ..Default::default()
             },
             ServicePort {
-                port: CERAMIC_SERVICE_IPFS_PORT,
+                port: CERAMIC_ONE_IPFS_PORT,
                 name: Some("ipfs".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
             ServicePort {
-                port: CERAMIC_SERVICE_SWARM_PORT,
+                port: CERAMIC_ONE_SWARM_PORT,
                 name: Some("swarm-tcp".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
@@ -239,7 +239,7 @@ impl CeramicInfo {
     /// Determine the IPFS RPC address of a Ceramic peer
     pub fn ipfs_rpc_addr(&self, ns: &str, peer: i32) -> String {
         format!(
-            "http://{}-{peer}.{}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_IPFS_PORT}",
+            "http://{}-{peer}.{}.{ns}.svc.cluster.local:{CERAMIC_ONE_IPFS_PORT}",
             self.stateful_set, self.service
         )
     }
@@ -363,7 +363,7 @@ pub fn stateful_set_spec(ns: &str, bundle: &CeramicBundle<'_>) -> StatefulSetSpe
         },
         EnvVar {
             name: "CERAMIC_IPFS_HOST".to_owned(),
-            value: Some(format!("http://localhost:{CERAMIC_SERVICE_IPFS_PORT}")),
+            value: Some(format!("http://localhost:{CERAMIC_ONE_IPFS_PORT}")),
             ..Default::default()
         },
         EnvVar {

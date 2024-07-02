@@ -20,9 +20,9 @@ Request {
         "ports": [
           {
             "name": "cas-ipfs",
-            "port": 5001,
+            "port": 5101,
             "protocol": "TCP",
-            "targetPort": 5001
+            "targetPort": 5101
           }
         ],
         "selector": {

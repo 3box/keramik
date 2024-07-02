@@ -26,12 +26,12 @@ Request {
           },
           {
             "name": "ipfs",
-            "port": 5001,
+            "port": 5101,
             "protocol": "TCP"
           },
           {
             "name": "swarm-tcp",
-            "port": 4001,
+            "port": 4101,
             "protocol": "TCP"
           }
         ],

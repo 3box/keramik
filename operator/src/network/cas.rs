@@ -20,7 +20,7 @@ use crate::{
     network::{
         ceramic::NetworkConfig,
         controller::{
-            CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_POSTGRES_APP,
+            CAS_APP, CAS_IPFS_APP, CAS_IPFS_SERVICE_NAME, CAS_IPFS_SERVICE_PORT, CAS_POSTGRES_APP,
             CAS_POSTGRES_SECRET_NAME, CAS_POSTGRES_SERVICE_NAME, CAS_SERVICE_NAME,
             DEFAULT_METRICS_PORT, GANACHE_APP, GANACHE_SERVICE_NAME, LOCALSTACK_APP,
             LOCALSTACK_SERVICE_NAME, NETWORK_DEV_MODE_RESOURCES,
@@ -426,7 +426,7 @@ pub fn cas_stateful_set_spec(
                                     },
                                     EnvVar {
                                         name: "IPFS_API_URL".to_owned(),
-                                        value: Some(format!("http://{CAS_IPFS_SERVICE_NAME}:5001")),
+                                        value: Some(format!("http://{CAS_IPFS_SERVICE_NAME}:{CAS_IPFS_SERVICE_PORT}")),
                                         ..Default::default()
                                     },
                                     EnvVar {
@@ -621,9 +621,9 @@ pub fn cas_ipfs_service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![ServicePort {
             name: Some("cas-ipfs".to_owned()),
-            port: 5001,
+            port: CAS_IPFS_SERVICE_PORT,
             protocol: Some("TCP".to_owned()),
-            target_port: Some(IntOrString::Int(5001)),
+            target_port: Some(IntOrString::Int(CAS_IPFS_SERVICE_PORT)),
             ..Default::default()
         }]),
         selector: selector_labels(CAS_IPFS_APP),

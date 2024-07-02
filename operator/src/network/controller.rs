@@ -71,7 +71,8 @@ use crate::{
 /// network.
 pub const PEERS_CONFIG_MAP_NAME: &str = "keramik-peers";
 
-pub const CERAMIC_SERVICE_IPFS_PORT: i32 = 5001;
+pub const CERAMIC_ONE_SWARM_PORT: i32 = 4101;
+pub const CERAMIC_ONE_IPFS_PORT: i32 = 5101;
 pub const CERAMIC_SERVICE_API_PORT: i32 = 7007;
 pub const CERAMIC_POSTGRES_SECRET_NAME: &str = "ceramic-postgres-auth";
 
@@ -80,7 +81,7 @@ pub const ADMIN_SECRET_NAME: &str = "ceramic-admin";
 
 pub const CAS_SERVICE_NAME: &str = "cas";
 pub const CAS_IPFS_SERVICE_NAME: &str = "cas-ipfs";
-pub const CAS_SERVICE_IPFS_PORT: i32 = 5001;
+pub const CAS_IPFS_SERVICE_PORT: i32 = 5101;
 pub const CAS_POSTGRES_SERVICE_NAME: &str = "cas-postgres";
 pub const CAS_POSTGRES_SECRET_NAME: &str = "postgres-auth";
 pub const GANACHE_SERVICE_NAME: &str = "ganache";
@@ -890,7 +891,7 @@ async fn update_peer_status(
     let network_config: NetworkConfig = network.spec().into();
     if network_config.network_type == NetworkType::Local {
         // CAS IPFS peer
-        let ipfs_rpc_addr = format!("http://{CAS_IPFS_SERVICE_NAME}-0.{CAS_IPFS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_SERVICE_IPFS_PORT}");
+        let ipfs_rpc_addr = format!("http://{CAS_IPFS_SERVICE_NAME}-0.{CAS_IPFS_SERVICE_NAME}.{ns}.svc.cluster.local:{CAS_IPFS_SERVICE_PORT}");
         match cx.rpc_client.peer_info(&ipfs_rpc_addr).await {
             Ok(info) => {
                 status.peers.push(Peer::Ipfs(info));
@@ -2275,7 +2276,7 @@ mod tests {
             -                "env": [
             -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
-            -                    "value": "0.0.0.0:5001"
+            -                    "value": "0.0.0.0:5101"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
@@ -2303,7 +2304,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "value": "/ip4/0.0.0.0/tcp/4101"
             -                  },
             -                  {
             -                    "name": "RUST_LOG",
@@ -2427,7 +2428,7 @@ mod tests {
             -                "env": [
             -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
-            -                    "value": "0.0.0.0:5001"
+            -                    "value": "0.0.0.0:5101"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
@@ -2455,7 +2456,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "value": "/ip4/0.0.0.0/tcp/4101"
             -                  },
             -                  {
             -                    "name": "RUST_LOG",
@@ -2584,7 +2585,7 @@ mod tests {
             -                "env": [
             -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
-            -                    "value": "0.0.0.0:5001"
+            -                    "value": "0.0.0.0:5101"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
@@ -2612,7 +2613,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "value": "/ip4/0.0.0.0/tcp/4101"
             -                  },
             -                  {
             -                    "name": "RUST_LOG",
@@ -2749,7 +2750,7 @@ mod tests {
                                  "value": "0.0.0.0:9465"
                                },
             @@ -252,11 +256,19 @@
-                                 "value": "/ip4/0.0.0.0/tcp/4001"
+                                 "value": "/ip4/0.0.0.0/tcp/4101"
                                },
                                {
             +                    "name": "ENV_KEY_A",
@@ -4185,7 +4186,7 @@ mod tests {
             -                "env": [
             -                  {
             -                    "name": "CERAMIC_ONE_BIND_ADDRESS",
-            -                    "value": "0.0.0.0:5001"
+            -                    "value": "0.0.0.0:5101"
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
@@ -4213,7 +4214,7 @@ mod tests {
             -                  },
             -                  {
             -                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            -                    "value": "/ip4/0.0.0.0/tcp/4001"
+            -                    "value": "/ip4/0.0.0.0/tcp/4101"
             -                  },
             -                  {
             -                    "name": "RUST_LOG",
@@ -4547,7 +4548,7 @@ mod tests {
                                {
                                  "mountPath": "/config",
             @@ -252,6 +268,10 @@
-                                 "value": "/ip4/0.0.0.0/tcp/4001"
+                                 "value": "/ip4/0.0.0.0/tcp/4101"
                                },
                                {
             +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
@@ -4599,7 +4600,7 @@ mod tests {
             --- original
             +++ modified
             @@ -69,6 +69,10 @@
-                                 "value": "/ip4/0.0.0.0/tcp/4001"
+                                 "value": "/ip4/0.0.0.0/tcp/4101"
                                },
                                {
             +                    "name": "CERAMIC_ONE_TOKIO_CONSOLE",
@@ -4752,7 +4753,7 @@ mod tests {
             +                "env": [
             +                  {
             +                    "name": "CERAMIC_ONE_BIND_ADDRESS",
-            +                    "value": "0.0.0.0:5001"
+            +                    "value": "0.0.0.0:5101"
             +                  },
             +                  {
             +                    "name": "CERAMIC_ONE_KADEMLIA_PARALLELISM",
@@ -4780,7 +4781,7 @@ mod tests {
             +                  },
             +                  {
             +                    "name": "CERAMIC_ONE_SWARM_ADDRESSES",
-            +                    "value": "/ip4/0.0.0.0/tcp/4001"
+            +                    "value": "/ip4/0.0.0.0/tcp/4101"
             +                  },
             +                  {
             +                    "name": "RUST_LOG",
@@ -4792,12 +4793,12 @@ mod tests {
             +                "name": "ipfs-migration",
             +                "ports": [
             +                  {
-            +                    "containerPort": 4001,
+            +                    "containerPort": 4101,
             +                    "name": "swarm-tcp",
             +                    "protocol": "TCP"
             +                  },
             +                  {
-            +                    "containerPort": 5001,
+            +                    "containerPort": 5101,
             +                    "name": "rpc",
             +                    "protocol": "TCP"
             +                  },

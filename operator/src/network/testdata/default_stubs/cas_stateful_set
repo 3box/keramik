@@ -249,7 +249,7 @@ Request {
                   },
                   {
                     "name": "IPFS_API_URL",
-                    "value": "http://cas-ipfs:5001"
+                    "value": "http://cas-ipfs:5101"
                   },
                   {
                     "name": "IPFS_API_TIMEOUT",

@@ -89,7 +89,8 @@ r#"{
         "pubsub-topic": "${CERAMIC_NETWORK_TOPIC}"
     },
     "node": {
-        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}"
+        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}",
+        "metrics-publisher-enabled": false
     },
     "state-store": {
         "mode": "fs",

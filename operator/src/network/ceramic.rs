@@ -82,15 +82,15 @@ r#"{
     "metrics": {
         "metrics-exporter-enabled": false,
         "prometheus-exporter-enabled": true,
-        "prometheus-exporter-port": 9464
+        "prometheus-exporter-port": 9464,
+        "metrics-publisher-enabled": false
     },
     "network": {
         "name": "${CERAMIC_NETWORK}",
         "pubsub-topic": "${CERAMIC_NETWORK_TOPIC}"
     },
     "node": {
-        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}",
-        "metrics-publisher-enabled": false
+        "privateSeedUrl": "inplace:ed25519#${CERAMIC_ADMIN_PRIVATE_KEY}"
     },
     "state-store": {
         "mode": "fs",

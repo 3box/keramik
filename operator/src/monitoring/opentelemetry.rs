@@ -9,7 +9,7 @@ use k8s_openapi::{
             PodSpec, PodTemplateSpec, ResourceRequirements, ServicePort, ServiceSpec, Volume,
             VolumeMount,
         },
-        rbac::v1::{PolicyRule, RoleRef, Subject, Role, RoleBinding},
+        rbac::v1::{PolicyRule, Role, RoleBinding, RoleRef, Subject},
     },
     apimachinery::pkg::{
         api::resource::Quantity,
@@ -27,7 +27,7 @@ use crate::{
         resource_limits::ResourceLimitsConfig,
     },
     utils::{
-        apply_account, apply_namespaced_role, apply_namespaced_role_binding, apply_config_map,
+        apply_account, apply_config_map, apply_namespaced_role, apply_namespaced_role_binding,
         apply_service, apply_stateful_set, Clock, Context,
     },
 };
@@ -59,7 +59,8 @@ pub async fn apply(
         orefs.to_vec(),
         OTEL_ROLE_BINDING,
         role_binding(ns),
-    ).await?;
+    )
+    .await?;
     apply_config_map(
         cx.clone(),
         ns,
@@ -256,7 +257,6 @@ fn stateful_set_spec(config: &OtelConfig) -> StatefulSetSpec {
         ..Default::default()
     }
 }
-
 
 fn config_map_data() -> BTreeMap<String, String> {
     let config_str = include_str!("./otel-config.yaml"); // Adjust the path as necessary

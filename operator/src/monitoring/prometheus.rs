@@ -4,12 +4,14 @@ use k8s_openapi::{
     api::{
         apps::v1::StatefulSetSpec,
         core::v1::{
-            ConfigMapVolumeSource, Container, ContainerPort, PodSpec, PodTemplateSpec, ResourceRequirements, ServicePort, ServiceSpec, Volume, VolumeMount
+            ConfigMapVolumeSource, Container, ContainerPort, PodSpec, PodTemplateSpec,
+            ResourceRequirements, ServicePort, ServiceSpec, Volume, VolumeMount,
         },
     },
     apimachinery::pkg::{
         api::resource::Quantity,
-        apis::meta::v1::{LabelSelector, ObjectMeta, OwnerReference}, util::intstr::IntOrString,
+        apis::meta::v1::{LabelSelector, ObjectMeta, OwnerReference},
+        util::intstr::IntOrString,
     },
 };
 use rand::RngCore;
@@ -44,13 +46,13 @@ pub async fn apply(
     )
     .await?;
     apply_service(
-    cx.clone(),
-    ns,
-    orefs.to_vec(),
-    PROM_SERVICE_NAME,
-    service_spec(),
-)
-.await?;
+        cx.clone(),
+        ns,
+        orefs.to_vec(),
+        PROM_SERVICE_NAME,
+        service_spec(),
+    )
+    .await?;
     apply_stateful_set(
         cx.clone(),
         ns,
@@ -88,15 +90,13 @@ fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
 
 fn service_spec() -> ServiceSpec {
     ServiceSpec {
-        ports: Some(vec![
-            ServicePort {
-                name: Some("prometheus".to_owned()),
-                port: 9090,
-                protocol: Some("TCP".to_owned()),
-                target_port: Some(IntOrString::Int(9090)),
-                ..Default::default()
-            },
-        ]),
+        ports: Some(vec![ServicePort {
+            name: Some("prometheus".to_owned()),
+            port: 9090,
+            protocol: Some("TCP".to_owned()),
+            target_port: Some(IntOrString::Int(9090)),
+            ..Default::default()
+        }]),
         selector: selector_labels(PROM_APP),
         type_: Some("ClusterIP".to_owned()),
         ..Default::default()
@@ -159,8 +159,5 @@ fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
 fn config_map_data() -> BTreeMap<String, String> {
     let config_str = include_str!("./prom-config.yaml");
 
-    BTreeMap::from_iter(vec![(
-        "prom-config.yaml".to_owned(),
-        config_str.to_owned(),
-    )])
+    BTreeMap::from_iter(vec![("prom-config.yaml".to_owned(), config_str.to_owned())])
 }

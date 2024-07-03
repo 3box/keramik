@@ -390,4 +390,3 @@ pub fn override_and_sort_env_vars(
     // Sort env vars so we can have stable tests
     env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 }
-

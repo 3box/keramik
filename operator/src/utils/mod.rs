@@ -6,12 +6,13 @@ pub mod test;
 
 use std::{collections::BTreeMap, sync::Arc};
 
+use k8s_openapi::api::rbac::v1::RoleBinding;
 use k8s_openapi::{
     api::{
         apps::v1::{StatefulSet, StatefulSetSpec, StatefulSetStatus},
         batch::v1::{Job, JobSpec, JobStatus},
         core::v1::{ConfigMap, EnvVar, Service, ServiceAccount, ServiceSpec, ServiceStatus},
-        rbac::v1::{ClusterRole, ClusterRoleBinding},
+        rbac::v1::{ClusterRole, ClusterRoleBinding, Role},
     },
     apimachinery::pkg::apis::meta::v1::OwnerReference,
     chrono::{DateTime, Utc},
@@ -255,6 +256,30 @@ pub async fn apply_cluster_role(
     Ok(role)
 }
 
+/// Apply namespaced role
+pub async fn apply_namespaced_role(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    orefs: Vec<OwnerReference>,
+    name: &str,
+    r: Role,
+) -> Result<Role, kube::error::Error> {
+    let serverside = PatchParams::apply(CONTROLLER_NAME);
+    let roles: Api<Role> = Api::namespaced(cx.k_client.clone(), ns);
+    // Server-side apply namespaced role
+    let role: Role = Role {
+        metadata: ObjectMeta {
+            name: Some(name.to_owned()),
+            owner_references: Some(orefs),
+            labels: managed_labels(),
+            ..r.metadata
+        },
+        ..r
+    };
+    let role = roles.patch(name, &serverside, &Patch::Apply(role)).await?;
+    Ok(role)
+}
+
 /// Apply cluster role binding
 pub async fn apply_cluster_role_binding(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
@@ -276,6 +301,32 @@ pub async fn apply_cluster_role_binding(
         ..crb
     };
     let role_binding = role_bindings
+        .patch(name, &serverside, &Patch::Apply(role_binding))
+        .await?;
+    Ok(role_binding)
+}
+
+/// Apply namespaced role binding
+pub async fn apply_namespaced_role_binding(
+    cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
+    ns: &str,
+    orefs: Vec<OwnerReference>,
+    name: &str,
+    rb: RoleBinding,
+) -> Result<RoleBinding, kube::error::Error> {
+    let serverside = PatchParams::apply(CONTROLLER_NAME);
+    let roles: Api<RoleBinding> = Api::namespaced(cx.k_client.clone(), ns);
+    // Server-side apply namespaced role binding
+    let role_binding: RoleBinding = RoleBinding {
+        metadata: ObjectMeta {
+            name: Some(name.to_owned()),
+            owner_references: Some(orefs),
+            labels: managed_labels(),
+            ..rb.metadata
+        },
+        ..rb
+    };
+    let role_binding = roles
         .patch(name, &serverside, &Patch::Apply(role_binding))
         .await?;
     Ok(role_binding)
@@ -339,3 +390,4 @@ pub fn override_and_sort_env_vars(
     // Sort env vars so we can have stable tests
     env.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 }
+

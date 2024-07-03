@@ -4,27 +4,26 @@ use k8s_openapi::{
     api::{
         apps::v1::StatefulSetSpec,
         core::v1::{
-            ConfigMapVolumeSource, Container, ContainerPort, PodSpec, PodTemplateSpec,
-            ResourceRequirements, Volume, VolumeMount,
+            ConfigMapVolumeSource, Container, ContainerPort, PodSpec, PodTemplateSpec, ResourceRequirements, ServicePort, ServiceSpec, Volume, VolumeMount
         },
     },
     apimachinery::pkg::{
         api::resource::Quantity,
-        apis::meta::v1::ObjectMeta,
-        apis::meta::v1::{LabelSelector, OwnerReference},
+        apis::meta::v1::{LabelSelector, ObjectMeta, OwnerReference}, util::intstr::IntOrString,
     },
 };
 use rand::RngCore;
 
 use crate::{
     network::{ipfs_rpc::IpfsRpcClient, resource_limits::ResourceLimitsConfig},
-    utils::{apply_config_map, apply_stateful_set, Clock, Context},
+    utils::{apply_config_map, apply_service, apply_stateful_set, Clock, Context},
 };
 
 use crate::labels::selector_labels;
 
 pub const PROM_APP: &str = "prometheus";
 pub const PROM_CONFIG_MAP_NAME: &str = "prom-config";
+pub const PROM_SERVICE_NAME: &str = "prometheus";
 
 pub struct PrometheusConfig {
     pub dev_mode: bool,
@@ -44,6 +43,14 @@ pub async fn apply(
         config_map_data(),
     )
     .await?;
+    apply_service(
+    cx.clone(),
+    ns,
+    orefs.to_vec(),
+    PROM_SERVICE_NAME,
+    service_spec(),
+)
+.await?;
     apply_stateful_set(
         cx.clone(),
         ns,
@@ -79,6 +86,23 @@ fn resource_requirements(dev_mode: bool) -> ResourceRequirements {
     }
 }
 
+fn service_spec() -> ServiceSpec {
+    ServiceSpec {
+        ports: Some(vec![
+            ServicePort {
+                name: Some("prometheus".to_owned()),
+                port: 9090,
+                protocol: Some("TCP".to_owned()),
+                target_port: Some(IntOrString::Int(9090)),
+                ..Default::default()
+            },
+        ]),
+        selector: selector_labels(PROM_APP),
+        type_: Some("ClusterIP".to_owned()),
+        ..Default::default()
+    }
+}
+
 fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
     StatefulSetSpec {
         replicas: Some(1),
@@ -94,10 +118,11 @@ fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
             spec: Some(PodSpec {
                 containers: vec![Container {
                     name: "prometheus".to_owned(),
-                    image: Some("prom/prometheus:v2.42.0".to_owned()),
+                    image: Some("prom/prometheus:v2.45.6".to_owned()),
                     command: Some(vec![
                         "/bin/prometheus".to_owned(),
                         "--web.enable-lifecycle".to_owned(),
+                        "--web.enable-remote-write-receiver".to_owned(),
                         "--config.file=/config/prom-config.yaml".to_owned(),
                     ]),
                     ports: Some(vec![ContainerPort {
@@ -132,22 +157,10 @@ fn stateful_set_spec(dev_mode: bool) -> StatefulSetSpec {
 }
 
 fn config_map_data() -> BTreeMap<String, String> {
+    let config_str = include_str!("./prom-config.yaml");
+
     BTreeMap::from_iter(vec![(
         "prom-config.yaml".to_owned(),
-        r#"
-        global:
-          scrape_interval: 10s
-          scrape_timeout: 5s
-
-        scrape_configs:
-          - job_name: services
-            metrics_path: /metrics
-            honor_labels: true
-            static_configs:
-              - targets:
-                - 'localhost:9090'
-                - 'otel:9464'
-                - 'otel:8888'"#
-            .to_owned(),
+        config_str.to_owned(),
     )])
 }

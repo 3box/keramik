@@ -1,126 +1,51 @@
 Request {
     method: "PATCH",
-    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/opentelemetry?&fieldManager=keramik",
+    uri: "/api/v1/namespaces/keramik-test/services/otel?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
     },
     body: {
-      "apiVersion": "apps/v1",
-      "kind": "StatefulSet",
+      "apiVersion": "v1",
+      "kind": "Service",
       "metadata": {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "opentelemetry",
+        "name": "otel",
         "ownerReferences": []
       },
       "spec": {
-        "replicas": 1,
-        "selector": {
-          "matchLabels": {
-            "app": "otel"
-          }
-        },
-        "serviceName": "otel",
-        "template": {
-          "metadata": {
-            "labels": {
-              "app": "otel"
-            }
-          },
-          "spec": {
-            "containers": [
-              {
-                "args": [
-                  "--config=/config/otel-config.yaml"
-                ],
-                "image": "public.ecr.aws/r5b3e0r5/3box/otelcol",
-                "name": "opentelemetry",
-                "ports": [
-                  {
-                    "containerPort": 4317,
-                    "name": "otlp-receiver"
-                  },
-                  {
-                    "containerPort": 9464,
-                    "name": "all-metrics"
-                  },
-                  {
-                    "containerPort": 9465,
-                    "name": "sim-metrics"
-                  },
-                  {
-                    "containerPort": 8888,
-                    "name": "self-metrics"
-                  }
-                ],
-                "resources": {
-                  "limits": {
-                    "cpu": "250m",
-                    "ephemeral-storage": "1Gi",
-                    "memory": "1Gi"
-                  },
-                  "requests": {
-                    "cpu": "250m",
-                    "ephemeral-storage": "1Gi",
-                    "memory": "1Gi"
-                  }
-                },
-                "volumeMounts": [
-                  {
-                    "mountPath": "/config",
-                    "name": "config",
-                    "readOnly": true
-                  },
-                  {
-                    "mountPath": "/data",
-                    "name": "otel-data",
-                    "readOnly": false
-                  }
-                ]
-              }
-            ],
-            "securityContext": {
-              "fsGroup": 2000
-            },
-            "serviceAccountName": "monitoring-service-account",
-            "volumes": [
-              {
-                "configMap": {
-                  "defaultMode": 493,
-                  "name": "otel-config"
-                },
-                "name": "config"
-              },
-              {
-                "name": "otel-data",
-                "persistentVolumeClaim": {
-                  "claimName": "otel-data"
-                }
-              }
-            ]
-          }
-        },
-        "volumeClaimTemplates": [
+        "ports": [
           {
-            "apiVersion": "v1",
-            "kind": "PersistentVolumeClaim",
-            "metadata": {
-              "name": "otel-data"
-            },
-            "spec": {
-              "accessModes": [
-                "ReadWriteOnce"
-              ],
-              "resources": {
-                "requests": {
-                  "storage": "10Gi"
-                }
-              }
-            }
+            "name": "otlp-receiver",
+            "port": 4317,
+            "protocol": "TCP",
+            "targetPort": 4317
+          },
+          {
+            "name": "all-metrics",
+            "port": 9464,
+            "protocol": "TCP",
+            "targetPort": 9464
+          },
+          {
+            "name": "sim-metrics",
+            "port": 9465,
+            "protocol": "TCP",
+            "targetPort": 9465
+          },
+          {
+            "name": "self-metrics",
+            "port": 8888,
+            "protocol": "TCP",
+            "targetPort": 8888
           }
-        ]
+        ],
+        "selector": {
+          "app": "otel"
+        },
+        "type": "ClusterIP"
       }
     },
 }

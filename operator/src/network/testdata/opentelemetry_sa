@@ -1,19 +1,83 @@
 Request {
     method: "PATCH",
-    uri: "/api/v1/namespaces/keramik-test/serviceaccounts/monitoring-service-account?&fieldManager=keramik",
+    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/prometheus?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
     },
     body: {
-      "apiVersion": "v1",
-      "kind": "ServiceAccount",
+      "apiVersion": "apps/v1",
+      "kind": "StatefulSet",
       "metadata": {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "monitoring-service-account",
+        "name": "prometheus",
         "ownerReferences": []
+      },
+      "spec": {
+        "replicas": 1,
+        "selector": {
+          "matchLabels": {
+            "app": "prometheus"
+          }
+        },
+        "serviceName": "",
+        "template": {
+          "metadata": {
+            "labels": {
+              "app": "prometheus"
+            }
+          },
+          "spec": {
+            "containers": [
+              {
+                "command": [
+                  "/bin/prometheus",
+                  "--web.enable-lifecycle",
+                  "--web.enable-remote-write-receiver",
+                  "--config.file=/config/prom-config.yaml"
+                ],
+                "image": "prom/prometheus:v2.45.6",
+                "name": "prometheus",
+                "ports": [
+                  {
+                    "containerPort": 9090,
+                    "name": "webui"
+                  }
+                ],
+                "resources": {
+                  "limits": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  },
+                  "requests": {
+                    "cpu": "250m",
+                    "ephemeral-storage": "1Gi",
+                    "memory": "1Gi"
+                  }
+                },
+                "volumeMounts": [
+                  {
+                    "mountPath": "/config",
+                    "name": "config",
+                    "readOnly": true
+                  }
+                ]
+              }
+            ],
+            "volumes": [
+              {
+                "configMap": {
+                  "defaultMode": 493,
+                  "name": "prom-config"
+                },
+                "name": "config"
+              }
+            ]
+          }
+        }
       }
     },
 }

@@ -1,22 +1,31 @@
 Request {
     method: "PATCH",
-    uri: "/api/v1/namespaces/keramik-test/configmaps/otel-config?&fieldManager=keramik",
+    uri: "/apis/rbac.authorization.k8s.io/v1/namespaces/keramik-test/rolebindings/monitoring-role-binding?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
     },
     body: {
-      "apiVersion": "v1",
-      "data": {
-        "otel-config.yaml": "---\nreceivers:\n  # Push based metrics\n  otlp:\n    protocols:\n      grpc:\n        endpoint: 0.0.0.0:4317\n  # Pull based metrics\n  prometheus:\n    config:\n      scrape_configs:\n        - job_name: 'kubernetes-service-endpoints'\n          scrape_interval: 10s\n          scrape_timeout: 1s\n\n          kubernetes_sd_configs:\n          - role: pod\n\n          # Only container ports named `metrics` will be considered valid targets.\n          #\n          # Setup relabel rules to give meaning to the following k8s annotations:\n          #   prometheus/path - URL path of the metrics endpoint\n          #\n          # Example:\n          #   annotations:\n          #      prometheus/path: \"/api/v0/metrics\"\n          relabel_configs:\n          - source_labels: [__meta_kubernetes_pod_container_port_name]\n            action: keep\n            regex: \"metrics\"\n          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_path]\n            action: replace\n            target_label: __metrics_path__\n            regex: (.+)\n          - source_labels: [__meta_kubernetes_namespace]\n            action: replace\n            target_label: kubernetes_namespace\n          - source_labels: [__meta_kubernetes_pod_name]\n            action: replace\n            target_label: kubernetes_pod\n          - source_labels: [__meta_kubernetes_pod_container_name]\n            action: replace\n            target_label: kubernetes_container\n\nprocessors:\n  batch:\n\nexporters:\n  # This is unused but can be easily added for debugging.\n  logging:\n    # can be one of detailed | normal | basic\n    verbosity: detailed\n    # Log all messages, do not sample\n    sampling_initial: 1\n    sampling_thereafter: 1\n  otlp/jaeger:\n    endpoint: jaeger:4317\n    tls:\n      insecure: true\n  prometheus:\n    endpoint: 0.0.0.0:9464\n    # Keep stale metrics around for 1h before dropping\n    # This helps as simulation metrics are stale once the simulation stops.\n    metric_expiration: 1h\n    resource_to_telemetry_conversion:\n      enabled: true\n  prometheus/simulation:\n    endpoint: 0.0.0.0:9465\n    # Keep stale metrics around for 1h before dropping\n    # This helps as simulation metrics are stale once the simulation stops.\n    metric_expiration: 1h\n    resource_to_telemetry_conversion:\n      enabled: true\n\nservice:\n  pipelines:\n    traces:\n      receivers: [otlp]\n      processors: [batch]\n      exporters: [otlp/jaeger]\n    metrics:\n      receivers: [otlp,prometheus]\n      processors: [batch]\n      exporters: [prometheus]\n    metrics/simulation:\n      receivers: [otlp]\n      processors: [batch]\n      exporters: [prometheus/simulation]\n  # Enable telemetry on the collector itself\n  telemetry:\n    logs:\n      level: info\n    metrics:\n      level: detailed\n      address: 0.0.0.0:8888"
-      },
-      "kind": "ConfigMap",
+      "apiVersion": "rbac.authorization.k8s.io/v1",
+      "kind": "RoleBinding",
       "metadata": {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "otel-config",
+        "name": "monitoring-role-binding",
         "ownerReferences": []
-      }
+      },
+      "roleRef": {
+        "apiGroup": "rbac.authorization.k8s.io",
+        "kind": "Role",
+        "name": "monitoring-role"
+      },
+      "subjects": [
+        {
+          "kind": "ServiceAccount",
+          "name": "monitoring-service-account",
+          "namespace": "keramik-test"
+        }
+      ]
     },
 }

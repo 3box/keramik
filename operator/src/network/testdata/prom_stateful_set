@@ -1,13 +1,13 @@
 Request {
     method: "PATCH",
-    uri: "/apis/apps/v1/namespaces/keramik-test/statefulsets/prometheus?&fieldManager=keramik",
+    uri: "/api/v1/namespaces/keramik-test/services/prometheus?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
     },
     body: {
-      "apiVersion": "apps/v1",
-      "kind": "StatefulSet",
+      "apiVersion": "v1",
+      "kind": "Service",
       "metadata": {
         "labels": {
           "managed-by": "keramik"
@@ -16,67 +16,18 @@ Request {
         "ownerReferences": []
       },
       "spec": {
-        "replicas": 1,
+        "ports": [
+          {
+            "name": "prometheus",
+            "port": 9090,
+            "protocol": "TCP",
+            "targetPort": 9090
+          }
+        ],
         "selector": {
-          "matchLabels": {
-            "app": "prometheus"
-          }
+          "app": "prometheus"
         },
-        "serviceName": "",
-        "template": {
-          "metadata": {
-            "labels": {
-              "app": "prometheus"
-            }
-          },
-          "spec": {
-            "containers": [
-              {
-                "command": [
-                  "/bin/prometheus",
-                  "--web.enable-lifecycle",
-                  "--config.file=/config/prom-config.yaml"
-                ],
-                "image": "prom/prometheus:v2.42.0",
-                "name": "prometheus",
-                "ports": [
-                  {
-                    "containerPort": 9090,
-                    "name": "webui"
-                  }
-                ],
-                "resources": {
-                  "limits": {
-                    "cpu": "250m",
-                    "ephemeral-storage": "1Gi",
-                    "memory": "1Gi"
-                  },
-                  "requests": {
-                    "cpu": "250m",
-                    "ephemeral-storage": "1Gi",
-                    "memory": "1Gi"
-                  }
-                },
-                "volumeMounts": [
-                  {
-                    "mountPath": "/config",
-                    "name": "config",
-                    "readOnly": true
-                  }
-                ]
-              }
-            ],
-            "volumes": [
-              {
-                "configMap": {
-                  "defaultMode": 493,
-                  "name": "prom-config"
-                },
-                "name": "config"
-              }
-            ]
-          }
-        }
+        "type": "ClusterIP"
       }
     },
 }

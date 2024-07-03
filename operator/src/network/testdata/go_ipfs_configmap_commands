@@ -8,7 +8,7 @@ Request {
     body: {
       "apiVersion": "v1",
       "data": {
-        "001-config.sh": "#!/bin/sh\nset -ex\n# Do not bootstrap against public nodes\nipfs bootstrap rm all\n# Do not sticky peer with ceramic specific peers\n# We want an isolated network\nipfs config --json Peering.Peers '[]'\n# Disable the gateway\nipfs config  --json Addresses.Gateway '[]'\n# Enable pubsub\nipfs config  --json PubSub.Enabled true\n# Only listen on specific tcp address as nothing else is exposed\nipfs config  --json Addresses.Swarm '[\"/ip4/0.0.0.0/tcp/4101\"]'\n# Set explicit resource manager limits as Kubo computes them based off\n# the k8s node resources and not the pods limits.\nipfs config Swarm.ResourceMgr.MaxMemory '400 MB'\nipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000\n",
+        "001-config.sh": "#!/bin/sh\nset -ex\n# Do not bootstrap against public nodes\nipfs bootstrap rm all\n# Do not sticky peer with ceramic specific peers\n# We want an isolated network\nipfs config --json Peering.Peers '[]'\n# Disable the gateway\nipfs config  --json Addresses.Gateway '[]'\n# Enable pubsub\nipfs config  --json PubSub.Enabled true\n# Only listen on specific tcp address as nothing else is exposed\nipfs config  --json Addresses.Swarm '[\"/ip4/0.0.0.0/tcp/4101\"]'\nipfs config  --json Addresses.API '[\"/ip4/0.0.0.0/tcp/5101\"]'\n# Set explicit resource manager limits as Kubo computes them based off\n# the k8s node resources and not the pods limits.\nipfs config Swarm.ResourceMgr.MaxMemory '400 MB'\nipfs config --json Swarm.ResourceMgr.MaxFileDescriptors 500000\n",
         "002-config.sh": "#!/bin/sh\nset -ex\nipfs config Pubsub.SeenMessagesTTL 10m\nipfs config --json Swarm.RelayClient.Enabled false"
       },
       "kind": "ConfigMap",

@@ -364,6 +364,7 @@ ipfs config  --json Addresses.Gateway '[]'
 ipfs config  --json PubSub.Enabled true
 # Only listen on specific tcp address as nothing else is exposed
 ipfs config  --json Addresses.Swarm '["/ip4/0.0.0.0/tcp/4101"]'
+ipfs config  --json Addresses.API '["/ip4/0.0.0.0/tcp/5101"]'
 # Set explicit resource manager limits as Kubo computes them based off
 # the k8s node resources and not the pods limits.
 ipfs config Swarm.ResourceMgr.MaxMemory '400 MB'

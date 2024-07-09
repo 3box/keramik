@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use k8s_openapi::api::core::v1::{KeyToPath, SecretVolumeSource};
 use k8s_openapi::{
     api::core::v1::{
         ConfigMapVolumeSource, Container, ContainerPort, EnvVar, ResourceRequirements, Volume,
@@ -10,6 +11,8 @@ use k8s_openapi::{
 
 const IPFS_CONTAINER_NAME: &str = "ipfs";
 const IPFS_STORE_DIR: &str = "/data/ipfs";
+const IPFS_KEY_DIR: &str = "/private-key";
+const IPFS_KEY_NAME: &str = "private-key";
 pub const IPFS_DATA_PV_CLAIM: &str = "ipfs-data";
 
 use crate::{
@@ -88,7 +91,7 @@ impl IpfsConfig {
     pub fn volumes(&self, info: impl Into<IpfsInfo>) -> Vec<Volume> {
         let info = info.into();
         match self {
-            IpfsConfig::Rust(_) => Vec::new(),
+            IpfsConfig::Rust(config) => config.volumes(&info),
             IpfsConfig::Go(config) => config.volumes(&info),
         }
     }
@@ -108,6 +111,7 @@ pub struct RustIpfsConfig {
     rust_log: String,
     env: Option<BTreeMap<String, String>>,
     migration_cmd: Option<Vec<String>>,
+    private_key_secret: Option<String>,
 }
 
 impl RustIpfsConfig {
@@ -140,6 +144,7 @@ impl Default for RustIpfsConfig {
             rust_log: "info,ceramic_one=debug,multipart=error".to_owned(),
             env: None,
             migration_cmd: None,
+            private_key_secret: None,
         }
     }
 }
@@ -161,6 +166,7 @@ impl From<RustIpfsSpec> for RustIpfsConfig {
             rust_log: value.rust_log.unwrap_or(default.rust_log),
             env: value.env,
             migration_cmd: value.migration_cmd,
+            private_key_secret: value.private_key_secret,
         }
     }
 }
@@ -190,6 +196,11 @@ impl RustIpfsConfig {
             EnvVar {
                 name: "CERAMIC_ONE_STORE_DIR".to_owned(),
                 value: Some(IPFS_STORE_DIR.to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "CERAMIC_ONE_KEY_DIR".to_owned(),
+                value: Some(IPFS_KEY_DIR.to_owned()),
                 ..Default::default()
             },
             EnvVar {
@@ -253,6 +264,19 @@ impl RustIpfsConfig {
                 ..Default::default()
             })
         }
+        let mut volume_mounts = vec![VolumeMount {
+            mount_path: IPFS_STORE_DIR.to_owned(),
+            name: IPFS_DATA_PV_CLAIM.to_owned(),
+            ..Default::default()
+        }];
+        if self.private_key_secret.is_some() {
+            volume_mounts.push(VolumeMount {
+                mount_path: IPFS_KEY_DIR.to_owned(),
+                name: IPFS_KEY_NAME.to_owned(),
+                read_only: Some(true),
+                ..Default::default()
+            })
+        }
         Container {
             env: Some(env),
             image: Some(self.image.to_owned()),
@@ -264,11 +288,7 @@ impl RustIpfsConfig {
                 requests: Some(self.resource_limits.clone().into()),
                 ..Default::default()
             }),
-            volume_mounts: Some(vec![VolumeMount {
-                mount_path: IPFS_STORE_DIR.to_owned(),
-                name: IPFS_DATA_PV_CLAIM.to_owned(),
-                ..Default::default()
-            }]),
+            volume_mounts: Some(volume_mounts),
             security_context: net_config.debug_mode.then(debug_mode_security_context),
             ..Default::default()
         }
@@ -286,6 +306,26 @@ impl RustIpfsConfig {
             ),
             ..self.container(net_config)
         })
+    }
+
+    fn volumes(&self, info: &IpfsInfo) -> Vec<Volume> {
+        if self.private_key_secret.is_none() {
+            return vec![];
+        }
+        vec![Volume {
+            name: info.new_name(IPFS_KEY_NAME),
+            secret: Some(SecretVolumeSource {
+                items: Some(vec![KeyToPath {
+                    key: IPFS_KEY_NAME.to_owned(),
+                    path: "id_ed25519_0".to_owned(),
+                    ..Default::default()
+                }]),
+                secret_name: Some(self.private_key_secret.as_ref().unwrap().to_owned()),
+                ..Default::default()
+            }),
+
+            ..Default::default()
+        }]
     }
 }
 

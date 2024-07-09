@@ -206,6 +206,8 @@ pub struct RustIpfsSpec {
     pub env: Option<BTreeMap<String, String>>,
     /// Migration command that should run before a node comes up
     pub migration_cmd: Option<Vec<String>>,
+    /// Name of secret containing the private key used for the libp2p peer ID.
+    pub private_key_secret: Option<String>,
 }
 
 /// Describes how the Go IPFS node for a peer should behave.

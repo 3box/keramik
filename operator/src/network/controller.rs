@@ -2852,7 +2852,7 @@ mod tests {
                                  "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
                                }
                              ],
-            -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+            -                "image": "ceramicnetwork/ceramic-anchor-service:develop",
             -                "imagePullPolicy": "Always",
             +                "image": "cas/cas:dev",
             +                "imagePullPolicy": "Never",
@@ -2863,7 +2863,7 @@ mod tests {
                                  "value": "1000"
                                }
                              ],
-            -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+            -                "image": "ceramicnetwork/ceramic-anchor-service:develop",
             -                "imagePullPolicy": "Always",
             +                "image": "cas/cas:dev",
             +                "imagePullPolicy": "Never",
@@ -2874,7 +2874,7 @@ mod tests {
                                  "value": "dev"
                                }
                              ],
-            -                "image": "ceramicnetwork/ceramic-anchor-service:latest",
+            -                "image": "ceramicnetwork/ceramic-anchor-service:develop",
             -                "imagePullPolicy": "Always",
             +                "image": "cas/cas:dev",
             +                "imagePullPolicy": "Never",

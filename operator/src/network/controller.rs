@@ -2848,7 +2848,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -134,8 +134,8 @@
+            @@ -138,8 +138,8 @@
                                  "value": "http://localstack:4566/000000000000/cas-anchor-dev-"
                                }
                              ],
@@ -2859,7 +2859,7 @@ mod tests {
                              "name": "cas-api",
                              "ports": [
                                {
-            @@ -276,8 +276,8 @@
+            @@ -280,8 +280,8 @@
                                  "value": "1000"
                                }
                              ],
@@ -2870,7 +2870,7 @@ mod tests {
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
-            @@ -446,8 +446,8 @@
+            @@ -450,8 +450,8 @@
                                  "value": "dev"
                                }
                              ],
@@ -2962,7 +2962,7 @@ mod tests {
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -144,12 +144,12 @@
+            @@ -148,12 +148,12 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2977,7 +2977,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -281,12 +281,12 @@
+            @@ -285,12 +285,12 @@
                              "name": "cas-worker",
                              "resources": {
                                "limits": {
@@ -2992,7 +2992,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -369,12 +369,12 @@
+            @@ -373,12 +373,12 @@
                              "name": "cas-scheduler",
                              "resources": {
                                "limits": {
@@ -3007,7 +3007,7 @@ mod tests {
                                  "ephemeral-storage": "1Gi",
                                  "memory": "1Gi"
                                }
-            @@ -474,7 +474,7 @@
+            @@ -478,7 +478,7 @@
                            ],
                            "resources": {
                              "requests": {
@@ -4692,6 +4692,99 @@ mod tests {
                                  "name": "ETH_CONTRACT_ADDRESS",
                                  "value": "0x231055A0852D67C7107Ad0d0DFeab60278fE6AdC"
                                },
+        "#]]);
+        let (testctx, api_handle) = Context::test(mock_rpc_client);
+        let fakeserver = ApiServerVerifier::new(api_handle);
+        let mocksrv = stub.run(fakeserver);
+        reconcile(Arc::new(network), testctx)
+            .await
+            .expect("reconciler");
+        timeout_after_1s(mocksrv).await;
+    }
+    #[tokio::test]
+    async fn cas_api_env_cpu_override() {
+        // Setup network spec and status
+        let network = Network::test().with_spec(NetworkSpec {
+            cas: Some(CasSpec {
+                cas_resource_limits: Some(ResourceLimitsSpec {
+                    cpu: Some(Quantity("2.5".to_owned())),
+                    ..Default::default()
+                }),
+                ..Default::default()
+            }),
+            ..Default::default()
+        });
+        let mock_rpc_client = default_ipfs_rpc_mock();
+        let mut stub = Stub::default().with_network(network.clone());
+        stub.cas_stateful_set.patch(expect![[r#"
+            --- original
+            +++ modified
+            @@ -119,7 +119,7 @@
+                               },
+                               {
+                                 "name": "MULTIPROCESS_SIZE",
+            -                    "value": "1"
+            +                    "value": "2"
+                               },
+                               {
+                                 "name": "NODE_ENV",
+            @@ -148,14 +148,12 @@
+                             ],
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "2.5",
+            +                    "ephemeral-storage": "1Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "2.5",
+            +                    "ephemeral-storage": "1Gi"
+                               }
+                             }
+                           },
+            @@ -285,14 +283,12 @@
+                             "name": "cas-worker",
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "2.5",
+            +                    "ephemeral-storage": "1Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "2.5",
+            +                    "ephemeral-storage": "1Gi"
+                               }
+                             }
+                           },
+            @@ -373,14 +369,12 @@
+                             "name": "cas-scheduler",
+                             "resources": {
+                               "limits": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "2.5",
+            +                    "ephemeral-storage": "1Gi"
+                               },
+                               "requests": {
+            -                    "cpu": "250m",
+            -                    "ephemeral-storage": "1Gi",
+            -                    "memory": "1Gi"
+            +                    "cpu": "2.5",
+            +                    "ephemeral-storage": "1Gi"
+                               }
+                             }
+                           }
         "#]]);
         let (testctx, api_handle) = Context::test(mock_rpc_client);
         let fakeserver = ApiServerVerifier::new(api_handle);

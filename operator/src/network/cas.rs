@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{cmp, collections::BTreeMap};
 
 use k8s_openapi::{
     api::{
@@ -317,6 +317,14 @@ pub fn cas_stateful_set_spec(
     ]
     .concat();
 
+    let num_api_cpus = config
+        .cas_resource_limits
+        .cpu
+        .clone()
+        .and_then(|cpu_quantity| quantity_to_milli(&cpu_quantity))
+        .map(|cpu_millis| cmp::max(cpu_millis / 1000, 1))
+        .unwrap_or(1);
+
     let mut cas_api_env = [
         cas_node_env.clone(),
         vec![
@@ -333,6 +341,11 @@ pub fn cas_stateful_set_spec(
             EnvVar {
                 name: "METRICS_PORT".to_owned(),
                 value: Some(DEFAULT_METRICS_PORT.to_string()),
+                ..Default::default()
+            },
+            EnvVar {
+                name: "MULTIPROCESS_SIZE".to_owned(),
+                value: Some(num_api_cpus.to_string()),
                 ..Default::default()
             },
         ],
@@ -548,6 +561,16 @@ pub fn cas_stateful_set_spec(
         ..Default::default()
     }
 }
+
+fn quantity_to_milli(quantity: &Quantity) -> Option<i64> {
+    if let Some(value) = quantity.0.strip_suffix('m') {
+        return value.parse::<i64>().ok();
+    } else if let Ok(value) = quantity.0.parse::<f64>() {
+        return Some((value * 1000.0) as i64);
+    }
+    None
+}
+
 pub fn cas_service_spec() -> ServiceSpec {
     ServiceSpec {
         ports: Some(vec![ServicePort {

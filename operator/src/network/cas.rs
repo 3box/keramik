@@ -83,7 +83,7 @@ impl CasConfig {
 impl Default for CasConfig {
     fn default() -> Self {
         Self {
-            image: "ceramicnetwork/ceramic-anchor-service:latest".to_owned(),
+            image: "ceramicnetwork/ceramic-anchor-service:develop".to_owned(),
             image_pull_policy: "Always".to_owned(),
             cas_resource_limits: ResourceLimitsConfig {
                 cpu: Some(Quantity("250m".to_owned())),

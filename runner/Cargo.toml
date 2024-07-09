@@ -13,6 +13,7 @@ iroh-car.workspace = true
 ceramic-http-client = { git = "https://github.com/3box/ceramic-http-client-rs.git", branch = "main", default-features = false }
 clap.workspace = true
 did-method-key = "0.2"
+futures = "0.3"
 goose = { version = "0.16", features = ["gaggle"] }
 hex.workspace = true
 keramik-common = { workspace = true, features = ["telemetry", "tokio-console"] }

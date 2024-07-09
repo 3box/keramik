@@ -3492,7 +3492,7 @@ mod tests {
                                  }
                                }
                              ],
-            -                "image": "ceramicnetwork/composedb:latest",
+            -                "image": "ceramicnetwork/composedb:develop",
             -                "imagePullPolicy": "Always",
             +                "image": "ceramic:foo",
             +                "imagePullPolicy": "IfNotPresent",
@@ -3573,7 +3573,7 @@ mod tests {
             +                    "value": "true"
                                }
                              ],
-                             "image": "ceramicnetwork/composedb:latest",
+                             "image": "ceramicnetwork/composedb:develop",
         "#]]);
         stub.cas_stateful_set.patch(expect![[r#"
             --- original
@@ -3913,7 +3913,7 @@ mod tests {
             +                    "value": "SOME_ENV_VALUE"
                                }
                              ],
-                             "image": "ceramicnetwork/composedb:latest",
+                             "image": "ceramicnetwork/composedb:develop",
             @@ -374,6 +378,10 @@
                                      "name": "ceramic-postgres-auth"
                                    }

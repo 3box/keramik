@@ -264,7 +264,7 @@ impl Default for CeramicConfig {
         Self {
             weight: 1,
             init_config_map: INIT_CONFIG_MAP_NAME.to_owned(),
-            image: "ceramicnetwork/composedb:latest".to_owned(),
+            image: "ceramicnetwork/composedb:develop".to_owned(),
             image_pull_policy: "Always".to_owned(),
             init_image_name: "ceramicnetwork/composedb-cli:latest".to_owned(),
             ipfs: IpfsConfig::default(),

@@ -118,6 +118,10 @@ Request {
                     "value": "9464"
                   },
                   {
+                    "name": "MULTIPROCESS_SIZE",
+                    "value": "1"
+                  },
+                  {
                     "name": "NODE_ENV",
                     "value": "dev"
                   },

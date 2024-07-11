@@ -244,6 +244,10 @@ Request {
                     "value": "local"
                   },
                   {
+                    "name": "CERAMIC_ONE_P2P_KEY_DIR",
+                    "value": "/data/ipfs"
+                  },
+                  {
                     "name": "CERAMIC_ONE_STORE_DIR",
                     "value": "/data/ipfs"
                   },

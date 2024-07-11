@@ -193,6 +193,11 @@ impl RustIpfsConfig {
                 ..Default::default()
             },
             EnvVar {
+                name: "CERAMIC_ONE_P2P_KEY_DIR".to_owned(),
+                value: Some(IPFS_STORE_DIR.to_owned()),
+                ..Default::default()
+            },
+            EnvVar {
                 name: "CERAMIC_ONE_NETWORK".to_owned(),
                 value: Some(net_config.network_type.name().to_owned()),
                 ..Default::default()

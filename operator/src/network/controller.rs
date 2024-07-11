@@ -2269,7 +2269,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -218,46 +218,8 @@
+            @@ -218,50 +218,8 @@
                              ]
                            },
                            {
@@ -2299,6 +2299,10 @@ mod tests {
             -                    "value": "local"
             -                  },
             -                  {
+            -                    "name": "CERAMIC_ONE_P2P_KEY_DIR",
+            -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
@@ -2318,7 +2322,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -278,14 +240,14 @@
+            @@ -282,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2337,7 +2341,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -292,6 +254,11 @@
+            @@ -296,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2349,7 +2353,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -431,6 +398,13 @@
+            @@ -435,6 +398,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -2421,7 +2425,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -218,46 +218,8 @@
+            @@ -218,50 +218,8 @@
                              ]
                            },
                            {
@@ -2451,6 +2455,10 @@ mod tests {
             -                    "value": "local"
             -                  },
             -                  {
+            -                    "name": "CERAMIC_ONE_P2P_KEY_DIR",
+            -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
@@ -2470,7 +2478,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -278,14 +240,14 @@
+            @@ -282,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2491,7 +2499,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -292,6 +254,11 @@
+            @@ -296,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2503,7 +2511,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -431,6 +398,13 @@
+            @@ -435,6 +398,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -2517,7 +2525,7 @@ mod tests {
                            }
                          ]
                        }
-            @@ -470,7 +444,7 @@
+            @@ -474,7 +444,7 @@
                            ],
                            "resources": {
                              "requests": {
@@ -2578,7 +2586,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -218,46 +218,8 @@
+            @@ -218,50 +218,8 @@
                              ]
                            },
                            {
@@ -2608,6 +2616,10 @@ mod tests {
             -                    "value": "local"
             -                  },
             -                  {
+            -                    "name": "CERAMIC_ONE_P2P_KEY_DIR",
+            -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
@@ -2627,7 +2639,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -278,14 +240,14 @@
+            @@ -282,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2646,7 +2658,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -292,6 +254,16 @@
+            @@ -296,6 +254,16 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2663,7 +2675,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -431,6 +403,13 @@
+            @@ -435,6 +403,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -2749,7 +2761,7 @@ mod tests {
                                  "name": "CERAMIC_ONE_METRICS_BIND_ADDRESS",
                                  "value": "0.0.0.0:9465"
                                },
-            @@ -252,11 +256,19 @@
+            @@ -256,11 +260,19 @@
                                  "value": "/ip4/0.0.0.0/tcp/4101"
                                },
                                {
@@ -2770,7 +2782,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -278,14 +290,14 @@
+            @@ -282,14 +294,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2791,7 +2803,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -470,9 +482,10 @@
+            @@ -474,9 +486,10 @@
                            ],
                            "resources": {
                              "requests": {
@@ -3020,7 +3032,7 @@ mod tests {
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -95,14 +95,14 @@
+            @@ -99,14 +99,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -3041,7 +3053,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -136,9 +136,10 @@
+            @@ -140,9 +140,10 @@
                            ],
                            "resources": {
                              "requests": {
@@ -3198,7 +3210,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -377,14 +377,14 @@
+            @@ -381,14 +381,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -3219,7 +3231,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -453,7 +453,7 @@
+            @@ -457,7 +457,7 @@
                            ],
                            "resources": {
                              "requests": {
@@ -3419,8 +3431,8 @@ mod tests {
             +                    "value": "dev-unstable"
                                },
                                {
-                                 "name": "CERAMIC_ONE_STORE_DIR",
-            @@ -315,7 +311,7 @@
+                                 "name": "CERAMIC_ONE_P2P_KEY_DIR",
+            @@ -319,7 +315,7 @@
                                },
                                {
                                  "name": "CAS_API_URL",
@@ -3429,7 +3441,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
-            @@ -331,11 +327,7 @@
+            @@ -335,11 +331,7 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -3442,7 +3454,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -347,7 +339,7 @@
+            @@ -351,7 +343,7 @@
                                },
                                {
                                  "name": "ETH_RPC_URL",
@@ -3487,7 +3499,7 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
-            @@ -373,7 +373,7 @@
+            @@ -377,7 +377,7 @@
                                }
                              ],
                              "image": "ceramicnetwork/composedb-cli:latest",
@@ -3902,7 +3914,7 @@ mod tests {
                                }
                              ],
                              "image": "ceramicnetwork/composedb:latest",
-            @@ -370,6 +374,10 @@
+            @@ -374,6 +378,10 @@
                                      "name": "ceramic-postgres-auth"
                                    }
                                  }
@@ -4139,7 +4151,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -472,7 +472,8 @@
+            @@ -476,7 +476,8 @@
                              "requests": {
                                "storage": "10Gi"
                              }
@@ -4179,7 +4191,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -218,46 +218,8 @@
+            @@ -218,50 +218,8 @@
                              ]
                            },
                            {
@@ -4209,6 +4221,10 @@ mod tests {
             -                    "value": "local"
             -                  },
             -                  {
+            -                    "name": "CERAMIC_ONE_P2P_KEY_DIR",
+            -                    "value": "/data/ipfs"
+            -                  },
+            -                  {
             -                    "name": "CERAMIC_ONE_STORE_DIR",
             -                    "value": "/data/ipfs"
             -                  },
@@ -4228,7 +4244,7 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -278,14 +240,14 @@
+            @@ -282,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -4247,7 +4263,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -292,6 +254,11 @@
+            @@ -296,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -4259,7 +4275,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -431,6 +398,13 @@
+            @@ -435,6 +398,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -4273,7 +4289,7 @@ mod tests {
                            }
                          ]
                        }
-            @@ -472,7 +446,8 @@
+            @@ -476,7 +446,8 @@
                              "requests": {
                                "storage": "10Gi"
                              }
@@ -4547,7 +4563,7 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/config",
-            @@ -252,6 +268,10 @@
+            @@ -256,6 +272,10 @@
                                  "value": "/ip4/0.0.0.0/tcp/4101"
                                },
                                {
@@ -4558,7 +4574,7 @@ mod tests {
                                  "name": "RUST_LOG",
                                  "value": "info,ceramic_one=debug,multipart=error"
                                }
-            @@ -274,6 +294,11 @@
+            @@ -278,6 +298,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
                                  "protocol": "TCP"
@@ -4570,7 +4586,7 @@ mod tests {
                                }
                              ],
                              "resources": {
-            @@ -288,6 +313,13 @@
+            @@ -292,6 +317,13 @@
                                  "memory": "1Gi"
                                }
                              },
@@ -4584,7 +4600,7 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/data/ipfs",
-            @@ -350,6 +382,10 @@
+            @@ -354,6 +386,10 @@
                                  "value": "http://ganache:8545"
                                },
                                {
@@ -4599,7 +4615,7 @@ mod tests {
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -69,6 +69,10 @@
+            @@ -73,6 +73,10 @@
                                  "value": "/ip4/0.0.0.0/tcp/4101"
                                },
                                {
@@ -4610,7 +4626,7 @@ mod tests {
                                  "name": "RUST_LOG",
                                  "value": "info,ceramic_one=debug,multipart=error"
                                }
-            @@ -91,6 +95,11 @@
+            @@ -95,6 +99,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
                                  "protocol": "TCP"
@@ -4622,7 +4638,7 @@ mod tests {
                                }
                              ],
                              "resources": {
-            @@ -105,6 +114,13 @@
+            @@ -109,6 +118,13 @@
                                  "memory": "1Gi"
                                }
                              },
@@ -4826,7 +4842,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -397,6 +397,95 @@
+            @@ -401,6 +401,99 @@
                                  "name": "ceramic-init"
                                }
                              ]
@@ -4867,6 +4883,10 @@ mod tests {
             +                  {
             +                    "name": "CERAMIC_ONE_NETWORK",
             +                    "value": "local"
+            +                  },
+            +                  {
+            +                    "name": "CERAMIC_ONE_P2P_KEY_DIR",
+            +                    "value": "/data/ipfs"
             +                  },
             +                  {
             +                    "name": "CERAMIC_ONE_STORE_DIR",

@@ -2,11 +2,11 @@ import subprocess
 
 images = [
         'amazon/aws-cli',
-        'ceramicnetwork/ceramic-anchor-service:latest',
-        'ceramicnetwork/composedb:latest',
-        'gresau/localstack-persist:2',
-        'public.ecr.aws/r5b3e0r5/3box/cas-contract',
-        'public.ecr.aws/r5b3e0r5/3box/ceramic-one',
+        'ceramicnetwork/ceramic-anchor-service:develop',
+        'ceramicnetwork/composedb:develop',
+        'gresau/localstack-persist:3',
+        'public.ecr.aws/r5b3e0r5/3box/cas-contract:latest',
+        'public.ecr.aws/r5b3e0r5/3box/ceramic-one:latest',
         'public.ecr.aws/r5b3e0r5/3box/go-cas:latest',
         'trufflesuite/ganache'
         ]

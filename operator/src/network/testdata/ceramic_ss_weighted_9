@@ -104,7 +104,7 @@ Request {
                     }
                   }
                 ],
-                "image": "ceramicnetwork/composedb:latest",
+                "image": "ceramicnetwork/composedb:develop",
                 "imagePullPolicy": "Always",
                 "livenessProbe": {
                   "httpGet": {

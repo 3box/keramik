@@ -1,31 +1,31 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use crate::load_generator::utils::generator_utils::CeramicConfig;
+use crate::load_generator::utils::generator_utils::CeramicDidType;
+use crate::load_generator::utils::generator_utils::CeramicScenarioParameters;
+use crate::load_generator::utils::generator_utils::StableLoadUser;
+use crate::utils::parse_peers_info;
+use crate::CommandResult;
 use anyhow::Result;
 use ceramic_core::StreamId;
 use clap::Args;
 use keramik_common::peer_info::Peer;
-use tokio::time::{Duration, Instant};use crate::utils::parse_peers_info;
-use crate::CommandResult;
-use crate::load_generator::utils::generator_utils::StableLoadUser;
-use crate::load_generator::utils::generator_utils::CeramicConfig;
-use crate::load_generator::utils::generator_utils::CeramicDidType;
-use crate::load_generator::utils::generator_utils::CeramicScenarioParameters;
+use tokio::time::{Duration, Instant};
 
-// TODO : Use this to envoke a particular scenario, currently we only have one 
+// TODO : Use this to envoke a particular scenario, currently we only have one
 // so this is unused
+#[allow(dead_code)]
 pub enum WeekLongSimulationScenarios {
     CreateModelInstancesSynced,
 }
 
 /// Options to Simulate command
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 pub struct WeekLongSimulationOpts {
-
     /// Simulation scenario to run.
     #[arg(long, env = "GENERATOR_SCENARIO")]
     scenario: String,
-
 
     /// Path to file containing the list of peers.
     /// File should contian JSON encoding of Vec<Peer>.
@@ -43,7 +43,6 @@ pub struct WeekLongSimulationOpts {
     #[arg(long, env = "GENERATOR_RUN_TIME", default_value = "5h")]
     run_time: String,
 
-
     /// Unique value per test run to ensure uniqueness across different generator runs
     #[arg(long, env = "GENERATOR_NONCE")]
     nonce: u64,
@@ -51,7 +50,6 @@ pub struct WeekLongSimulationOpts {
     /// Option to throttle requests (per second) for load control
     #[arg(long, env = "GENERATOR_THROTTLE_REQUESTS_RATE")]
     throttle_requests_rate: Option<usize>,
-
 }
 
 //TODO : Use week long simulation scenario and separate out the logic which is ties to a particular scenario
@@ -63,31 +61,49 @@ pub async fn simulate_load(opts: WeekLongSimulationOpts) -> Result<CommandResult
     let config_1 = state.initialize_config().await?;
     let config_2 = state.initialize_config().await?;
 
-    let peer_addr_1 = state.peers[0].ceramic_addr().expect("Peer does not have a ceramic address");
-    let peer_addr_2 = state.peers[1].ceramic_addr().expect("Peer does not have a ceramic address");
+    let peer_addr_1 = state.peers[0]
+        .ceramic_addr()
+        .expect("Peer does not have a ceramic address");
+    let peer_addr_2 = state.peers[1]
+        .ceramic_addr()
+        .expect("Peer does not have a ceramic address");
 
     // Create two users to simulate two independent nodes
-    let stable_load_user_1 = StableLoadUser::setup_stability_test(config_1.admin_cli, Some(peer_addr_1.to_string())).await;
-    let stable_load_user_2 = StableLoadUser::setup_stability_test(config_2.admin_cli, Some(peer_addr_2.to_string())).await;
+    let stable_load_user_1 =
+        StableLoadUser::setup_stability_test(config_1.admin_cli, Some(peer_addr_1.to_string()))
+            .await;
+    let stable_load_user_2 =
+        StableLoadUser::setup_stability_test(config_2.admin_cli, Some(peer_addr_2.to_string()))
+            .await;
 
     // Generate a model for the users to create
-    let model = stable_load_user_1.ceramic_utils.generate_random_model().await?;
+    let model = stable_load_user_1
+        .ceramic_utils
+        .generate_random_model()
+        .await?;
 
     // Index the model on the second node
     stable_load_user_2.ceramic_utils.index_model(&model).await?;
 
-    let run_time: u64 = state.run_time.parse().expect("Failed to parse run_time as u64");
+    let run_time: u64 = state
+        .run_time
+        .parse()
+        .expect("Failed to parse run_time as u64");
 
     println!("Model: {:?}", model);
-    let model_instance_creation_result = create_model_instances_continuously(stable_load_user_1, model, run_time).await;
-    println!("Model instance creation result: {:?}", model_instance_creation_result);
-    
+    let model_instance_creation_result =
+        create_model_instances_continuously(stable_load_user_1, model, run_time).await;
+    println!(
+        "Model instance creation result: {:?}",
+        model_instance_creation_result
+    );
+
     Ok(CommandResult::Success)
 }
 
 /**
  * Create model instances continuously
- * 
+ *
  * @param stable_load_user The user to create the model instances
  * @param model The model schema to create model instances from
  * @param duration_in_hours The duration to run the simulation in hours
@@ -105,7 +121,7 @@ pub async fn create_model_instances_continuously(
     let mut error_map: HashMap<String, u64> = HashMap::new();
     // TODO : Make the rps configurable
     // TODO : Make the channel size configurable
-    // TODO : Make the number of tasks configurable : tasks are currently 100 - 
+    // TODO : Make the number of tasks configurable : tasks are currently 100 -
     // increasing tasks can help increase throughput
     let (tx, mut rx) = tokio::sync::mpsc::channel(10000);
     let mut tasks = tokio::task::JoinSet::new();
@@ -125,30 +141,24 @@ pub async fn create_model_instances_continuously(
                 )
                 .await
                 {
-                    Ok(Ok(mid)) => {
-                        match tx.send(Ok(mid.to_string())).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                println!("Failed to send MID: {}", e);
-                            }
+                    Ok(Ok(mid)) => match tx.send(Ok(mid.to_string())).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Failed to send MID: {}", e);
                         }
-                    }
-                    Ok(Err(e)) => {
-                        match tx.send(Err(e.to_string())).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                println!("Failed to send error: {}", e);
-                            }
+                    },
+                    Ok(Err(e)) => match tx.send(Err(e.to_string())).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Failed to send error: {}", e);
                         }
-                    }
-                    Err(e) => {
-                        match tx.send(Err(e.to_string())).await {
-                            Ok(_) => {}
-                            Err(e) => {
-                                println!("Failed to send error: {}", e);
-                            }
+                    },
+                    Err(e) => match tx.send(Err(e.to_string())).await {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("Failed to send error: {}", e);
                         }
-                    }
+                    },
                 }
             }
         });
@@ -182,8 +192,9 @@ pub async fn create_model_instances_continuously(
     println!("Created {} MIDs in {} hours", count, duration_in_hours);
     println!(
         "Failed to create {} MIDs in {} hours",
-    error_map.values().sum::<u64>(), duration_in_hours
-);
+        error_map.values().sum::<u64>(),
+        duration_in_hours
+    );
     Ok(())
 }
 
@@ -192,11 +203,10 @@ struct WeekLongSimulationState {
     pub run_time: String,
 }
 
-
 impl WeekLongSimulationState {
     /**
      * Try to create a new instance of the WeekLongSimulationState from the given options
-     * 
+     *
      * @param opts The options to use
      * @return The created instance
      */
@@ -209,7 +219,7 @@ impl WeekLongSimulationState {
 
     /**
      * Initialize the configuration for the WeekLongSimulationState
-     * 
+     *
      * @return The created configuration
      */
     async fn initialize_config(&self) -> Result<CeramicConfig> {

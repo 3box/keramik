@@ -2,19 +2,19 @@
 #![deny(missing_docs)]
 
 mod bootstrap;
+mod load_generator;
 mod scenario;
 mod simulate;
 mod utils;
-mod load_generator;
 
 use crate::gen::simulate_load;
-use keramik_common::telemetry;
+use crate::{bootstrap::bootstrap, load_generator::gen, simulate::simulate};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use keramik_common::telemetry;
 use opentelemetry::global::{shutdown_meter_provider, shutdown_tracer_provider};
 use opentelemetry::{global, KeyValue};
 use tracing::info;
-use crate::{bootstrap::bootstrap, simulate::simulate, load_generator::gen};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -31,7 +31,7 @@ struct Cli {
 }
 
 /// Available Subcommands
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum Command {
     /// Bootstrap peers in the network
     Bootstrap(bootstrap::Opts),
@@ -39,7 +39,7 @@ pub enum Command {
     Simulate(simulate::Opts),
     /// Do nothing and exit
     Noop,
-    // TODO: Generate load, currently this command is not used
+    /// Generate load, currently this command is not used
     GenerateLoad(gen::WeekLongSimulationOpts),
 }
 
@@ -68,8 +68,8 @@ pub enum CommandResult {
 }
 
 // TODO : Enable metrics/tracing for load generator command
-// Metrics and tracing have been disabled for load generator due to memory issues. 
-// Memory grows in the runner when this is enabled not making it live long enough to finish the load generation 
+// Metrics and tracing have been disabled for load generator due to memory issues.
+// Memory grows in the runner when this is enabled not making it live long enough to finish the load generation
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
@@ -101,7 +101,7 @@ async fn main() -> Result<()> {
     if !matches!(args.command, Command::GenerateLoad(_)) {
         // Flush traces and metrics before shutdown
         shutdown_tracer_provider();
-        if let Some(metrics_controller) = metrics_controller {
+        if let Some(metrics_controller) = metrics_controller.clone() {
             metrics_controller.force_flush()?;
         }
         drop(metrics_controller);

@@ -12,7 +12,7 @@ use crate::{
 };
 
 /// Options to Bootstrap command
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 pub struct Opts {
     /// Bootstrap method to use.
     #[arg(long, value_enum, default_value_t, env = "BOOTSTRAP_METHOD")]

@@ -1,6 +1,6 @@
 pub mod anchor;
 pub mod model_instance;
-mod models;
+pub mod models;
 pub mod new_streams;
 pub mod query;
 pub mod simple;

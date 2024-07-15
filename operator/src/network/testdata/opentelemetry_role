@@ -1,18 +1,18 @@
 Request {
     method: "PATCH",
-    uri: "/apis/rbac.authorization.k8s.io/v1/clusterroles/monitoring-cluster-role?&fieldManager=keramik",
+    uri: "/apis/rbac.authorization.k8s.io/v1/namespaces/keramik-test/roles/monitoring-role?&fieldManager=keramik",
     headers: {
         "accept": "application/json",
         "content-type": "application/apply-patch+yaml",
     },
     body: {
       "apiVersion": "rbac.authorization.k8s.io/v1",
-      "kind": "ClusterRole",
+      "kind": "Role",
       "metadata": {
         "labels": {
           "managed-by": "keramik"
         },
-        "name": "monitoring-cluster-role",
+        "name": "monitoring-role",
         "ownerReferences": []
       },
       "rules": [

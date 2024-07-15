@@ -35,9 +35,10 @@ Request {
                 "command": [
                   "/bin/prometheus",
                   "--web.enable-lifecycle",
+                  "--web.enable-remote-write-receiver",
                   "--config.file=/config/prom-config.yaml"
                 ],
-                "image": "prom/prometheus:v2.42.0",
+                "image": "prom/prometheus:v2.45.6",
                 "name": "prometheus",
                 "ports": [
                   {

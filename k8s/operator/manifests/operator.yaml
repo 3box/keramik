@@ -36,7 +36,7 @@ rules:
     resources: ["clusterroles", "clusterrolebindings"]
     verbs: ["create", "get", "patch"]
   - apiGroups: ["keramik.3box.io"]
-    resources: ["networks", "networks/status", "simulations", "simulations/status"]
+    resources: ["networks", "networks/status", "simulations", "simulations/status", "loadgenerators", "loadgenerators/status"]
     verbs: ["get", "list", "watch", "patch", "delete"]
   - apiGroups: ["monitoring.coreos.com"]
     resources: ["podmonitors"]
@@ -87,7 +87,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keramik-operator
-  namespace: default
+  namespace: keramik
   labels:
     app: keramik-operator
     app.kubernetes.io/name: keramik-operator

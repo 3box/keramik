@@ -2842,6 +2842,7 @@ dependencies = [
  "clap",
  "did-method-key",
  "ed25519-dalek",
+ "futures",
  "goose",
  "hex",
  "ipld-core",

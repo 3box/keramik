@@ -50,7 +50,7 @@ impl Command {
             Command::Simulate(_) => "simulate",
             Command::Noop => "noop",
             // TODO : After making operator changes this command will be used to generate load
-            Command::GenerateLoad(_) => "generate_load",
+            Command::GenerateLoad(_) => "generate-load",
         }
     }
 }

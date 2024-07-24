@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::load_generator::utils::generator_utils::CeramicConfig;
-use crate::load_generator::utils::generator_utils::CeramicDidType;
-use crate::load_generator::utils::generator_utils::CeramicScenarioParameters;
-use crate::load_generator::utils::generator_utils::StableLoadUser;
+use crate::load_generator::utils::{
+    CeramicConfig, CeramicDidType, CeramicScenarioParameters, StableLoadUser,
+};
 use crate::utils::parse_peers_info;
 use crate::CommandResult;
 use anyhow::Result;
@@ -16,8 +15,22 @@ use tokio::time::{Duration, Instant};
 // TODO : Use this to envoke a particular scenario, currently we only have one
 // so this is unused
 #[allow(dead_code)]
+#[derive(Clone, Debug)]
 pub enum WeekLongSimulationScenarios {
     CreateModelInstancesSynced,
+}
+
+impl std::str::FromStr for WeekLongSimulationScenarios {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "CreateModelInstancesSynced" => {
+                Ok(WeekLongSimulationScenarios::CreateModelInstancesSynced)
+            }
+            _ => Err(format!("Invalid scenario: {}", s)),
+        }
+    }
 }
 
 /// Options to Simulate command
@@ -25,7 +38,7 @@ pub enum WeekLongSimulationScenarios {
 pub struct WeekLongSimulationOpts {
     /// Simulation scenario to run.
     #[arg(long, env = "GENERATOR_SCENARIO")]
-    scenario: String,
+    scenario: WeekLongSimulationScenarios,
 
     /// Path to file containing the list of peers.
     /// File should contian JSON encoding of Vec<Peer>.
@@ -36,7 +49,7 @@ pub struct WeekLongSimulationOpts {
     /// for making requests. They should have low memory overhead, so you can
     /// create many tasks and then use `throttle_requests_rate` to constrain the overall
     /// throughput on the node (specifically the HTTP requests made).
-    #[arg(long, default_value_t = 4, env = "GENERATOR_TASKS")]
+    #[arg(long, default_value_t = 25, env = "GENERATOR_TASKS")]
     tasks: usize,
 
     /// Duration of the simulation in hours
@@ -92,7 +105,7 @@ pub async fn simulate_load(opts: WeekLongSimulationOpts) -> Result<CommandResult
 
     println!("Model: {:?}", model);
     let model_instance_creation_result =
-        create_model_instances_continuously(stable_load_user_1, model, run_time).await;
+        create_model_instances_continuously(stable_load_user_1, model, run_time, state.tasks).await;
     println!(
         "Model instance creation result: {:?}",
         model_instance_creation_result
@@ -113,6 +126,7 @@ pub async fn create_model_instances_continuously(
     stable_load_user: StableLoadUser,
     model: StreamId,
     duration_in_hours: u64,
+    tasks_count: usize,
 ) -> Result<()> {
     let start_time = Instant::now();
 
@@ -125,7 +139,7 @@ pub async fn create_model_instances_continuously(
     // increasing tasks can help increase throughput
     let (tx, mut rx) = tokio::sync::mpsc::channel(10000);
     let mut tasks = tokio::task::JoinSet::new();
-    for i in 0..100 {
+    for i in 0..tasks_count {
         let user_clone = stable_load_user.clone();
         let model = model.clone();
         let tx = tx.clone();
@@ -144,28 +158,29 @@ pub async fn create_model_instances_continuously(
                     Ok(Ok(mid)) => match tx.send(Ok(mid.to_string())).await {
                         Ok(_) => {}
                         Err(e) => {
-                            println!("Failed to send MID: {}", e);
+                            eprintln!("Failed to send MID: {}", e);
                         }
                     },
                     Ok(Err(e)) => match tx.send(Err(e.to_string())).await {
                         Ok(_) => {}
                         Err(e) => {
-                            println!("Failed to send error: {}", e);
+                            eprintln!("Failed to send error: {}", e);
                         }
                     },
                     Err(e) => match tx.send(Err(e.to_string())).await {
                         Ok(_) => {}
                         Err(e) => {
-                            println!("Failed to send error: {}", e);
+                            eprintln!("Failed to send error: {}", e);
                         }
                     },
                 }
             }
         });
     }
+    // Drop the tx sender, since the exit condition below requires the senders to be dropped for termination
     drop(tx);
     loop {
-        let mut mid_vec: Vec<Result<String, String>> = Vec::new();
+        let mut mid_vec: Vec<Result<String, String>> = Vec::with_capacity(10);
         if rx.recv_many(&mut mid_vec, 10).await > 0 {
             for mid in mid_vec {
                 match mid {
@@ -178,7 +193,8 @@ pub async fn create_model_instances_continuously(
                 }
             }
         }
-        if start_time.elapsed() > duration {
+        // Add a small buffer to the duration to account for the time it takes to send the MIDs
+        if start_time.elapsed() > duration + Duration::from_secs(5) {
             tasks.abort_all();
             break;
         }
@@ -201,6 +217,7 @@ pub async fn create_model_instances_continuously(
 struct WeekLongSimulationState {
     pub peers: Vec<Peer>,
     pub run_time: String,
+    pub tasks: usize,
 }
 
 impl WeekLongSimulationState {
@@ -214,6 +231,7 @@ impl WeekLongSimulationState {
         Ok(Self {
             peers: parse_peers_info(opts.peers.clone()).await?,
             run_time: opts.run_time,
+            tasks: opts.tasks,
         })
     }
 

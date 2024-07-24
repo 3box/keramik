@@ -76,10 +76,13 @@ async fn main() -> Result<()> {
     if !matches!(args.command, Command::GenerateLoad(_)) {
         telemetry::init_tracing(Some(args.otlp_endpoint.clone())).await?;
     }
-    let metrics_controller = if matches!(args.command, Command::GenerateLoad(_)) {
-        None
+    let (metrics_controller, enable_metrics) = if matches!(args.command, Command::GenerateLoad(_)) {
+        (None, false)
     } else {
-        Some(telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?)
+        (
+            Some(telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?),
+            true,
+        )
     };
     info!("starting runner");
 
@@ -98,13 +101,10 @@ async fn main() -> Result<()> {
         Command::GenerateLoad(opts) => simulate_load(opts).await?,
         Command::Noop => CommandResult::Success,
     };
-    if !matches!(args.command, Command::GenerateLoad(_)) {
+    if enable_metrics && metrics_controller.is_some() {
         // Flush traces and metrics before shutdown
         shutdown_tracer_provider();
-        if let Some(metrics_controller) = metrics_controller.clone() {
-            metrics_controller.force_flush()?;
-        }
-        drop(metrics_controller);
+        metrics_controller.unwrap().force_flush()?;
         shutdown_meter_provider();
     }
 

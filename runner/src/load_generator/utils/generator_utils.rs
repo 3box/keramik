@@ -7,8 +7,8 @@ use std::time::Duration;
 
 use super::ceramic_models_utils::CeramicModelUser;
 
-pub static HTTP_TIMEOUT: Duration = Duration::from_secs(5);
-pub static HTTP_POOL_MAX_IDLE_PER_HOST: usize = 300;
+pub const HTTP_TIMEOUT: Duration = Duration::from_secs(5);
+pub const HTTP_POOL_MAX_IDLE_PER_HOST: usize = 300;
 
 #[derive(Clone, Debug)]
 pub struct CeramicConfig {

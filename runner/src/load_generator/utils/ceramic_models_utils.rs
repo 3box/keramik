@@ -45,7 +45,12 @@ impl CeramicModelUser {
         if resp.status().is_success() {
             Ok(())
         } else {
-            Err(anyhow::anyhow!("Failed to index model"))
+            Err(anyhow::anyhow!(
+                "Failed to index model: status {:?} , resp_text {:?}, model_id {:?}",
+                resp.status(),
+                resp.text().await,
+                model_id
+            ))
         }
     }
 
@@ -84,9 +89,10 @@ impl CeramicModelUser {
             Ok(streams_response.stream_id)
         } else {
             Err(anyhow::anyhow!(
-                "Failed to setup model: status {:?} , resp_text {:?}",
+                "Failed to setup model: status {:?} , resp_text {:?}, model_schema {:?}",
                 resp.status(),
-                resp.text().await
+                resp.text().await,
+                model.schema()
             ))
         }
     }
@@ -126,9 +132,10 @@ impl CeramicModelUser {
             Ok(parsed_resp.stream_id)
         } else {
             Err(anyhow::anyhow!(
-                "Failed to create model: status {:?} , resp_text {:?}",
+                "Failed to create model: status {:?} , status_text {:?}, model_id {:?}",
                 resp.status(),
-                resp.text().await
+                resp.text().await,
+                model
             ))
         }
     }

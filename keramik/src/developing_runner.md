@@ -59,3 +59,21 @@ spec:
   image: keramik/runner:dev
   imagePullPolicy: IfNotPresent
 ```
+
+## Setup Load Generator with the runner image 
+```yaml
+# Custom load generator
+---
+apiVersion: "keramik.3box.io/v1alpha1"
+kind: LoadGenerator
+metadata:
+  name: load-gen
+  namespace: keramik-lgen-demo
+spec:
+  scenario: "CreateModelInstancesSynced"
+  runTime: 3
+  image: "keramik/runner:dev"
+  imagePullPolicy: "IfNotPresent"
+  throttleRequests: 20
+  tasks: 2
+```

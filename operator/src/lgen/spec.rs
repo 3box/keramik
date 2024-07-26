@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
     version = "v1alpha1",
     kind = "LoadGenerator",
     plural = "loadgenerators",
-    status = "LoadGeneratorStatus",
+    status = "LoadGeneratorState",
     derive = "PartialEq",
     namespaced
 )]
@@ -31,7 +31,7 @@ pub struct LoadGeneratorSpec {
 
 /// Status of the load generator.
 #[derive(Serialize, Deserialize, Debug, Default, PartialEq, Clone, JsonSchema)]
-pub struct LoadGeneratorStatus {
+pub struct LoadGeneratorState {
     /// Name of the load generator.
     pub name: String,
     /// Nonce for the load generator.

@@ -25,7 +25,7 @@ use crate::{
     labels::MANAGED_BY_LABEL_SELECTOR,
     lgen::{
         job::{job_spec, JobConfig, JobImageConfig},
-        spec::{LoadGenerator, LoadGeneratorStatus},
+        spec::{LoadGenerator, LoadGeneratorState},
     },
     simulation::controller::monitoring_ready,
     utils::Clock,
@@ -137,7 +137,7 @@ async fn reconcile_(
         status.clone()
     } else {
         // Generate new status with random name and nonce
-        LoadGeneratorStatus {
+        LoadGeneratorState {
             nonce: thread_rng().gen(),
             name: "load-gen-"
                 .chars()

@@ -87,7 +87,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: keramik-operator
-  namespace: keramik
+  namespace: default
   labels:
     app: keramik-operator
     app.kubernetes.io/name: keramik-operator

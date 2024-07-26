@@ -1,7 +1,7 @@
 CARGO = CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse RUSTFLAGS="--cfg tokio_unstable -D warnings" cargo
 
 .PHONY: all
-all: update build check-fmt check-clippy test
+all: build check-fmt check-clippy test
 
 .PHONY: test
 test:
@@ -16,6 +16,10 @@ test:
 check-fmt:
 	cargo fmt --all -- --check
 
+.PHONY: update
+update:
+	${CARGO} update
+
 .PHONY: check-clippy
 check-clippy:
 	# Check with default features
@@ -24,7 +28,7 @@ check-clippy:
 	${CARGO} clippy --workspace --all-features
 
 .PHONY: build
-build: runner operator
+build: update runner operator
 
 .PHONY: runner
 runner:

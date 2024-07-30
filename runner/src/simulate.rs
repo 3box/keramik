@@ -38,7 +38,7 @@ const CAS_ANCHOR_REQUEST_KEY: &str = "anchor_requests";
 static CLIENT: Lazy<Client> = Lazy::new(reqwest::Client::new);
 
 /// Options to Simulate command
-#[derive(Args, Debug)]
+#[derive(Args, Debug, Clone)]
 pub struct Opts {
     /// Unique name for this simulation run.
     #[arg(long, env = "SIMULATE_NAME")]

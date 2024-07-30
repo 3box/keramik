@@ -1,4 +1,4 @@
-//! Operator is a long lived process that auotmates creating and managing Ceramic networks.
+//! Operator is a long lived process that automates creating and managing Ceramic networks.
 #![deny(missing_docs)]
 use anyhow::Result;
 use clap::{command, Parser, Subcommand};
@@ -38,7 +38,8 @@ async fn main() -> Result<()> {
         Command::Daemon => {
             tokio::join!(
                 keramik_operator::network::run(),
-                keramik_operator::simulation::run()
+                keramik_operator::simulation::run(),
+                keramik_operator::lgen::run(),
             );
         }
     };

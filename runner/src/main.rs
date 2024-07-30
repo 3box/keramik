@@ -2,19 +2,20 @@
 #![deny(missing_docs)]
 
 mod bootstrap;
+mod load_generator;
 mod scenario;
 mod simulate;
 mod utils;
 
-use keramik_common::telemetry;
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
+use keramik_common::telemetry;
 use opentelemetry::global::{shutdown_meter_provider, shutdown_tracer_provider};
 use opentelemetry::{global, KeyValue};
 use tracing::info;
 
-use crate::{bootstrap::bootstrap, simulate::simulate};
+use crate::gen::simulate_load;
+use crate::{bootstrap::bootstrap, load_generator::gen, simulate::simulate};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -31,12 +32,14 @@ struct Cli {
 }
 
 /// Available Subcommands
-#[derive(Subcommand, Debug)]
+#[derive(Subcommand, Debug, Clone)]
 pub enum Command {
     /// Bootstrap peers in the network
     Bootstrap(bootstrap::Opts),
     /// Simulate a load scenario against the network
     Simulate(simulate::Opts),
+    /// Generate load, currently this command is not used
+    GenerateLoad(gen::LoadGenOpts),
     /// Do nothing and exit
     Noop,
 }
@@ -47,6 +50,7 @@ impl Command {
             Command::Bootstrap(_) => "bootstrap",
             Command::Simulate(_) => "simulate",
             Command::Noop => "noop",
+            Command::GenerateLoad(_) => "generate-load",
         }
     }
 }
@@ -63,11 +67,23 @@ pub enum CommandResult {
     Failure(anyhow::Error),
 }
 
+// TODO : Enable metrics/tracing for load generator command
+// Metrics and tracing have been disabled for load generator due to memory issues.
+// Memory grows in the runner when this is enabled not making it live long enough to finish the load generation
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Cli::parse();
-    telemetry::init_tracing(Some(args.otlp_endpoint.clone())).await?;
-    let metrics_controller = telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?;
+    if !matches!(args.command, Command::GenerateLoad(_)) {
+        telemetry::init_tracing(Some(args.otlp_endpoint.clone())).await?;
+    }
+    let (metrics_controller, enable_metrics) = if matches!(args.command, Command::GenerateLoad(_)) {
+        (None, false)
+    } else {
+        (
+            Some(telemetry::init_metrics_otlp(args.otlp_endpoint.clone()).await?),
+            true,
+        )
+    };
     info!("starting runner");
 
     let meter = global::meter("keramik");
@@ -79,17 +95,18 @@ async fn main() -> Result<()> {
     runs.add(1, &[KeyValue::new("command", args.command.name())]);
 
     info!(?args.command, ?args.otlp_endpoint, "starting runner");
-    let success = match args.command {
+    let success = match args.command.clone() {
         Command::Bootstrap(opts) => bootstrap(opts).await?,
         Command::Simulate(opts) => simulate(opts).await?,
+        Command::GenerateLoad(opts) => simulate_load(opts).await?,
         Command::Noop => CommandResult::Success,
     };
-
-    // Flush traces and metrics before shutdown
-    shutdown_tracer_provider();
-    metrics_controller.force_flush()?;
-    drop(metrics_controller);
-    shutdown_meter_provider();
+    if enable_metrics && metrics_controller.is_some() {
+        // Flush traces and metrics before shutdown
+        shutdown_tracer_provider();
+        metrics_controller.unwrap().force_flush()?;
+        shutdown_meter_provider();
+    }
 
     // This fixes lost metrics not sure why :(
     // Seems to be related to the inflight gRPC request getting cancelled

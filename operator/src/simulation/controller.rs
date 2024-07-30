@@ -289,7 +289,7 @@ async fn redis_ready(
     Ok(redis_ready)
 }
 
-async fn monitoring_ready(
+pub async fn monitoring_ready(
     cx: Arc<Context<impl IpfsRpcClient, impl RngCore, impl Clock>>,
     ns: &str,
 ) -> Result<bool, kube::error::Error> {

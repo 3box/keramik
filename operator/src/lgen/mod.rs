@@ -7,3 +7,6 @@ pub mod job;
 /// Spec module for creating load generator specs.
 #[cfg(feature = "controller")]
 pub mod spec;
+/// Run module for running load generators.
+#[cfg(feature = "controller")]
+pub use controller::run;

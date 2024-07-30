@@ -9,6 +9,7 @@ use k8s_openapi::api::{
     },
 };
 use kube::api::ObjectMeta;
+use crate::lgen::controller::LOAD_GENERATOR_JOB_NAME;
 
 /// Configuration for job images.
 #[derive(Clone, Debug)]
@@ -142,13 +143,13 @@ pub fn job_spec(config: JobConfig) -> JobSpec {
             metadata: Some(ObjectMeta {
                 labels: Some(BTreeMap::from_iter(vec![(
                     "name".to_owned(),
-                    "load-gen-job".to_owned(),
+                    LOAD_GENERATOR_JOB_NAME.to_owned(),
                 )])),
                 ..Default::default()
             }),
             spec: Some(PodSpec {
                 hostname: Some("job".to_owned()),
-                subdomain: Some("load-gen-job".to_owned()),
+                subdomain: Some(LOAD_GENERATOR_JOB_NAME.to_owned()),
                 containers: vec![Container {
                     name: "job".to_owned(),
                     image: Some(config.job_image_config.image),

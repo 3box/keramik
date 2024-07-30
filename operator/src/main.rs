@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
             tokio::join!(
                 keramik_operator::network::run(),
                 keramik_operator::simulation::run(),
-                keramik_operator::lgen::controller::run(),
+                keramik_operator::lgen::run(),
             );
         }
     };

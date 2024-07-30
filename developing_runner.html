@@ -189,6 +189,22 @@ spec:
   image: keramik/runner:dev
   imagePullPolicy: IfNotPresent
 </code></pre>
+<h2 id="setup-load-generator-with-the-runner-image"><a class="header" href="#setup-load-generator-with-the-runner-image">Setup Load Generator with the runner image</a></h2>
+<pre><code class="language-yaml"># Custom load generator
+---
+apiVersion: &quot;keramik.3box.io/v1alpha1&quot;
+kind: LoadGenerator
+metadata:
+  name: load-gen
+  namespace: keramik-lgen-demo
+spec:
+  scenario: &quot;CreateModelInstancesSynced&quot;
+  runTime: 3
+  image: &quot;keramik/runner:dev&quot;
+  imagePullPolicy: &quot;IfNotPresent&quot;
+  throttleRequests: 20
+  tasks: 2
+</code></pre>
 
                     </main>
 

@@ -1,5 +1,6 @@
 use std::collections::BTreeMap;
 
+use crate::lgen::controller::LOAD_GENERATOR_JOB_NAME;
 use crate::{lgen::spec::LoadGeneratorSpec, network::PEERS_CONFIG_MAP_NAME};
 use k8s_openapi::api::{
     batch::v1::JobSpec,
@@ -9,7 +10,6 @@ use k8s_openapi::api::{
     },
 };
 use kube::api::ObjectMeta;
-use crate::lgen::controller::LOAD_GENERATOR_JOB_NAME;
 
 /// Configuration for job images.
 #[derive(Clone, Debug)]

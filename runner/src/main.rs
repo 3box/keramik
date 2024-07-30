@@ -7,14 +7,15 @@ mod scenario;
 mod simulate;
 mod utils;
 
-use crate::gen::simulate_load;
-use crate::{bootstrap::bootstrap, load_generator::gen, simulate::simulate};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use keramik_common::telemetry;
 use opentelemetry::global::{shutdown_meter_provider, shutdown_tracer_provider};
 use opentelemetry::{global, KeyValue};
 use tracing::info;
+
+use crate::gen::simulate_load;
+use crate::{bootstrap::bootstrap, load_generator::gen, simulate::simulate};
 
 #[derive(Parser, Debug)]
 #[command(author, version, about, long_about = None)]
@@ -37,10 +38,10 @@ pub enum Command {
     Bootstrap(bootstrap::Opts),
     /// Simulate a load scenario against the network
     Simulate(simulate::Opts),
+    /// Generate load, currently this command is not used
+    GenerateLoad(gen::LoadGenOpts),
     /// Do nothing and exit
     Noop,
-    /// Generate load, currently this command is not used
-    GenerateLoad(gen::WeekLongSimulationOpts),
 }
 
 impl Command {

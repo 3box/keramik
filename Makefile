@@ -13,7 +13,7 @@ test: update
 	${CARGO} test --locked --no-default-features
 
 .PHONY: check-fmt
-check-fmt: update
+check-fmt:
 	cargo fmt --all -- --check
 
 .PHONY: update
@@ -21,14 +21,14 @@ update:
 	${CARGO} update
 
 .PHONY: check-clippy 
-check-clippy: update
+check-clippy:
 	# Check with default features
 	${CARGO} clippy --workspace
 	# Check with all features
 	${CARGO} clippy --workspace --all-features
 
 .PHONY: build
-build: update runner operator
+build: runner operator
 
 .PHONY: runner
 runner:

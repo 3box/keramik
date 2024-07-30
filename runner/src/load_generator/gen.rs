@@ -16,18 +16,16 @@ use tokio::time::{Duration, Instant};
 // so this is unused
 #[allow(dead_code)]
 #[derive(Clone, Debug)]
-pub enum WeekLongSimulationScenarios {
+pub enum LoadGenScenarios {
     CreateModelInstancesSynced,
 }
 
-impl std::str::FromStr for WeekLongSimulationScenarios {
+impl std::str::FromStr for LoadGenScenarios {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
-            "CreateModelInstancesSynced" => {
-                Ok(WeekLongSimulationScenarios::CreateModelInstancesSynced)
-            }
+            "CreateModelInstancesSynced" => Ok(LoadGenScenarios::CreateModelInstancesSynced),
             _ => Err(format!("Invalid scenario: {}", s)),
         }
     }
@@ -35,10 +33,10 @@ impl std::str::FromStr for WeekLongSimulationScenarios {
 
 /// Options to Simulate command
 #[derive(Args, Debug, Clone)]
-pub struct WeekLongSimulationOpts {
+pub struct LoadGenOpts {
     /// Simulation scenario to run.
     #[arg(long, env = "GENERATOR_SCENARIO")]
-    scenario: WeekLongSimulationScenarios,
+    scenario: LoadGenScenarios,
 
     /// Path to file containing the list of peers.
     /// File should contian JSON encoding of Vec<Peer>.
@@ -67,7 +65,7 @@ pub struct WeekLongSimulationOpts {
 
 //TODO : Use week long simulation scenario and separate out the logic which is ties to a particular scenario
 // TODO : This specific behavior is for createModelInstancesSynced scenario
-pub async fn simulate_load(opts: WeekLongSimulationOpts) -> Result<CommandResult> {
+pub async fn simulate_load(opts: LoadGenOpts) -> Result<CommandResult> {
     let state = WeekLongSimulationState::try_from_opts(opts).await?;
 
     // Create two configs to simulate two independent nodes, each having it's own ceramic client
@@ -227,7 +225,7 @@ impl WeekLongSimulationState {
      * @param opts The options to use
      * @return The created instance
      */
-    async fn try_from_opts(opts: WeekLongSimulationOpts) -> Result<Self> {
+    async fn try_from_opts(opts: LoadGenOpts) -> Result<Self> {
         Ok(Self {
             peers: parse_peers_info(opts.peers.clone()).await?,
             run_time: opts.run_time,

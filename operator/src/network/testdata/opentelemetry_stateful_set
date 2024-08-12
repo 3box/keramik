@@ -35,7 +35,7 @@ Request {
                 "args": [
                   "--config=/config/otel-config.yaml"
                 ],
-                "image": "public.ecr.aws/r5b3e0r5/3box/otelcol",
+                "image": "otel/opentelemetry-collector-contrib:0.104.0",
                 "name": "opentelemetry",
                 "ports": [
                   {

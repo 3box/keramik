@@ -1,4 +1,5 @@
 use anyhow::Result;
+use ceramic_car::{CarHeader, CarWriter};
 use ceramic_core::{Cid, DagCborEncoded};
 use ceramic_http_client::{
     ceramic_event::{unvalidated, DidDocument, StreamId},
@@ -7,7 +8,6 @@ use ceramic_http_client::{
 use chrono::Utc;
 use goose::prelude::*;
 use ipld_core::ipld;
-use iroh_car::{CarHeader, CarWriter};
 use multihash_codetable::{Code, MultihashDigest};
 
 use redis::{aio::MultiplexedConnection, AsyncCommands};

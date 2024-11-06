@@ -1,0 +1,41 @@
+name: Spec change check
+
+on:
+  pull_request:
+    types: [opened, synchronize, labeled, unlabeled]
+  push:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    # Skip this job if the PR has the `spec-change` label
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'spec-change') }}
+
+    steps:
+    - uses: actions/checkout@v3
+    - uses: dtolnay/rust-toolchain@stable
+
+    - name: Install Protoc
+      run: |
+        PROTOC_VERSION=3.20.1
+        PROTOC_ARCH=linux-x86_64
+        PROTOC_ZIP=protoc-$PROTOC_VERSION-$PROTOC_ARCH.zip
+        curl --retry 3 --retry-max-time 90 -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" -OL https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOC_VERSION/$PROTOC_ZIP
+        sudo unzip -o $PROTOC_ZIP -d /usr/local bin/protoc
+        sudo unzip -o $PROTOC_ZIP -d /usr/local 'include/*'
+        rm -f $PROTOC_ZIP
+        echo "PROTOC=/usr/local/bin/protoc" >> $GITHUB_ENV
+        echo "PROTOC_INCLUDE=/usr/local/include" >> $GITHUB_ENV
+
+    - name: check for spec changes
+      run: |
+        cargo run --bin crdgen > crdgen.yaml
+        diff crdgen.yaml ./k8s/crds/v1alpha1.yaml > diff.txt
+        if [ -s diff.txt ]; then
+          echo "Files are different"
+          echo "::set-output name=DIFF::$(cat diff.txt)"
+          exit 1
+        else
+          echo "no diff"
+        fi
+

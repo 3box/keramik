@@ -4,7 +4,7 @@ CARGO = CARGO_REGISTRIES_CRATES_IO_PROTOCOL=sparse RUSTFLAGS="--cfg tokio_unstab
 all: build check-fmt check-clippy test
 
 .PHONY: test
-test: update
+test:
 	# Test with default features
 	${CARGO} test --locked
 	# Test with all features
@@ -20,7 +20,7 @@ check-fmt:
 update:
 	${CARGO} update
 
-.PHONY: check-clippy 
+.PHONY: check-clippy
 check-clippy:
 	# Check with default features
 	${CARGO} clippy --workspace

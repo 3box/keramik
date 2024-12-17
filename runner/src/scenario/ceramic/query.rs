@@ -104,7 +104,7 @@ async fn query_large_mid_verify_edges(
     )
     .await?;
 
-    if resp.edges.first().is_none() {
+    if resp.edges.is_empty() {
         goose_try!(user, "query", &mut metrics, {
             Err(anyhow::anyhow!("no edges returned"))
         })?;

@@ -61,39 +61,70 @@ type PodMonitorStub = (
 #[derive(Debug)]
 pub struct Stub {
     network: Network,
+    /// Expected delete requests
     pub delete: Option<ExpectPatch<ExpectFile>>,
+    /// Expected namespace
     pub namespace: ExpectPatch<ExpectFile>,
+    /// Expected network status
     pub status: ExpectPatch<ExpectFile>,
+    /// Expected monitoring requests
     pub monitoring: Vec<ExpectFile>,
+    /// Expected pod monitor
     pub pod_monitor: Vec<PodMonitorStub>,
+    /// Expected cas_postgres_auth_secret
     pub cas_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret, bool),
+    /// Expected ceramic_postgres_auth_secret
     pub ceramic_postgres_auth_secret: (ExpectPatch<ExpectFile>, Secret),
+    /// Expected ceramic_admin_secret_missing
     pub ceramic_admin_secret_missing: (ExpectPatch<ExpectFile>, Option<Secret>),
+    /// Expected ceramic_admin_secret_source
     pub ceramic_admin_secret_source: Option<(ExpectPatch<ExpectFile>, Option<Secret>, bool)>,
+    /// Expected ceramic_admin_secret
     pub ceramic_admin_secret: Option<(ExpectPatch<ExpectFile>, Option<Secret>)>,
+    /// Expected ceramic_list_stateful_sets
     pub ceramic_list_stateful_sets: (ExpectPatch<ExpectFile>, Option<ObjectList<StatefulSet>>),
+    /// Expected ceramic_list_services
     pub ceramic_list_services: (ExpectPatch<ExpectFile>, Option<ObjectList<Service>>),
+    /// Expected ceramic_deletes
     pub ceramic_deletes: Vec<ExpectPatch<ExpectFile>>,
+    /// Expected ceramic_pod_status
     pub ceramic_pod_status: Vec<(ExpectPatch<ExpectFile>, Option<Pod>)>,
+    /// Expected keramik_peers_configmap
     pub keramik_peers_configmap: ExpectPatch<ExpectFile>,
+    /// Expected ceramics
     pub ceramics: Vec<CeramicStub>,
+    /// Expected cas_service
     pub cas_service: ExpectPatch<ExpectFile>,
+    /// Expected cas_ipfs_service
     pub cas_ipfs_service: ExpectPatch<ExpectFile>,
+    /// Expected ganache_service
     pub ganache_service: ExpectPatch<ExpectFile>,
+    /// Expected cas_postgres_service
     pub cas_postgres_service: ExpectPatch<ExpectFile>,
+    /// Expected localstack_service
     pub localstack_service: ExpectPatch<ExpectFile>,
+    /// Expected cas_stateful_set
     pub cas_stateful_set: ExpectPatch<ExpectFile>,
+    /// Expected cas_ipfs_stateful_set
     pub cas_ipfs_stateful_set: ExpectPatch<ExpectFile>,
+    /// Expected ganache_stateful_set
     pub ganache_stateful_set: ExpectPatch<ExpectFile>,
+    /// Expected cas_postgres_stateful_set
     pub cas_postgres_stateful_set: ExpectPatch<ExpectFile>,
+    /// Expected localstack_stateful_set
     pub localstack_stateful_set: ExpectPatch<ExpectFile>,
+    /// Expected bootstrap_job
     pub bootstrap_job: Vec<(ExpectFile, Option<Job>)>,
 }
 
+/// Stub for the Ceramic related requests
 #[derive(Debug)]
 pub struct CeramicStub {
+    /// Expected config maps
     pub configmaps: Vec<ExpectPatch<ExpectFile>>,
+    /// Expected stateful set
     pub stateful_set: ExpectPatch<ExpectFile>,
+    /// Expected service
     pub service: ExpectPatch<ExpectFile>,
 }
 
@@ -196,6 +227,7 @@ impl Default for Stub {
 }
 
 impl Stub {
+    /// Stub with a network
     pub fn with_network(self, network: Network) -> Self {
         Self { network, ..self }
     }

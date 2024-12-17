@@ -14,6 +14,7 @@ use crate::{
     utils::{Clock, Context, UtcClock},
 };
 
+/// Type for a test handle to the k8s API server
 pub type ApiServerHandle = tower_test::mock::Handle<http::Request<Body>, http::Response<Body>>;
 
 // Add test specific implementation to the Context
@@ -21,8 +22,8 @@ impl<R> Context<R, StepRng, UtcClock>
 where
     R: IpfsRpcClient,
 {
-    // Create a test context with a mocked kube and rpc clients
-    // Uses real clock
+    /// Create a test context with a mocked kube and rpc clients
+    /// Uses real clock
     pub fn test(mock_rpc_client: R) -> (Arc<Self>, ApiServerHandle) {
         Self::test_with_clock(mock_rpc_client, UtcClock)
     }
@@ -33,7 +34,7 @@ where
     R: IpfsRpcClient,
     C: Clock,
 {
-    // Create a test context with a mocked kube and rpc clients
+    /// Create a test context with a mocked kube and rpc clients
     pub fn test_with_clock(mock_rpc_client: R, clock: C) -> (Arc<Self>, ApiServerHandle) {
         let (mock_service, handle) =
             tower_test::mock::pair::<http::Request<Body>, http::Response<Body>>();
@@ -48,6 +49,7 @@ where
     }
 }
 
+/// Utility to timeout a task after one second.
 pub async fn timeout_after_1s<T>(handle: tokio::task::JoinHandle<T>) -> T {
     tokio::time::timeout(std::time::Duration::from_secs(1), handle)
         .await
@@ -58,8 +60,11 @@ pub async fn timeout_after_1s<T>(handle: tokio::task::JoinHandle<T>) -> T {
 /// ApiServerVerifier verifies that the serve is called according to test expectations.
 pub struct ApiServerVerifier(ApiServerHandle);
 
+/// Builder trait to add a status to a value.
 pub trait WithStatus {
+    /// The type of the status itself.
     type Status;
+    /// Add the status to self.
     fn with_status(self, status: Self::Status) -> Self;
 }
 
@@ -69,6 +74,7 @@ impl ApiServerVerifier {
         Self(handle)
     }
 
+    /// Make a patch request and verify the expected result.
     pub async fn handle_patch_status<R>(
         &mut self,
         expected_request: impl Expectation,
@@ -98,7 +104,7 @@ impl ApiServerVerifier {
         );
         Ok(resource)
     }
-
+    /// Make an apply request and verify expected result.
     pub async fn handle_apply(&mut self, expected_request: impl Expectation) -> Result<()> {
         let (request, send) = self.0.next_request().await.expect("service not called");
         let request = Request::from_request(request).await?;
@@ -111,6 +117,7 @@ impl ApiServerVerifier {
         );
         Ok(())
     }
+    /// Make a request and verify the expected response.
     pub async fn handle_request_response<T>(
         &mut self,
         expected_request: impl Expectation,
@@ -148,9 +155,13 @@ impl ApiServerVerifier {
 /// The only purpose of this struct is its debug implementation
 /// to be used in expect![[]] calls.
 pub struct Request {
+    /// HTTP method
     pub method: String,
+    /// URI
     pub uri: String,
+    /// Headers
     pub headers: HeaderMap,
+    /// String representation of the body
     pub body: Raw,
 }
 
@@ -167,6 +178,7 @@ impl std::fmt::Debug for Request {
 }
 
 impl Request {
+    /// Construct a Request from an http::Request
     pub async fn from_request(request: http::Request<Body>) -> Result<Self> {
         let method = request.method().to_string();
         let uri = request.uri().to_string();
@@ -188,7 +200,7 @@ impl Request {
     }
 }
 
-// Raw String the does not escape its value for debugging
+/// Raw String the does not escape its value for debugging
 pub struct Raw(pub String);
 
 impl std::fmt::Debug for Raw {

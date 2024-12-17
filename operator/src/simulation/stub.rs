@@ -60,23 +60,35 @@ impl WithStatus for Simulation {
 #[derive(Debug)]
 pub struct Stub {
     simulation: Simulation,
+    /// Expected peers config map
     pub peers_config_map: (ExpectPatch<ExpectFile>, ConfigMap),
 
+    /// Expected jaeger status
     pub jaeger_status: (ExpectPatch<ExpectFile>, StatefulSet),
+    /// Expected prometheus status
     pub prom_status: (ExpectPatch<ExpectFile>, StatefulSet),
+    /// Expected open telemetry status
     pub otel_status: (ExpectPatch<ExpectFile>, StatefulSet),
 
+    /// Expected redis service
     pub redis_service: ExpectPatch<ExpectFile>,
+    /// Expected redis stateful set
     pub redis_stateful_set: ExpectPatch<ExpectFile>,
+    /// Expected redis status
     pub redis_status: (ExpectPatch<ExpectFile>, StatefulSet),
 
+    /// Expected goose service
     pub goose_service: ExpectPatch<ExpectFile>,
+    /// Expected manager job
     pub manager_job: ExpectPatch<ExpectFile>,
 
+    /// Expected manager status
     pub manager_status: (ExpectPatch<ExpectFile>, Job),
 
+    /// Expected worker jobs
     pub worker_jobs: Vec<ExpectPatch<ExpectFile>>,
 
+    /// Expected simulation status
     pub status: ExpectPatch<ExpectFile>,
 }
 
@@ -175,6 +187,7 @@ impl Default for Stub {
 }
 
 impl Stub {
+    /// Set the simulation on the stub
     pub fn with_simulation(self, simulation: Simulation) -> Self {
         Self { simulation, ..self }
     }

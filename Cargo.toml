@@ -8,7 +8,7 @@ async-trait = "0.1"
 clap = { version = "4", features = ["derive", "env"] }
 console-subscriber = "0.2"
 ceramic-core = { git = "https://github.com/ceramicnetwork/rust-ceramic.git", branch = "main" }
-iroh-car = { git = "https://github.com/ceramicnetwork/rust-ceramic.git", branch = "main" }
+ceramic-car = { git = "https://github.com/ceramicnetwork/rust-ceramic.git", branch = "main" }
 env_logger = "0.10.0"
 expect-patch = { path = "./expect-patch/" }
 hex = "0.4.3"

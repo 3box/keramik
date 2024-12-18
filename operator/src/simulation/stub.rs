@@ -106,12 +106,14 @@ impl Default for Stub {
                             ipfs_rpc_addr: "ipfs_rpc_addr_0".to_owned(),
                             ceramic_addr: "ceramic_addr_0".to_owned(),
                             p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
+                            flight_addr: "flight_addr_0".to_owned(),
                         }),
                         Peer::Ceramic(CeramicPeerInfo {
                             peer_id: "1".to_owned(),
                             ipfs_rpc_addr: "ipfs_rpc_addr_1".to_owned(),
                             ceramic_addr: "ceramic_addr_1".to_owned(),
                             p2p_addrs: vec!["p2p_addr_0".to_owned(), "p2p_addr_1".to_owned()],
+                            flight_addr: "flight_addr_1".to_owned(),
                         }),
                     ];
 

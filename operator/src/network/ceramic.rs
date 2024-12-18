@@ -34,7 +34,8 @@ use crate::{
 };
 
 use super::{
-    controller::CERAMIC_ONE_SWARM_PORT, debug_mode_security_context,
+    controller::{CERAMIC_ONE_FLIGHT_SQL_PORT, CERAMIC_ONE_SWARM_PORT},
+    debug_mode_security_context,
     storage::PersistentStorageConfig,
 };
 
@@ -121,6 +122,12 @@ pub fn service_spec() -> ServiceSpec {
             ServicePort {
                 port: CERAMIC_ONE_IPFS_PORT,
                 name: Some("ipfs".to_owned()),
+                protocol: Some("TCP".to_owned()),
+                ..Default::default()
+            },
+            ServicePort {
+                port: CERAMIC_ONE_FLIGHT_SQL_PORT,
+                name: Some("flight".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },
@@ -248,6 +255,13 @@ impl CeramicInfo {
     pub fn ceramic_addr(&self, ns: &str, peer: i32) -> String {
         format!(
             "http://{}-{peer}.{}.{ns}.svc.cluster.local:{CERAMIC_SERVICE_API_PORT}",
+            self.stateful_set, self.service
+        )
+    }
+    /// Determine the Flight SQL address of a Ceramic peer
+    pub fn flight_addr(&self, ns: &str, peer: i32) -> String {
+        format!(
+            "http://{}-{peer}.{}.{ns}.svc.cluster.local:{CERAMIC_ONE_FLIGHT_SQL_PORT}",
             self.stateful_set, self.service
         )
     }

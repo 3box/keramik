@@ -57,6 +57,8 @@ pub struct CeramicPeerInfo {
     pub ipfs_rpc_addr: String,
     /// Ceramic API address of the peer.
     pub ceramic_addr: String,
+    /// Flight SQL API address of the peer.
+    pub flight_addr: String,
     /// Set of p2p addresses of the peer.
     /// Each address contains the /p2p/<peer_id> protocol.
     pub p2p_addrs: Vec<String>,

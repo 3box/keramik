@@ -30,6 +30,11 @@ Request {
             "protocol": "TCP"
           },
           {
+            "name": "flight",
+            "port": 5102,
+            "protocol": "TCP"
+          },
+          {
             "name": "swarm-tcp",
             "port": 4101,
             "protocol": "TCP"

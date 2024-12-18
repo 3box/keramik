@@ -92,6 +92,11 @@ Request {
                     "protocol": "TCP"
                   },
                   {
+                    "containerPort": 5102,
+                    "name": "flight",
+                    "protocol": "TCP"
+                  },
+                  {
                     "containerPort": 9465,
                     "name": "metrics",
                     "protocol": "TCP"

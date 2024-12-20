@@ -73,6 +73,7 @@ pub const PEERS_CONFIG_MAP_NAME: &str = "keramik-peers";
 
 pub const CERAMIC_ONE_SWARM_PORT: i32 = 4101;
 pub const CERAMIC_ONE_IPFS_PORT: i32 = 5101;
+pub const CERAMIC_ONE_FLIGHT_SQL_PORT: i32 = 5102;
 pub const CERAMIC_SERVICE_API_PORT: i32 = 7007;
 pub const CERAMIC_POSTGRES_SECRET_NAME: &str = "ceramic-postgres-auth";
 
@@ -868,6 +869,7 @@ async fn update_peer_status(
                 continue;
             }
             let ipfs_rpc_addr = ceramic.info.ipfs_rpc_addr(ns, i);
+            let flight_addr = ceramic.info.flight_addr(ns, i);
             let info = match cx.rpc_client.peer_info(&ipfs_rpc_addr).await {
                 Ok(res) => res,
                 Err(err) => {
@@ -881,6 +883,7 @@ async fn update_peer_status(
                 peer_id: info.peer_id,
                 ipfs_rpc_addr: info.ipfs_rpc_addr,
                 p2p_addrs: info.p2p_addrs,
+                flight_addr,
             }));
         }
     }
@@ -1323,7 +1326,7 @@ mod tests {
                    "apiVersion": "v1",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "kind": "ConfigMap",
                    "metadata": {
@@ -1331,7 +1334,7 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -8,10 +8,40 @@
+            @@ -8,10 +8,42 @@
                  body: {
                    "status": {
                      "expirationTime": null,
@@ -1344,6 +1347,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
@@ -1354,6 +1358,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
@@ -1560,7 +1565,7 @@ mod tests {
                    "apiVersion": "v1",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "kind": "ConfigMap",
                    "metadata": {
@@ -1568,7 +1573,7 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -8,10 +8,40 @@
+            @@ -8,10 +8,42 @@
                  body: {
                    "status": {
                      "expirationTime": null,
@@ -1581,6 +1586,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
@@ -1591,6 +1597,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
@@ -1709,7 +1716,7 @@ mod tests {
                    "apiVersion": "v1",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "kind": "ConfigMap",
                    "metadata": {
@@ -1717,7 +1724,7 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -8,10 +8,40 @@
+            @@ -8,10 +8,42 @@
                  body: {
                    "status": {
                      "expirationTime": null,
@@ -1730,6 +1737,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
@@ -1740,6 +1748,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
@@ -1842,7 +1851,7 @@ mod tests {
                    "apiVersion": "v1",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "kind": "ConfigMap",
                    "metadata": {
@@ -1850,7 +1859,7 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -8,10 +8,40 @@
+            @@ -8,10 +8,42 @@
                  body: {
                    "status": {
                      "expirationTime": null,
@@ -1863,6 +1872,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
@@ -1873,6 +1883,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
@@ -1979,7 +1990,7 @@ mod tests {
                    "apiVersion": "v1",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "kind": "ConfigMap",
                    "metadata": {
@@ -1987,7 +1998,7 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -8,10 +8,40 @@
+            @@ -8,10 +8,42 @@
                  body: {
                    "status": {
                      "expirationTime": null,
@@ -2000,6 +2011,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
@@ -2010,6 +2022,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
@@ -2109,7 +2122,7 @@ mod tests {
                    "apiVersion": "v1",
                    "data": {
             -        "peers.json": "[]"
-            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
+            +        "peers.json": "[{\"ceramic\":{\"peerId\":\"peer_id_0\",\"ipfsRpcAddr\":\"http://peer0:5001\",\"ceramicAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0\"]}},{\"ceramic\":{\"peerId\":\"peer_id_1\",\"ipfsRpcAddr\":\"http://peer1:5001\",\"ceramicAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007\",\"flightAddr\":\"http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102\",\"p2pAddrs\":[\"/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1\"]}},{\"ipfs\":{\"peerId\":\"cas_peer_id\",\"ipfsRpcAddr\":\"http://cas-ipfs:5001\",\"p2pAddrs\":[\"/ip4/10.0.0.3/tcp/4001/p2p/cas_peer_id\"]}}]"
                    },
                    "kind": "ConfigMap",
                    "metadata": {
@@ -2117,7 +2130,7 @@ mod tests {
         stub.status.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -8,10 +8,40 @@
+            @@ -8,10 +8,42 @@
                  body: {
                    "status": {
                      "expirationTime": null,
@@ -2130,6 +2143,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-0.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer0:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.1/tcp/4001/p2p/peer_id_0"
@@ -2140,6 +2154,7 @@ mod tests {
             +          {
             +            "ceramic": {
             +              "ceramicAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:7007",
+            +              "flightAddr": "http://ceramic-0-1.ceramic-0.keramik-test.svc.cluster.local:5102",
             +              "ipfsRpcAddr": "http://peer1:5001",
             +              "p2pAddrs": [
             +                "/ip4/10.0.0.2/tcp/4001/p2p/peer_id_1"
@@ -2322,7 +2337,19 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -282,14 +240,14 @@
+            @@ -275,11 +233,6 @@
+                                 "protocol": "TCP"
+                               },
+                               {
+            -                    "containerPort": 5102,
+            -                    "name": "flight",
+            -                    "protocol": "TCP"
+            -                  },
+            -                  {
+                                 "containerPort": 9465,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            @@ -287,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2341,7 +2368,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -296,6 +254,11 @@
+            @@ -301,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2353,7 +2380,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -435,6 +398,13 @@
+            @@ -440,6 +398,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -2478,7 +2505,19 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -282,14 +240,14 @@
+            @@ -275,11 +233,6 @@
+                                 "protocol": "TCP"
+                               },
+                               {
+            -                    "containerPort": 5102,
+            -                    "name": "flight",
+            -                    "protocol": "TCP"
+            -                  },
+            -                  {
+                                 "containerPort": 9465,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            @@ -287,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2499,7 +2538,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -296,6 +254,11 @@
+            @@ -301,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2511,7 +2550,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -435,6 +398,13 @@
+            @@ -440,6 +398,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -2525,7 +2564,7 @@ mod tests {
                            }
                          ]
                        }
-            @@ -474,7 +444,7 @@
+            @@ -479,7 +444,7 @@
                            ],
                            "resources": {
                              "requests": {
@@ -2639,7 +2678,19 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -282,14 +240,14 @@
+            @@ -275,11 +233,6 @@
+                                 "protocol": "TCP"
+                               },
+                               {
+            -                    "containerPort": 5102,
+            -                    "name": "flight",
+            -                    "protocol": "TCP"
+            -                  },
+            -                  {
+                                 "containerPort": 9465,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            @@ -287,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2658,7 +2709,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -296,6 +254,16 @@
+            @@ -301,6 +254,16 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -2675,7 +2726,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -435,6 +403,13 @@
+            @@ -440,6 +403,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -2782,7 +2833,7 @@ mod tests {
                              "imagePullPolicy": "Always",
                              "name": "ipfs",
                              "ports": [
-            @@ -282,14 +294,14 @@
+            @@ -287,14 +299,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -2803,7 +2854,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -474,9 +486,10 @@
+            @@ -479,9 +491,10 @@
                            ],
                            "resources": {
                              "requests": {
@@ -3032,7 +3083,7 @@ mod tests {
         stub.cas_ipfs_stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -99,14 +99,14 @@
+            @@ -104,14 +104,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -3053,7 +3104,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -140,9 +140,10 @@
+            @@ -145,9 +145,10 @@
                            ],
                            "resources": {
                              "requests": {
@@ -3210,7 +3261,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -381,14 +381,14 @@
+            @@ -386,14 +386,14 @@
                              "name": "init-ceramic-config",
                              "resources": {
                                "limits": {
@@ -3231,7 +3282,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -457,7 +457,7 @@
+            @@ -462,7 +462,7 @@
                            ],
                            "resources": {
                              "requests": {
@@ -3432,7 +3483,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_ONE_P2P_KEY_DIR",
-            @@ -319,7 +315,7 @@
+            @@ -324,7 +320,7 @@
                                },
                                {
                                  "name": "CAS_API_URL",
@@ -3441,7 +3492,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_CORS_ALLOWED_ORIGINS",
-            @@ -335,11 +331,7 @@
+            @@ -340,11 +336,7 @@
                                },
                                {
                                  "name": "CERAMIC_NETWORK",
@@ -3454,7 +3505,7 @@ mod tests {
                                },
                                {
                                  "name": "CERAMIC_SQLITE_PATH",
-            @@ -351,7 +343,7 @@
+            @@ -356,7 +348,7 @@
                                },
                                {
                                  "name": "ETH_RPC_URL",
@@ -3499,7 +3550,7 @@ mod tests {
                              "livenessProbe": {
                                "httpGet": {
                                  "path": "/api/v0/node/healthcheck",
-            @@ -377,7 +377,7 @@
+            @@ -382,7 +382,7 @@
                                }
                              ],
                              "image": "ceramicnetwork/composedb-cli:latest",
@@ -3914,7 +3965,7 @@ mod tests {
                                }
                              ],
                              "image": "ceramicnetwork/composedb:develop",
-            @@ -374,6 +378,10 @@
+            @@ -379,6 +383,10 @@
                                      "name": "ceramic-postgres-auth"
                                    }
                                  }
@@ -4151,7 +4202,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -476,7 +476,8 @@
+            @@ -481,7 +481,8 @@
                              "requests": {
                                "storage": "10Gi"
                              }
@@ -4244,7 +4295,19 @@ mod tests {
                              "name": "ipfs",
                              "ports": [
                                {
-            @@ -282,14 +240,14 @@
+            @@ -275,11 +233,6 @@
+                                 "protocol": "TCP"
+                               },
+                               {
+            -                    "containerPort": 5102,
+            -                    "name": "flight",
+            -                    "protocol": "TCP"
+            -                  },
+            -                  {
+                                 "containerPort": 9465,
+                                 "name": "metrics",
+                                 "protocol": "TCP"
+            @@ -287,14 +240,14 @@
                              ],
                              "resources": {
                                "limits": {
@@ -4263,7 +4326,7 @@ mod tests {
                                }
                              },
                              "volumeMounts": [
-            @@ -296,6 +254,11 @@
+            @@ -301,6 +254,11 @@
                                {
                                  "mountPath": "/data/ipfs",
                                  "name": "ipfs-data"
@@ -4275,7 +4338,7 @@ mod tests {
                                }
                              ]
                            }
-            @@ -435,6 +398,13 @@
+            @@ -440,6 +398,13 @@
                              "persistentVolumeClaim": {
                                "claimName": "postgres-data"
                              }
@@ -4289,7 +4352,7 @@ mod tests {
                            }
                          ]
                        }
-            @@ -476,7 +446,8 @@
+            @@ -481,7 +446,8 @@
                              "requests": {
                                "storage": "10Gi"
                              }
@@ -4574,7 +4637,7 @@ mod tests {
                                  "name": "RUST_LOG",
                                  "value": "info,ceramic_one=debug,multipart=error"
                                }
-            @@ -278,6 +298,11 @@
+            @@ -283,6 +303,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
                                  "protocol": "TCP"
@@ -4586,7 +4649,7 @@ mod tests {
                                }
                              ],
                              "resources": {
-            @@ -292,6 +317,13 @@
+            @@ -297,6 +322,13 @@
                                  "memory": "1Gi"
                                }
                              },
@@ -4600,7 +4663,7 @@ mod tests {
                              "volumeMounts": [
                                {
                                  "mountPath": "/data/ipfs",
-            @@ -354,6 +386,10 @@
+            @@ -359,6 +391,10 @@
                                  "value": "http://ganache:8545"
                                },
                                {
@@ -4626,7 +4689,7 @@ mod tests {
                                  "name": "RUST_LOG",
                                  "value": "info,ceramic_one=debug,multipart=error"
                                }
-            @@ -95,6 +99,11 @@
+            @@ -100,6 +104,11 @@
                                  "containerPort": 9465,
                                  "name": "metrics",
                                  "protocol": "TCP"
@@ -4638,7 +4701,7 @@ mod tests {
                                }
                              ],
                              "resources": {
-            @@ -109,6 +118,13 @@
+            @@ -114,6 +123,13 @@
                                  "memory": "1Gi"
                                }
                              },
@@ -4842,7 +4905,7 @@ mod tests {
         stub.ceramics[0].stateful_set.patch(expect![[r#"
             --- original
             +++ modified
-            @@ -401,6 +401,99 @@
+            @@ -406,6 +406,104 @@
                                  "name": "ceramic-init"
                                }
                              ]
@@ -4913,6 +4976,11 @@ mod tests {
             +                  {
             +                    "containerPort": 5101,
             +                    "name": "rpc",
+            +                    "protocol": "TCP"
+            +                  },
+            +                  {
+            +                    "containerPort": 5102,
+            +                    "name": "flight",
             +                    "protocol": "TCP"
             +                  },
             +                  {

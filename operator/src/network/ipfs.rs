@@ -22,7 +22,7 @@ use crate::{
 };
 
 use super::{
-    controller::{CERAMIC_ONE_IPFS_PORT, CERAMIC_ONE_SWARM_PORT},
+    controller::{CERAMIC_ONE_FLIGHT_SQL_PORT, CERAMIC_ONE_IPFS_PORT, CERAMIC_ONE_SWARM_PORT},
     debug_mode_security_context,
 };
 
@@ -240,6 +240,12 @@ impl RustIpfsConfig {
             ContainerPort {
                 container_port: CERAMIC_ONE_IPFS_PORT,
                 name: Some("rpc".to_owned()),
+                protocol: Some("TCP".to_owned()),
+                ..Default::default()
+            },
+            ContainerPort {
+                container_port: CERAMIC_ONE_FLIGHT_SQL_PORT,
+                name: Some("flight".to_owned()),
                 protocol: Some("TCP".to_owned()),
                 ..Default::default()
             },

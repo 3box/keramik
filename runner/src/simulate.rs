@@ -1440,12 +1440,14 @@ mod test {
                 ceramic_addr: "http://ceramic-0:7007".into(),
                 ipfs_rpc_addr: "http://ipfs-0:5001".into(),
                 p2p_addrs: vec!["p2p/p2p-circuit-0/ipfs".into()],
+                flight_addr: "flight_addr_0".to_owned(),
             }),
             Peer::Ceramic(CeramicPeerInfo {
                 peer_id: "1".into(),
                 ceramic_addr: "http://ceramic-1:7007".into(),
                 ipfs_rpc_addr: "http://ipfs-1:5001".into(),
                 p2p_addrs: vec!["p2p/p2p-circuit-1/ipfs".into()],
+                flight_addr: "flight_addr_1".to_owned(),
             }),
         ]
     }

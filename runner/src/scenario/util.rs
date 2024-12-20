@@ -93,7 +93,7 @@ pub(crate) async fn random_init_event_car(
         .with_unique(unique.to_vec())
         .with_data(ipld_core::ipld!({"a": 1, "b": 2}))
         .build();
-    let car = res.encode_car().await?;
+    let car = res.encode_car()?;
     Ok(MultiBase32String::from(car))
 }
 

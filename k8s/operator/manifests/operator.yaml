@@ -33,7 +33,7 @@ rules:
     resources: ["events"]
     verbs: ["create"]
   - apiGroups: ["rbac.authorization.k8s.io"]
-    resources: ["clusterroles", "clusterrolebindings"]
+    resources: ["clusterroles", "clusterrolebindings", "roles", "rolebindings"]
     verbs: ["create", "get", "patch"]
   - apiGroups: ["keramik.3box.io"]
     resources: ["networks", "networks/status", "simulations", "simulations/status", "loadgenerators", "loadgenerators/status"]

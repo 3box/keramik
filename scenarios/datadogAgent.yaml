@@ -1,0 +1,34 @@
+kind: DatadogAgent
+apiVersion: datadoghq.com/v2alpha1
+metadata:
+  name: datadog
+spec:
+  global:
+    kubelet:
+      tlsVerify: false
+    clusterName: gke_ipfs-ceramic-service-headless
+    kubelet:
+      tlsVerify: false
+    site: us3.datadoghq.com
+    credentials:
+      apiSecret:
+        secretName: datadog-secret
+        keyName: api-key
+      appSecret:
+        secretName: datadog-secret
+        keyName: app-key
+  features:
+    npm:
+      enabled: true
+    apm:
+      enabled: true
+      hostPortConfig:
+        enabled: true
+    admissionController:
+      enabled: true
+      mutateUnlabelled: false
+    otlp:
+      receiver:
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
